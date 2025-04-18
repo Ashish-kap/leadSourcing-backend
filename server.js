@@ -27,12 +27,20 @@ createBullBoard({
   serverAdapter,
 });
 
+// app.use("/", (req, res) => {
+//   res.status(200).json("success");
+// });
 
 serverAdapter.setBasePath("/admin");
 app.use("/admin", serverAdapter.getRouter());
 
 // Routes
 app.use("/api", scraperRouter);
+
+app.use("/", (req,res)=>{
+  res.status(200).json({message:"Success"})
+});
+
 
 // // // // Static files for frontend
 // app.use(express.static(path.join(__dirname, "dist")));
