@@ -37,9 +37,6 @@ app.use("/admin", serverAdapter.getRouter());
 // Routes
 app.use("/api", scraperRouter);
 
-app.use("/", (req,res)=>{
-  res.status(200).json({message:"Success"})
-});
 
 
 // // // // Static files for frontend
