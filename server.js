@@ -6,7 +6,7 @@ import { BullAdapter } from "@bull-board/api/bullAdapter.js";
 import { ExpressAdapter } from "@bull-board/express";
 import scraperQueue from "./services/queue.js";
 import path from "path";
-import { fileURLToPath } from 'url'; // Add this import
+import { fileURLToPath } from 'url'; 
 import { dirname } from 'path';   
 
 
@@ -27,16 +27,12 @@ createBullBoard({
   serverAdapter,
 });
 
-// app.use("/", (req, res) => {
-//   res.status(200).json("success");
-// });
 
 serverAdapter.setBasePath("/admin");
 app.use("/admin", serverAdapter.getRouter());
 
 // Routes
 app.use("/api", scraperRouter);
-
 
 
 // // // // Static files for frontend

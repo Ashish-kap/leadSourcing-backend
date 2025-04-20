@@ -3,13 +3,14 @@ import Queue from "bull";
 import scrapeJob from "../jobs/scrapeJob.js";
 
 const scraperQueue = new Queue("scraper", {
-  redis: { host: "localhost", port: 6379 },
+  // redis: { host: "localhost", port: 6379 },
+  redis: process.env.REDIS_URL,
   settings: {
     stalledInterval: 300000, // 5 minutes
     maxStalledCount: 2,
     guardInterval: 5000,
-    retryProcessDelay: 5000
-  }
+    retryProcessDelay: 5000,
+  },
 });
 
 // Process with 3 concurrent workers
