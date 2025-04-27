@@ -1,7 +1,6 @@
 import puppeteer from "puppeteer";
 import { mkdirSync, existsSync } from "fs";
 
-
 // services/scraper.service.js (updated)
 export async function runScraper({ keyword, city, state }, job) {
   const results = [];
@@ -10,7 +9,14 @@ export async function runScraper({ keyword, city, state }, job) {
 
   const browser = await puppeteer.launch({
     headless: "new",
-    args: ["--no-sandbox"],
+    // args: ["--no-sandbox"],
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage", // Prevent /dev/shm issues
+      "--single-process", // May help in low-memory environments
+    ],
+    protocolTimeout: 10000, // 10 sec for protocol operations
+    timeout: 10000,
   });
 
   try {
@@ -21,7 +27,7 @@ export async function runScraper({ keyword, city, state }, job) {
     await job.progress({ processed: 0, total: 0 });
 
     // Step 1: Get listing URLs
-    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 60000 });
+    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 10000 });
     await autoScroll(page);
 
     const listingUrls = await page.evaluate(() => {
@@ -46,7 +52,7 @@ export async function runScraper({ keyword, city, state }, job) {
           try {
             await detailPage.goto(url, {
               waitUntil: "domcontentloaded",
-              timeout: 30000,
+              timeout: 20000,
             });
             const businessData = await extractBusinessDetails(
               detailPage,
