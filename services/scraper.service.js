@@ -37,7 +37,7 @@ export async function runScraper({ keyword, city, state }, job) {
     await job.progress({ processed: 0, total: listingUrls.length });
 
     // Step 2: Process listings in batches
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 1;
     for (let i = 0; i < listingUrls.length; i += BATCH_SIZE) {
       const batch = listingUrls.slice(i, i + BATCH_SIZE);
       const batchResults = await Promise.all(
