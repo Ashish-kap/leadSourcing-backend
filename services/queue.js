@@ -6,7 +6,7 @@ const scraperQueue = new Queue("scraper", {
   redis: {
     url: process.env.REDIS_URL,
     tls: {
-      rejectUnauthorized: false, // For Railway's Redis proxy
+      rejectUnauthorized: false, 
     },
   },
   settings: {
