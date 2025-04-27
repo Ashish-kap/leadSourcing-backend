@@ -9,17 +9,21 @@ const scraperQueue = new Queue("scraper", {
       rejectUnauthorized: false,
     },
   },
-  // redis: {
-  //   // host: process.env.REDIS_HOST ,
-  //   // port: parseInt(process.env.REDIS_PORT) ,
-  //   // password: process.env.REDIS_PASSWORD,
-  // },
   settings: {
     stalledInterval: 300000, // 5 minutes
     maxStalledCount: 2,
     guardInterval: 5000,
     retryProcessDelay: 5000,
   },
+});
+
+
+scraperQueue.on("error", (err) => {
+  console.error("Redis connection error:", err);
+});
+
+scraperQueue.on("connected", () => {
+  console.log("Successfully connected to Redis");
 });
 
 // Process with 3 concurrent workers
