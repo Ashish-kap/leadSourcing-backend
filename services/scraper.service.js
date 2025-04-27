@@ -217,39 +217,3 @@ async function autoScroll(page) {
     });
   });
 }
-
-// async function generateCSV(data, keyword, city, state) {
-//   createResultsDirectory();
-
-//   const filename = `${keyword}_${city}_${state}`
-//     .replace(/ /g, "_")
-//     .replace(/[^a-z0-9_]/gi, "");
-
-//   const csvWriter = createObjectCsvWriter({
-//     path: `./results/${filename + "-" + Date.now()}.csv`,
-//     header: [
-//       { id: "url", title: "URL" },
-//       { id: "name", title: "NAME" },
-//       { id: "phone", title: "PHONE" },
-//       { id: "website", title: "WEBSITE" },
-//       { id: "email", title: "EMAIL" },
-//       { id: "address", title: "ADDRESS" },
-//       { id: "latitude", title: "LATITUDE" },
-//       { id: "longitude", title: "LONGITUDE" },
-//       { id: "rating", title: "RATING" },
-//       { id: "rating_count", title: "RATING_COUNT" },
-//       { id: "category", title: "CATEGORY" },
-//       { id: "search_term", title: "SEARCH_TERM" },
-//       { id: "search_type", title: "SEARCH_TYPE" },
-//       { id: "search_location", title: "SEARCH_LOCATION" },
-//     ],
-//   });
-
-//   try {
-//     await csvWriter.writeRecords(data);
-//     console.log(`Successfully generated CSV with ${data.length} records`);
-//   } catch (error) {
-//     console.error("CSV write error:", error);
-//     throw error;
-//   }
-// }
