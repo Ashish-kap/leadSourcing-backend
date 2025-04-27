@@ -10,9 +10,12 @@ const scraperQueue = new Queue("scraper", {
   //   },
   // },
   redis: {
-    host: process.env.REDIS_HOST,
-    port: parseInt(process.env.REDIS_PORT),
-    password: process.env.REDIS_PASSWORD,
+    // host: process.env.REDIS_HOST || "redis.railway.internal",
+    // port: parseInt(process.env.REDIS_PORT) || 6379,
+    // password: process.env.REDIS_PASSWORD || "sOIBUPgdiXNvtYknQhWudMAQCFZwlvsA",
+    host: "redis.railway.internal",
+    port: 6379,
+    password: "sOIBUPgdiXNvtYknQhWudMAQCFZwlvsA",
   },
   settings: {
     stalledInterval: 300000, // 5 minutes
