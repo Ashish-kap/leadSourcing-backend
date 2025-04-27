@@ -23,6 +23,6 @@ const scraperQueue = new Queue("scraper", {
 });
 
 // Process with 3 concurrent workers
-scraperQueue.process(1, scrapeJob);
+scraperQueue.process(3, scrapeJob);
 
 export default scraperQueue;
