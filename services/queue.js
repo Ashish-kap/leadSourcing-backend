@@ -5,7 +5,7 @@ const scraperQueue = new Queue("scraper", {
   // redis: { host: "localhost", port: 6379 },
   redis: {
     // url: process.env.REDIS_URL,
-    url:"redis-cli -u redis://default:sOIBUPgdiXNvtYknQhWudMAQCFZwlvsA@interchange.proxy.rlwy.net:57649",
+    url: "redis://default:sOIBUPgdiXNvtYknQhWudMAQCFZwlvsA@interchange.proxy.rlwy.net:57649",
     tls: {
       rejectUnauthorized: false,
     },
