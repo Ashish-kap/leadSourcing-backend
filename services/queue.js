@@ -3,8 +3,15 @@ import scrapeJob from "../jobs/scrapeJob.js";
 
 const scraperQueue = new Queue("scraper", {
   // redis: { host: "localhost", port: 6379 },
+  // redis: {
+  //   url: process.env.REDIS_URL,
+  // },
   redis: {
-    url: process.env.REDIS_URL,
+    username: "default",
+    password: "a2kXd1WR3sml2pfDvpDAsYgnFDWbca1t",
+    host: "redis-14751.c323.us-east-1-2.ec2.redns.redis-cloud.com",
+    port: 14751,
+    tls: {}, // Add this if your Redis provider requires SSL/TLS
   },
   settings: {
     stalledInterval: 300000, // 5 minutes
@@ -13,7 +20,6 @@ const scraperQueue = new Queue("scraper", {
     retryProcessDelay: 5000,
   },
 });
-
 
 scraperQueue.on("error", (err) => {
   console.error("Redis connection error:", err);
