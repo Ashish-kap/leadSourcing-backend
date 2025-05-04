@@ -8,7 +8,7 @@ export async function runScraper({ keyword, city, state }, job) {
   const formattedState = state ? `+${state.replace(/ /g, "+")}` : "";
 
   const browser = await puppeteer.launch({
-    headless: "new",
+    headless: "false",
     // args: ["--no-sandbox"],
     args: [
       "--no-sandbox",
@@ -189,12 +189,6 @@ async function extractBusinessDetails(
   return businessData;
 }
 
-function createResultsDirectory() {
-  const dirPath = "./results";
-  if (!existsSync(dirPath)) {
-    mkdirSync(dirPath, { recursive: true });
-  }
-}
 
 async function autoScroll(page) {
   await page.evaluate(async () => {
