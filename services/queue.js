@@ -11,7 +11,9 @@ const scraperQueue = new Queue("scraper", {
     password: "a2kXd1WR3sml2pfDvpDAsYgnFDWbca1t",
     host: "redis-14751.c323.us-east-1-2.ec2.redns.redis-cloud.com",
     port: 14751,
-    tls: {}, // Add this if your Redis provider requires SSL/TLS
+    tls: {
+      rejectUnauthorized: false,
+    }, 
   },
   settings: {
     stalledInterval: 300000, // 5 minutes
