@@ -15,12 +15,13 @@ export async function runScraper({ keyword, city, state }, job) {
       "--disable-dev-shm-usage", // Prevent /dev/shm issues
       "--single-process", // May help in low-memory environments
     ],
-    protocolTimeout: 10000, // 10 sec for protocol operations
-    timeout: 10000,
+    protocolTimeout: 60000, // Increased to 60 seconds
+    timeout: 60000,
   });
 
   try {
     const page = await browser.newPage();
+    await page.setDefaultNavigationTimeout(60000);
     const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedCity}${formattedState}`;
 
     // Initial progress update
@@ -43,7 +44,7 @@ export async function runScraper({ keyword, city, state }, job) {
     await job.progress({ processed: 0, total: listingUrls.length });
 
     // Step 2: Process listings in batches
-    const BATCH_SIZE = 2;
+    const BATCH_SIZE = 1;
     for (let i = 0; i < listingUrls.length; i += BATCH_SIZE) {
       const batch = listingUrls.slice(i, i + BATCH_SIZE);
       const batchResults = await Promise.all(
