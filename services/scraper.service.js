@@ -8,7 +8,7 @@ export async function runScraper({ keyword, city, state }, job) {
   const formattedState = state ? `+${state.replace(/ /g, "+")}` : "";
 
   const browser = await puppeteer.launch({
-    headless: "false",
+    headless:true,
     // args: ["--no-sandbox"],
     args: [
       "--no-sandbox",
