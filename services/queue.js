@@ -3,10 +3,11 @@ import scrapeJob from "../jobs/scrapeJob.js";
 
 const scraperQueue = new Queue("scraper", {
   // redis: { host: "localhost", port: 6379 },
-  redis: {
-    url: process.env.REDIS_URL,
-    tls: { rejectUnauthorized: false },
-  },
+  // redis: {
+  //   url: process.env.REDIS_URL,
+  //   tls: { rejectUnauthorized: false },
+  // },
+  redis: process.env.REDIS_URL,
   settings: {
     stalledInterval: 300000, // 5 minutes
     maxStalledCount: 2,
