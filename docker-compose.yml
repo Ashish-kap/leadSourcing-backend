@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  scraper:
+    build: .
+    environment:
+      - REDIS_HOST=redis
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    depends_on:
+      - redis
+    # Add more instances for concurrency
+    # deploy:
+    #   replicas: 3
+
+volumes:
+  redis-data:
