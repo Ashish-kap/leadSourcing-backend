@@ -5,9 +5,10 @@ import scrapeJob from "../jobs/scrapeJob.js";
 import { URL } from "url";
 
 
-console.log("redisUrl",redisUrl)
+
 
 const redisUrl = new URL(process.env.REDIS_HOST || "redis://localhost:6379");
+console.log("redisUrl", redisUrl);
 const scraperQueue = new Queue("scraper", {
   redis: {
     // host: process.env.REDIS_URL || "localhost",
