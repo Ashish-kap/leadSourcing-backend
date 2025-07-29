@@ -1,5 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
 import puppeteer from "puppeteer";
-import { mkdirSync, existsSync } from "fs";
 
 export async function runScraper({ keyword, city, state }, job) {
   const results = [];
@@ -32,7 +33,7 @@ export async function runScraper({ keyword, city, state }, job) {
       "--ignore-certificate-errors",
       "--lang=en-US,en",
     ],
-    protocolTimeout: 30000, // 30 seconds
+    protocolTimeout: 60000, // 30 seconds
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   });
 
@@ -210,28 +211,45 @@ async function extractBusinessDetails(
 async function autoScroll(page) {
   await page.evaluate(async () => {
     const wrapper = document.querySelector('div[role="feed"]');
+    if (!wrapper) return;
 
-    await new Promise((resolve) => {
-      let totalHeight = 0;
-      const distance = 1000;
-      const scrollDelay = 3000;
-
-      const timer = setInterval(async () => {
-        const scrollHeightBefore = wrapper.scrollHeight;
-        wrapper.scrollBy(0, distance);
-        totalHeight += distance;
-
-        if (totalHeight >= scrollHeightBefore) {
-          totalHeight = 0;
-          await new Promise((r) => setTimeout(r, scrollDelay));
-
-          const scrollHeightAfter = wrapper.scrollHeight;
-          if (scrollHeightAfter <= scrollHeightBefore) {
-            clearInterval(timer);
-            resolve();
-          }
-        }
-      }, 200);
-    });
+    let lastScrollHeight = 0;
+    while (true) {
+      wrapper.scrollBy(0, 1000);
+      await new Promise((r) => setTimeout(r, 1000));
+      const scrollHeight = wrapper.scrollHeight;
+      if (scrollHeight === lastScrollHeight) break;
+      lastScrollHeight = scrollHeight;
+    }
   });
 }
+
+
+// async function autoScroll(page) {
+//   await page.evaluate(async () => {
+//     const wrapper = document.querySelector('div[role="feed"]');
+
+//     await new Promise((resolve) => {
+//       let totalHeight = 0;
+//       const distance = 1000;
+//       const scrollDelay = 3000;
+
+//       const timer = setInterval(async () => {
+//         const scrollHeightBefore = wrapper.scrollHeight;
+//         wrapper.scrollBy(0, distance);
+//         totalHeight += distance;
+
+//         if (totalHeight >= scrollHeightBefore) {
+//           totalHeight = 0;
+//           await new Promise((r) => setTimeout(r, scrollDelay));
+
+//           const scrollHeightAfter = wrapper.scrollHeight;
+//           if (scrollHeightAfter <= scrollHeightBefore) {
+//             clearInterval(timer);
+//             resolve();
+//           }
+//         }
+//       }, 200);
+//     });
+//   });
+// }
