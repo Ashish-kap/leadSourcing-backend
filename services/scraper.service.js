@@ -1,7 +1,6 @@
 import puppeteer from "puppeteer";
 import { mkdirSync, existsSync } from "fs";
 
-// services/scraper.service.js (updated)
 export async function runScraper({ keyword, city, state }, job) {
   const results = [];
   const formattedCity = city.replace(/ /g, "+");
@@ -46,7 +45,7 @@ export async function runScraper({ keyword, city, state }, job) {
     await job.progress({ processed: 0, total: 0 });
 
     // Step 1: Get listing URLs
-    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 10000 });
+    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 60000 });
     await autoScroll(page);
 
     const listingUrls = await page.evaluate(() => {
