@@ -211,45 +211,28 @@ async function extractBusinessDetails(
 async function autoScroll(page) {
   await page.evaluate(async () => {
     const wrapper = document.querySelector('div[role="feed"]');
-    if (!wrapper) return;
 
-    let lastScrollHeight = 0;
-    while (true) {
-      wrapper.scrollBy(0, 1000);
-      await new Promise((r) => setTimeout(r, 1000));
-      const scrollHeight = wrapper.scrollHeight;
-      if (scrollHeight === lastScrollHeight) break;
-      lastScrollHeight = scrollHeight;
-    }
+    await new Promise((resolve) => {
+      let totalHeight = 0;
+      const distance = 1000;
+      const scrollDelay = 3000;
+
+      const timer = setInterval(async () => {
+        const scrollHeightBefore = wrapper.scrollHeight;
+        wrapper.scrollBy(0, distance);
+        totalHeight += distance;
+
+        if (totalHeight >= scrollHeightBefore) {
+          totalHeight = 0;
+          await new Promise((r) => setTimeout(r, scrollDelay));
+
+          const scrollHeightAfter = wrapper.scrollHeight;
+          if (scrollHeightAfter <= scrollHeightBefore) {
+            clearInterval(timer);
+            resolve();
+          }
+        }
+      }, 200);
+    });
   });
 }
-
-
-// async function autoScroll(page) {
-//   await page.evaluate(async () => {
-//     const wrapper = document.querySelector('div[role="feed"]');
-
-//     await new Promise((resolve) => {
-//       let totalHeight = 0;
-//       const distance = 1000;
-//       const scrollDelay = 3000;
-
-//       const timer = setInterval(async () => {
-//         const scrollHeightBefore = wrapper.scrollHeight;
-//         wrapper.scrollBy(0, distance);
-//         totalHeight += distance;
-
-//         if (totalHeight >= scrollHeightBefore) {
-//           totalHeight = 0;
-//           await new Promise((r) => setTimeout(r, scrollDelay));
-
-//           const scrollHeightAfter = wrapper.scrollHeight;
-//           if (scrollHeightAfter <= scrollHeightBefore) {
-//             clearInterval(timer);
-//             resolve();
-//           }
-//         }
-//       }, 200);
-//     });
-//   });
-// }
