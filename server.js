@@ -27,14 +27,11 @@ createBullBoard({
   serverAdapter,
 });
 
-
 serverAdapter.setBasePath("/admin");
 app.use("/admin", serverAdapter.getRouter());
 
 // Routes
 app.use("/api", scraperRouter);
-
-
 
 // Start Server
 const PORT = process.env.PORT || 3000;
