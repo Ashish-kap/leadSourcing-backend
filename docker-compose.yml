@@ -12,7 +12,7 @@ services:
     build: .
     environment:
       - REDIS_HOST=redis
-      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
     depends_on:
       - redis
     # Add more instances for concurrency
