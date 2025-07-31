@@ -24,17 +24,9 @@ export async function runScraper({ keyword, city, state }, job) {
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--single-process",
-      "--disable-gpu",
-      "--ignore-certificate-errors",
-      "--lang=en-US,en",
     ],
     protocolTimeout: 60000, // 30 seconds
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   });
 
   try {
