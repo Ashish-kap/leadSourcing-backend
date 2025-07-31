@@ -24,6 +24,7 @@ export async function runScraper({ keyword, city, state }, job) {
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
     ],
     protocolTimeout: 60000, // 30 seconds
     // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
