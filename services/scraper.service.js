@@ -27,7 +27,7 @@ export async function runScraper({ keyword, city, state }, job) {
       "--disable-dev-shm-usage",
     ],
     protocolTimeout: 60000, // 30 seconds
-    // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    executablePath: "/usr/bin/google-chrome-stable",
   });
 
   try {
