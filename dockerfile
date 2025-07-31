@@ -51,7 +51,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 # Set working directory to root of app
-WORKDIR /usr/src/app
+WORKDIR /usr/src
 
 # Copy package files and install dependencies
 COPY package*.json ./
