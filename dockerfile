@@ -50,8 +50,8 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --d
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
-# Set working directory
-WORKDIR /app
+# Set working directory to root of app
+WORKDIR /usr/src/app
 
 # Copy package files and install dependencies
 COPY package*.json ./
