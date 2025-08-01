@@ -26,6 +26,8 @@ export async function runScraper({ keyword, city, state }, job) {
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
     ],
+    executablePath:
+      process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
     protocolTimeout: 60000, // 30 seconds
   });
 
