@@ -26,8 +26,6 @@ export async function runScraper({ keyword, city, state }, job) {
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
     ],
-    executablePath:
-      "/node_modules/puppeteer-core/lib/esm/puppeteer/node/BrowserLauncher.js",
     protocolTimeout: 60000, // 30 seconds
   });
 
