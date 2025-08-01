@@ -27,7 +27,7 @@ export async function runScraper({ keyword, city, state }, job) {
       "--disable-dev-shm-usage",
     ],
     executablePath:
-      process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
+      "/node_modules/puppeteer-core/lib/esm/puppeteer/node/BrowserLauncher.js",
     protocolTimeout: 60000, // 30 seconds
   });
 
