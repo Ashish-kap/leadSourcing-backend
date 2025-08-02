@@ -21,11 +21,6 @@ RUN apt-get update && \
     libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
-# # Set Puppeteer config
-# ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-# ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
-
 # Set working directory to /app (matches your error logs)
 WORKDIR /app
 
