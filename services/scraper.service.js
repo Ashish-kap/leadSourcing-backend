@@ -18,6 +18,8 @@ export async function runScraper({ keyword, city, state }, job) {
     protocolTimeout: 60000, // 30 seconds
   });
 
+  console.log("browser got  launched")
+
   // const browser = await puppeteer.connect({
   //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
   // });
@@ -27,6 +29,7 @@ export async function runScraper({ keyword, city, state }, job) {
     await page.setDefaultNavigationTimeout(60000);
     const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedCity}${formattedState}`;
 
+    console.log("searchUrl", searchUrl);
     // Initial progress update
     await job.progress({ processed: 0, total: 0 });
 
