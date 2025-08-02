@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
-import puppeteer from "puppeteer";
+// import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
 
 export async function runScraper({ keyword, city, state }, job) {
   const results = [];
@@ -14,8 +15,14 @@ export async function runScraper({ keyword, city, state }, job) {
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--disable-gpu",
+      "--single-process", // Critical for low-memory environments
+      "--no-zygote",
+      "--max-old-space-size=128",
     ],
     protocolTimeout: 60000, // 30 seconds
+    executablePath: "/usr/bin/chromium",
   });
 
   console.log("browser got  launched")
