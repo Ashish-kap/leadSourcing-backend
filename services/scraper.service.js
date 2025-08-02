@@ -7,26 +7,19 @@ export async function runScraper({ keyword, city, state }, job) {
   const formattedCity = city.replace(/ /g, "+");
   const formattedState = state ? `+${state.replace(/ /g, "+")}` : "";
 
+
   // const browser = await puppeteer.launch({
-  //   headless:true,
-  //   // args: ["--no-sandbox"],
+  //   headless: true,
   //   args: [
   //     "--no-sandbox",
-  //     "--disable-dev-shm-usage", // Prevent /dev/shm issues
-  //     "--single-process", // May help in low-memory environments
+  //     "--disable-setuid-sandbox",
+  //     "--disable-dev-shm-usage",
   //   ],
-  //   protocolTimeout: 60000, // Increased to 60 seconds
-  //   timeout: 60000,
+  //   protocolTimeout: 60000, // 30 seconds
   // });
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-    ],
-    protocolTimeout: 60000, // 30 seconds
+  const browser = await puppeteer.connect({
+    browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
   });
 
   try {
