@@ -1,4 +1,3 @@
-#################################################################
 FROM node:21.7.3-slim
 
 # Install Chromium and dependencies

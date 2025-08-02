@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "NODE_OPTIONS='--max-old-space-size=512' node server.js"
+    "start": "NODE_OPTIONS='--max-old-space-size=256' node server.js"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +22,7 @@
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "path-to-regexp": "^6.2.0",
-    "puppeteer": "^24.6.1"
+    "puppeteer": "^24.6.1",
+    "puppeteer-core": "^24.15.0"
   }
 }
