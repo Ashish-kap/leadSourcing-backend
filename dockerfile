@@ -97,7 +97,7 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 
 # Set working directory to /app (matches your error logs)
-WORKDIR /usr/bin
+WORKDIR /usr/src/app
 
 # Copy package files and install dependencies
 COPY package*.json ./
