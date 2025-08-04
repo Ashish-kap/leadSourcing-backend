@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 // import puppeteer from "puppeteer";
 import puppeteer from "puppeteer-core";
+import { executablePath} from 'puppeteer'
 
 export async function runScraper({ keyword, city, state }, job) {
   const results = [];
@@ -22,7 +23,7 @@ export async function runScraper({ keyword, city, state }, job) {
       "--max-old-space-size=128",
     ],
     protocolTimeout: 60000, // 30 seconds
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "",
+    executablePath:executablePath(),
   });
 
   console.log("browser got  launched")
