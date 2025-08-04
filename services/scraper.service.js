@@ -22,7 +22,7 @@ export async function runScraper({ keyword, city, state }, job) {
       "--max-old-space-size=128",
     ],
     protocolTimeout: 60000, // 30 seconds
-    executablePath: "/usr/bin/chromium",
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "",
   });
 
   console.log("browser got  launched")
