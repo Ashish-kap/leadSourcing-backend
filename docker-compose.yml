@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   redis:
@@ -7,17 +7,19 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
 
   scraper:
     build: .
+    ports:
+      - "3000:3000"  # Critical addition
     environment:
       - REDIS_HOST=redis
-      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
     depends_on:
-      - redis
-    # Add more instances for concurrency
-    # deploy:
-    #   replicas: 3
+      redis:
+        condition: service_healthy
 
 volumes:
   redis-data:

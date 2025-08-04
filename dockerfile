@@ -20,6 +20,7 @@ RUN apt-get update && \
     libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
+
 # Set working directory to /app (matches your error logs)
 WORKDIR /app
 
