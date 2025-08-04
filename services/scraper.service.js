@@ -2,33 +2,46 @@ import dotenv from "dotenv";
 dotenv.config();
 // import puppeteer from "puppeteer";
 import puppeteer from "puppeteer-core";
-import { executablePath} from 'puppeteer'
+import { executablePath } from "puppeteer";
+
+async function safeEvaluate(page, fn, ...args) {
+  const timeout = 30000;
+  return Promise.race([
+    page.evaluate(fn, ...args),
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`evaluate timed out after ${timeout}ms`)),
+        timeout
+      )
+    ),
+  ]);
+}
 
 export async function runScraper({ keyword, city, state }, job) {
   const results = [];
   const formattedCity = city.replace(/ /g, "+");
   const formattedState = state ? `+${state.replace(/ /g, "+")}` : "";
 
-  const execPath = executablePath()
-  console.log("executable path",execPath)
+  const execPath = executablePath();
+  console.log("executable path", execPath);
 
   const browser = await puppeteer.launch({
     headless: true,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
       "--disable-gpu",
-      "--single-process", // Critical for low-memory environments
+      "--disable-dev-shm-usage",
+      "--single-process",
       "--no-zygote",
-      "--max-old-space-size=128",
+      "--disable-accelerated-2d-canvas",
+      "--disable-web-security",
     ],
-    protocolTimeout: 60000, // 30 seconds
-    executablePath:executablePath(),
+    protocolTimeout: 120000,
+    executablePath: executablePath(),
   });
 
-  console.log("browser got  launched")
+  console.log("browser got  launched");
 
   // const browser = await puppeteer.connect({
   //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
@@ -44,10 +57,10 @@ export async function runScraper({ keyword, city, state }, job) {
     await job.progress({ processed: 0, total: 0 });
 
     // Step 1: Get listing URLs
-    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 60000 });
+    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 120000 });
     await autoScroll(page);
 
-    const listingUrls = await page.evaluate(() => {
+    const listingUrls = await safeEvaluate(page, () => {
       return Array.from(document.querySelectorAll(".Nv2PK"))
         .map((listing) => {
           const anchor = listing.querySelector("a.hfpxzc");
@@ -55,6 +68,15 @@ export async function runScraper({ keyword, city, state }, job) {
         })
         .filter(Boolean);
     });
+
+    // const listingUrls = await page.evaluate(() => {
+    //   return Array.from(document.querySelectorAll(".Nv2PK"))
+    //     .map((listing) => {
+    //       const anchor = listing.querySelector("a.hfpxzc");
+    //       return anchor ? anchor.href : null;
+    //     })
+    //     .filter(Boolean);
+    // });
 
     // Update progress with total listings
     await job.progress({ processed: 0, total: listingUrls.length });
@@ -205,15 +227,14 @@ async function extractBusinessDetails(
   return businessData;
 }
 
-
 async function autoScroll(page) {
   await page.evaluate(async () => {
     const wrapper = document.querySelector('div[role="feed"]');
 
     await new Promise((resolve) => {
       let totalHeight = 0;
-      const distance = 1000;
-      const scrollDelay = 3000;
+      const distance = 500;
+      const scrollDelay = 1000;
 
       const timer = setInterval(async () => {
         const scrollHeightBefore = wrapper.scrollHeight;
