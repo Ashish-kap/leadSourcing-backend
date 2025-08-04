@@ -9,6 +9,8 @@ export async function runScraper({ keyword, city, state }, job) {
   const formattedCity = city.replace(/ /g, "+");
   const formattedState = state ? `+${state.replace(/ /g, "+")}` : "";
 
+  const execPath = executablePath()
+  console.log("executable path",execPath)
 
   const browser = await puppeteer.launch({
     headless: true,
