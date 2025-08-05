@@ -1,0 +1,26 @@
+const logger = {
+  info: (step, message, data = null) => {
+    const timestamp = new Date().toISOString();
+    console.log(
+      `[${timestamp}] [INFO] [${step}] ${message}`,
+      data ? JSON.stringify(data, null, 2) : ""
+    );
+  },
+  error: (step, message, error = null) => {
+    const timestamp = new Date().toISOString();
+    console.error(
+      `[${timestamp}] [ERROR] [${step}] ${message}`,
+      error ? error.stack || error.message || error : ""
+    );
+  },
+  warn: (step, message, data = null) => {
+    const timestamp = new Date().toISOString();
+    console.warn(
+      `[${timestamp}] [WARN] [${step}] ${message}`,
+      data ? JSON.stringify(data, null, 2) : ""
+    );
+  },
+};
+
+
+export default logger

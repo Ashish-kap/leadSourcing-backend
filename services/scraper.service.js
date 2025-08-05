@@ -3,30 +3,49 @@ dotenv.config();
 // import puppeteer from "puppeteer";
 import puppeteer from "puppeteer-core";
 import { executablePath } from "puppeteer";
+import logger from "./logger.js";
 
 async function safeEvaluate(page, fn, ...args) {
   const timeout = 30000;
-  return Promise.race([
-    page.evaluate(fn, ...args),
-    new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`evaluate timed out after ${timeout}ms`)),
-        timeout
-      )
-    ),
-  ]);
+  logger.info("SAFE_EVALUATE", "Starting safe evaluate with timeout", {
+    timeout,
+  });
+  try {
+    const result = await Promise.race([
+      page.evaluate(fn, ...args),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`evaluate timed out after ${timeout}ms`)),
+          timeout
+        )
+      ),
+    ]);
+    logger.info("SAFE_EVALUATE", "Safe evaluate completed successfully");
+    return result;
+  } catch (error) {
+    logger.error("SAFE_EVALUATE", "Safe evaluate failed", error);
+    throw error;
+  }
 }
 
 export async function runScraper({ keyword, city, state }, job) {
+  logger.info("SCRAPER_START", "Starting scraper", { keyword, city, state });
   const results = [];
   const formattedCity = city.replace(/ /g, "+");
   const formattedState = state ? `+${state.replace(/ /g, "+")}` : "";
 
+  // Step 1: Get executable path
+  logger.info("EXECUTABLE_PATH", "Getting executable path");
   const execPath = executablePath();
-  console.log("executable path", execPath);
+  logger.info("EXECUTABLE_PATH", "Executable path obtained", { execPath });
+
+  // Step 2: Launch browser
+  logger.info("BROWSER_LAUNCH", "Attempting to launch browser");
+  const launchStart = Date.now();
 
   const browser = await puppeteer.launch({
     headless: true,
+    executablePath: executablePath(),
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -38,28 +57,52 @@ export async function runScraper({ keyword, city, state }, job) {
       "--disable-web-security",
     ],
     protocolTimeout: 120000,
-    executablePath: executablePath(),
   });
 
-  console.log("browser got  launched");
+  const launchTime = Date.now() - launchStart;
+  logger.info("BROWSER_LAUNCH", "Browser launched successfully", {
+    launchTimeMs: launchTime,
+  });
 
   // const browser = await puppeteer.connect({
   //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
   // });
 
   try {
+    logger.info("PAGE_CREATE", "Creating new page");
     const page = await browser.newPage();
+    logger.info("PAGE_CREATE", "New page created successfully");
+
     await page.setDefaultNavigationTimeout(60000);
+
     const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedCity}${formattedState}`;
 
-    console.log("searchUrl", searchUrl);
-    // Initial progress update
+    logger.info("SEARCH_URL", "Search URL constructed", { searchUrl });
+
+    logger.info("PROGRESS_UPDATE", "Setting initial progress");
     await job.progress({ processed: 0, total: 0 });
+    logger.info("PROGRESS_UPDATE", "Initial progress set");
 
-    // Step 1: Get listing URLs
+    // Step 7: Navigate to search URL
+    logger.info("PAGE_NAVIGATION", "Starting navigation to search URL");
+    const navStart = Date.now();
     await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 120000 });
-    await autoScroll(page);
+    const navTime = Date.now() - navStart;
+    logger.info("PAGE_NAVIGATION", "Navigation completed", {
+      navigationTimeMs: navTime,
+    });
 
+    logger.info("AUTO_SCROLL", "Starting auto scroll");
+    const scrollStart = Date.now();
+    await autoScroll(page);
+    const scrollTime = Date.now() - scrollStart;
+    logger.info("AUTO_SCROLL", "Auto scroll completed", {
+      scrollTimeMs: scrollTime,
+    });
+
+    // Step 9: Extract listing URLs
+    logger.info("EXTRACT_LISTINGS", "Starting to extract listing URLs");
+    const extractStart = Date.now();
     const listingUrls = await safeEvaluate(page, () => {
       return Array.from(document.querySelectorAll(".Nv2PK"))
         .map((listing) => {
@@ -68,6 +111,21 @@ export async function runScraper({ keyword, city, state }, job) {
         })
         .filter(Boolean);
     });
+    const extractTime = Date.now() - extractStart;
+    logger.info("EXTRACT_LISTINGS", "Listing URLs extracted", {
+      count: listingUrls.length,
+      extractTimeMs: extractTime,
+      sampleUrls: listingUrls.slice(0, 3), // Log first 3 URLs as sample
+    });
+
+    if (listingUrls.length === 0) {
+      logger.warn(
+        "EXTRACT_LISTINGS",
+        "No listing URLs found - possible selector issue or page not loaded"
+      );
+    }
+
+
 
     // const listingUrls = await page.evaluate(() => {
     //   return Array.from(document.querySelectorAll(".Nv2PK"))
