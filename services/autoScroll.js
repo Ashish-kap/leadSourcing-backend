@@ -1,3 +1,5 @@
+import logger from "./logger";
+
 async function autoScroll(page) {
   logger.info(
     "AUTO_SCROLL_START",
