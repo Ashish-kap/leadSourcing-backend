@@ -4,6 +4,7 @@ dotenv.config();
 import puppeteer from "puppeteer-core";
 import { executablePath } from "puppeteer";
 import logger from "./logger.js";
+import autoScroll from "./autoScroll.js";
 
 async function safeEvaluate(page, fn, ...args) {
   const timeout = 30000;
@@ -285,31 +286,35 @@ async function extractBusinessDetails(
   return businessData;
 }
 
-async function autoScroll(page) {
-  await page.evaluate(async () => {
-    const wrapper = document.querySelector('div[role="feed"]');
+// async function autoScroll(page) {
+//   await page.evaluate(async () => {
+//     const wrapper = document.querySelector('div[role="feed"]');
 
-    await new Promise((resolve) => {
-      let totalHeight = 0;
-      const distance = 500;
-      const scrollDelay = 1000;
+//     await new Promise((resolve) => {
+//       let totalHeight = 0;
+//       const distance = 500;
+//       const scrollDelay = 1000;
 
-      const timer = setInterval(async () => {
-        const scrollHeightBefore = wrapper.scrollHeight;
-        wrapper.scrollBy(0, distance);
-        totalHeight += distance;
+//       const timer = setInterval(async () => {
+//         const scrollHeightBefore = wrapper.scrollHeight;
+//         wrapper.scrollBy(0, distance);
+//         totalHeight += distance;
 
-        if (totalHeight >= scrollHeightBefore) {
-          totalHeight = 0;
-          await new Promise((r) => setTimeout(r, scrollDelay));
+//         if (totalHeight >= scrollHeightBefore) {
+//           totalHeight = 0;
+//           await new Promise((r) => setTimeout(r, scrollDelay));
 
-          const scrollHeightAfter = wrapper.scrollHeight;
-          if (scrollHeightAfter <= scrollHeightBefore) {
-            clearInterval(timer);
-            resolve();
-          }
-        }
-      }, 200);
-    });
-  });
-}
+//           const scrollHeightAfter = wrapper.scrollHeight;
+//           if (scrollHeightAfter <= scrollHeightBefore) {
+//             clearInterval(timer);
+//             resolve();
+//           }
+//         }
+//       }, 200);
+//     });
+//   });
+// }
+
+
+
+
