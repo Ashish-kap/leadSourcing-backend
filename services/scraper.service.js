@@ -36,74 +36,47 @@ export async function runScraper({ keyword, city, state }, job) {
   const formattedState = state ? `+${state.replace(/ /g, "+")}` : "";
 
   // Step 1: Get executable path
-  logger.info("EXECUTABLE_PATH", "Getting executable path");
-  const execPath = executablePath();
-  logger.info("EXECUTABLE_PATH", "Executable path obtained", { execPath });
-
+  // const execPath = executablePath();
   // Step 2: Launch browser
-  logger.info("BROWSER_LAUNCH", "Attempting to launch browser");
-  const launchStart = Date.now();
-
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath: executablePath(),
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-gpu",
-      "--disable-dev-shm-usage",
-      "--single-process",
-      "--no-zygote",
-      "--disable-accelerated-2d-canvas",
-      "--disable-web-security",
-    ],
-    protocolTimeout: 120000,
-  });
-
-  const launchTime = Date.now() - launchStart;
-  logger.info("BROWSER_LAUNCH", "Browser launched successfully", {
-    launchTimeMs: launchTime,
-  });
-
-  // const browser = await puppeteer.connect({
-  //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+  // const launchStart = Date.now();
+  // const browser = await puppeteer.launch({
+  //   headless: true,
+  //   executablePath: executablePath(),
+  //   args: [
+  //     "--no-sandbox",
+  //     "--disable-setuid-sandbox",
+  //     "--disable-gpu",
+  //     "--disable-dev-shm-usage",
+  //     "--single-process",
+  //     "--no-zygote",
+  //     "--disable-accelerated-2d-canvas",
+  //     "--disable-web-security",
+  //   ],
+  //   protocolTimeout: 120000,
   // });
 
+  // const launchTime = Date.now() - launchStart;
+  // logger.info("BROWSER_LAUNCH", "Browser launched successfully", {
+  //   launchTimeMs: launchTime,
+  // });
+
+  const browser = await puppeteer.connect({
+    browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+  });
+
   try {
-    logger.info("PAGE_CREATE", "Creating new page");
     const page = await browser.newPage();
-    logger.info("PAGE_CREATE", "New page created successfully");
 
     await page.setDefaultNavigationTimeout(60000);
 
     const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedCity}${formattedState}`;
-
-    logger.info("SEARCH_URL", "Search URL constructed", { searchUrl });
-
-    logger.info("PROGRESS_UPDATE", "Setting initial progress");
     await job.progress({ processed: 0, total: 0 });
-    logger.info("PROGRESS_UPDATE", "Initial progress set");
 
     // Step 7: Navigate to search URL
-    logger.info("PAGE_NAVIGATION", "Starting navigation to search URL");
-    const navStart = Date.now();
     await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 120000 });
-    const navTime = Date.now() - navStart;
-    logger.info("PAGE_NAVIGATION", "Navigation completed", {
-      navigationTimeMs: navTime,
-    });
-
-    logger.info("AUTO_SCROLL", "Starting auto scroll");
-    const scrollStart = Date.now();
     await autoScroll(page);
-    const scrollTime = Date.now() - scrollStart;
-    logger.info("AUTO_SCROLL", "Auto scroll completed", {
-      scrollTimeMs: scrollTime,
-    });
 
     // Step 9: Extract listing URLs
-    logger.info("EXTRACT_LISTINGS", "Starting to extract listing URLs");
-    const extractStart = Date.now();
     const listingUrls = await safeEvaluate(page, () => {
       return Array.from(document.querySelectorAll(".Nv2PK"))
         .map((listing) => {
@@ -112,21 +85,12 @@ export async function runScraper({ keyword, city, state }, job) {
         })
         .filter(Boolean);
     });
-    const extractTime = Date.now() - extractStart;
-    logger.info("EXTRACT_LISTINGS", "Listing URLs extracted", {
-      count: listingUrls.length,
-      extractTimeMs: extractTime,
-      sampleUrls: listingUrls.slice(0, 3), // Log first 3 URLs as sample
-    });
-
     if (listingUrls.length === 0) {
       logger.warn(
         "EXTRACT_LISTINGS",
         "No listing URLs found - possible selector issue or page not loaded"
       );
     }
-
-
 
     // const listingUrls = await page.evaluate(() => {
     //   return Array.from(document.querySelectorAll(".Nv2PK"))
@@ -141,44 +105,206 @@ export async function runScraper({ keyword, city, state }, job) {
     await job.progress({ processed: 0, total: listingUrls.length });
 
     // Step 2: Process listings in batches
+    // const BATCH_SIZE = 1;
+    // logger.info("BATCH_PROCESSING", "Starting batch processing", {
+    //   totalListings: listingUrls.length,
+    //   batchSize: BATCH_SIZE,
+    // });
+    // for (let i = 0; i < listingUrls.length; i += BATCH_SIZE) {
+    //   const batch = listingUrls.slice(i, i + BATCH_SIZE);
+    //   const batchResults = await Promise.all(
+    //     batch.map(async (url, batchIndex) => {
+    //       logger.info(
+    //         "DETAIL_EXTRACTION",
+    //         `Processing listing ${i + batchIndex + 1}/${listingUrls.length}`,
+    //         { url }
+    //       );
+    //       const detailPage = await browser.newPage();
+    //       try {
+    //         await detailPage.goto(url, {
+    //           waitUntil: "domcontentloaded",
+    //           timeout: 20000,
+    //         });
+    //         const businessData = await extractBusinessDetails(
+    //           detailPage,
+    //           browser,
+    //           keyword,
+    //           `${city}, ${state}`
+    //         );
+    //         logger.info(
+    //           "DETAIL_EXTRACTION",
+    //           `Processing listing ${i + batchIndex + 1}/${listingUrls.length}`,
+    //           { url }
+    //         );
+    //         return { url, ...businessData };
+    //       } finally {
+    //         await detailPage.close();
+    //       }
+    //     })
+    //   );
+
+    //   results.push(...batchResults.filter(Boolean));
+
+    //   const processed = Math.min(i + BATCH_SIZE, listingUrls.length);
+    //   await job.progress({
+    //     processed,
+    //     total: listingUrls.length,
+    //   });
+    //   logger.info("PROGRESS_UPDATE", "Progress updated", {
+    //     processed,
+    //     total: listingUrls.length,
+    //   });
+    // }
+
+    // Step 2: Process listings in batches
     const BATCH_SIZE = 1;
+    logger.info("BATCH_PROCESSING", "Starting batch processing", {
+      totalListings: listingUrls.length,
+      batchSize: BATCH_SIZE,
+    });
+
     for (let i = 0; i < listingUrls.length; i += BATCH_SIZE) {
+      logger.info(
+        "BATCH_PROCESSING",
+        `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}`,
+        {
+          batchStart: i,
+          batchEnd: Math.min(i + BATCH_SIZE, listingUrls.length),
+        }
+      );
+
       const batch = listingUrls.slice(i, i + BATCH_SIZE);
+      const batchStart = Date.now();
+
       const batchResults = await Promise.all(
-        batch.map(async (url) => {
-          const detailPage = await browser.newPage();
+        batch.map(async (url, batchIndex) => {
+          logger.info(
+            "DETAIL_EXTRACTION",
+            `Starting listing ${i + batchIndex + 1}/${listingUrls.length}`,
+            { url }
+          );
+
+          let detailPage;
           try {
-            await detailPage.goto(url, {
-              waitUntil: "domcontentloaded",
-              timeout: 20000,
-            });
-            const businessData = await extractBusinessDetails(
-              detailPage,
-              browser,
-              keyword,
-              `${city}, ${state}`
+            detailPage = await browser.newPage();
+
+            // Add timeout to the entire extraction process
+            const result = await Promise.race([
+              (async () => {
+                await detailPage.goto(url, {
+                  waitUntil: "domcontentloaded",
+                  timeout: 20000,
+                });
+
+                const businessData = await extractBusinessDetails(
+                  detailPage,
+                  browser,
+                  keyword,
+                  `${city}, ${state}`
+                );
+
+                logger.info(
+                  "DETAIL_EXTRACTION",
+                  `Completed listing ${i + batchIndex + 1}/${
+                    listingUrls.length
+                  }`,
+                  {
+                    url,
+                    success: !!businessData,
+                    businessName: businessData?.name,
+                  }
+                );
+
+                return { url, ...businessData };
+              })(),
+
+              // 60 second timeout for entire listing processing
+              new Promise((_, reject) =>
+                setTimeout(
+                  () =>
+                    reject(new Error("Listing processing timed out after 60s")),
+                  60000
+                )
+              ),
+            ]);
+
+            return result;
+          } catch (error) {
+            logger.error(
+              "DETAIL_EXTRACTION",
+              `Failed listing ${i + batchIndex + 1}/${listingUrls.length}`,
+              {
+                url,
+                error: error.message,
+                stack: error.stack,
+              }
             );
-            return { url, ...businessData };
+            return null; // Return null instead of throwing
           } finally {
-            await detailPage.close();
+            // Always close the page, even on error
+            if (detailPage) {
+              try {
+                await detailPage.close();
+                logger.info(
+                  "DETAIL_EXTRACTION",
+                  `Closed page for listing ${i + batchIndex + 1}`
+                );
+              } catch (closeError) {
+                logger.warn(
+                  "DETAIL_EXTRACTION",
+                  `Failed to close page for listing ${i + batchIndex + 1}`,
+                  {
+                    error: closeError.message,
+                  }
+                );
+              }
+            }
           }
         })
       );
 
-      results.push(...batchResults.filter(Boolean));
+      const batchTime = Date.now() - batchStart;
+      const successfulExtractions = batchResults.filter(Boolean);
+
+      logger.info("BATCH_PROCESSING", "Batch completed", {
+        batchTimeMs: batchTime,
+        successfulExtractions: successfulExtractions.length,
+        totalInBatch: batch.length,
+        failedExtractions: batch.length - successfulExtractions.length,
+      });
+
+      results.push(...successfulExtractions);
 
       const processed = Math.min(i + BATCH_SIZE, listingUrls.length);
       await job.progress({
         processed,
         total: listingUrls.length,
       });
+
+      logger.info("PROGRESS_UPDATE", "Progress updated", {
+        processed,
+        total: listingUrls.length,
+        completionRate: `${((processed / listingUrls.length) * 100).toFixed(
+          1
+        )}%`,
+      });
     }
+
+    logger.info("SCRAPER_COMPLETE", "Scraping completed successfully", {
+      totalResults: results.length,
+      totalListings: listingUrls.length,
+      successRate: `${((results.length / listingUrls.length) * 100).toFixed(
+        2
+      )}%`,
+    });
 
     // Step 3: Generate CSV
     // await generateCSV(results, keyword, city, state);
     return results;
   } finally {
+    logger.info("BROWSER_CLOSE", "Closing browser");
     await browser.close();
+    logger.info("BROWSER_CLOSE", "Browser closed successfully");
   }
 }
 
@@ -188,103 +314,286 @@ async function extractBusinessDetails(
   searchTerm,
   searchLocation
 ) {
+  logger.info("BUSINESS_DETAILS", "Starting business details extraction");
   let businessData;
 
   try {
-    businessData = await page.evaluate(
-      (searchTerm, searchLocation) => {
-        const getText = (selector) =>
-          document.querySelector(selector)?.textContent?.trim() || null;
+    // Step 1: Extract business data with timeout
+    logger.info("BUSINESS_DATA_EXTRACT", "Extracting business data from page");
 
-        const getHref = (selector) =>
-          document.querySelector(selector)?.href || null;
+    businessData = await Promise.race([
+      page.evaluate(
+        (searchTerm, searchLocation) => {
+          const getText = (selector) =>
+            document.querySelector(selector)?.textContent?.trim() || null;
 
-        // Extract coordinates from URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const coords = urlParams.get("!3d")?.split("!4d") || [];
+          const getHref = (selector) =>
+            document.querySelector(selector)?.href || null;
 
-        // Extract categories
-        const categories = Array.from(
-          document.querySelectorAll('[class*="DkEaL"]')
+          // Extract coordinates from URL parameters
+          const urlParams = new URLSearchParams(window.location.search);
+          const coords = urlParams.get("!3d")?.split("!4d") || [];
+
+          // Extract categories
+          const categories = Array.from(
+            document.querySelectorAll('[class*="DkEaL"]')
+          )
+            .map((el) => el.textContent.trim())
+            .filter(Boolean);
+
+          // Extract rating details
+          const ratingElement = document.querySelector('.ceNzKf[role="img"]');
+          const ratingText = ratingElement?.getAttribute("aria-label") || "";
+          const phoneElement = document.querySelector(
+            'a[aria-label="Call phone number"]'
+          );
+          const phoneNumber = phoneElement
+            ? phoneElement.href.replace("tel:", "")
+            : null;
+
+          const addressButton = document.querySelector(
+            'button[aria-label^="Address:"]'
+          );
+          const address = addressButton
+            ? addressButton
+                .getAttribute("aria-label")
+                .replace("Address: ", "")
+                .trim()
+            : null;
+
+          return {
+            name: getText(".DUwDvf.lfPIob"),
+            phone: phoneNumber,
+            website: getHref('[aria-label*="Website"]'),
+            address: address,
+            latitude: coords[0] || null,
+            longitude: coords[1] || null,
+            rating: ratingText.replace(/\D+$/g, "") || null,
+            rating_count:
+              getText('[aria-label*="reviews"]')?.match(/\d+/)?.[0] || "0",
+            category: categories.join(", "),
+            search_term: searchTerm,
+            search_type: "Google Maps",
+            search_location: searchLocation,
+          };
+        },
+        searchTerm,
+        searchLocation
+      ),
+
+      // 15 second timeout for page evaluation
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Business data extraction timed out")),
+          15000
         )
-          .map((el) => el.textContent.trim())
-          .filter(Boolean);
+      ),
+    ]);
 
-        // Extract rating details
-        const ratingElement = document.querySelector('.ceNzKf[role="img"]');
-        const ratingText = ratingElement?.getAttribute("aria-label") || "";
-        const phoneElement = document.querySelector(
-          'a[aria-label="Call phone number"]'
-        );
-        const phoneNumber = phoneElement
-          ? phoneElement.href.replace("tel:", "")
-          : null;
-
-        const addressButton = document.querySelector(
-          'button[aria-label^="Address:"]'
-        );
-        const address = addressButton
-          ? addressButton
-              .getAttribute("aria-label")
-              .replace("Address: ", "")
-              .trim()
-          : null;
-
-        return {
-          name: getText(".DUwDvf.lfPIob"),
-          phone: phoneNumber,
-          website: getHref('[aria-label*="Website"]'),
-          address: address,
-          latitude: coords[0] || null,
-          longitude: coords[1] || null,
-          rating: ratingText.replace(/\D+$/g, "") || null,
-          rating_count:
-            getText('[aria-label*="reviews"]')?.match(/\d+/)?.[0] || "0",
-          category: categories.join(", "),
-          search_term: searchTerm,
-          search_type: "Google Maps",
-          search_location: searchLocation,
-          // opening_hours: Array.from(document.querySelectorAll(".eK4R0e tr"))
-          //   .map((row) => ({
-          //     day: row.querySelector(".ylH6lf")?.textContent.trim(),
-          //     hours: row.querySelector(".mxowUb")?.textContent.trim(),
-          //   }))
-          //   .filter((x) => x.day && x.hours),
-        };
-      },
-      searchTerm,
-      searchLocation
+    logger.info(
+      "BUSINESS_DATA_EXTRACT",
+      "Business data extracted successfully",
+      {
+        businessName: businessData.name,
+        hasWebsite: !!businessData.website,
+        hasPhone: !!businessData.phone,
+      }
     );
 
-    // Add email if website exists
+    // Step 2: Extract email if website exists (with timeout)
     if (businessData.website) {
-      const emailPage = await browser.newPage();
-      try {
-        await emailPage.goto(businessData.website, {
-          waitUntil: "domcontentloaded",
-          timeout: 15000,
-        });
+      logger.info(
+        "EMAIL_EXTRACTION",
+        "Website found, attempting email extraction",
+        {
+          website: businessData.website,
+        }
+      );
 
-        businessData.email = await emailPage.evaluate(() => {
-          const emailRegex =
-            /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
-          return document.body.textContent.match(emailRegex)?.[0] || null;
+      let emailPage;
+      try {
+        emailPage = await browser.newPage();
+        await emailPage.setDefaultNavigationTimeout(10000);
+
+        const emailResult = await Promise.race([
+          (async () => {
+            await emailPage.goto(businessData.website, {
+              waitUntil: "domcontentloaded",
+              timeout: 10000,
+            });
+
+            const email = await emailPage.evaluate(() => {
+              const emailRegex =
+                /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+              return document.body.textContent.match(emailRegex)?.[0] || null;
+            });
+
+            return email;
+          })(),
+
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Email extraction timed out")),
+              10000
+            )
+          ),
+        ]);
+
+        businessData.email = emailResult;
+        logger.info("EMAIL_EXTRACTION", "Email extraction completed", {
+          emailFound: !!emailResult,
         });
       } catch (error) {
-        console.error(
-          `Failed to extract email from ${businessData.website}: ${error.message}`
-        );
+        logger.warn("EMAIL_EXTRACTION", "Failed to extract email", {
+          website: businessData.website,
+          error: error.message,
+        });
+        businessData.email = null;
       } finally {
-        await emailPage.close();
+        // Always close email page
+        if (emailPage) {
+          try {
+            await emailPage.close();
+          } catch (closeError) {
+            logger.warn("EMAIL_EXTRACTION", "Failed to close email page", {
+              error: closeError.message,
+            });
+          }
+        }
       }
+    } else {
+      logger.info(
+        "EMAIL_EXTRACTION",
+        "No website found, skipping email extraction"
+      );
+      businessData.email = null;
     }
+
+    logger.info(
+      "BUSINESS_DETAILS",
+      "Business details extraction completed successfully",
+      {
+        businessName: businessData.name,
+        hasAllData: !!(
+          businessData.name &&
+          businessData.phone &&
+          businessData.address
+        ),
+      }
+    );
   } catch (error) {
-    console.error(`Error extracting details: ${error.message}`);
+    logger.error("BUSINESS_DETAILS", "Error extracting business details", {
+      error: error.message,
+    });
     return null;
   }
 
   return businessData;
 }
+
+// async function extractBusinessDetails(
+//   page,
+//   browser,
+//   searchTerm,
+//   searchLocation
+// ) {
+//   let businessData;
+
+//   try {
+//     businessData = await page.evaluate(
+//       (searchTerm, searchLocation) => {
+//         const getText = (selector) =>
+//           document.querySelector(selector)?.textContent?.trim() || null;
+
+//         const getHref = (selector) =>
+//           document.querySelector(selector)?.href || null;
+
+//         // Extract coordinates from URL parameters
+//         const urlParams = new URLSearchParams(window.location.search);
+//         const coords = urlParams.get("!3d")?.split("!4d") || [];
+
+//         // Extract categories
+//         const categories = Array.from(
+//           document.querySelectorAll('[class*="DkEaL"]')
+//         )
+//           .map((el) => el.textContent.trim())
+//           .filter(Boolean);
+
+//         // Extract rating details
+//         const ratingElement = document.querySelector('.ceNzKf[role="img"]');
+//         const ratingText = ratingElement?.getAttribute("aria-label") || "";
+//         const phoneElement = document.querySelector(
+//           'a[aria-label="Call phone number"]'
+//         );
+//         const phoneNumber = phoneElement
+//           ? phoneElement.href.replace("tel:", "")
+//           : null;
+
+//         const addressButton = document.querySelector(
+//           'button[aria-label^="Address:"]'
+//         );
+//         const address = addressButton
+//           ? addressButton
+//               .getAttribute("aria-label")
+//               .replace("Address: ", "")
+//               .trim()
+//           : null;
+
+//         return {
+//           name: getText(".DUwDvf.lfPIob"),
+//           phone: phoneNumber,
+//           website: getHref('[aria-label*="Website"]'),
+//           address: address,
+//           latitude: coords[0] || null,
+//           longitude: coords[1] || null,
+//           rating: ratingText.replace(/\D+$/g, "") || null,
+//           rating_count:
+//             getText('[aria-label*="reviews"]')?.match(/\d+/)?.[0] || "0",
+//           category: categories.join(", "),
+//           search_term: searchTerm,
+//           search_type: "Google Maps",
+//           search_location: searchLocation,
+//           // opening_hours: Array.from(document.querySelectorAll(".eK4R0e tr"))
+//           //   .map((row) => ({
+//           //     day: row.querySelector(".ylH6lf")?.textContent.trim(),
+//           //     hours: row.querySelector(".mxowUb")?.textContent.trim(),
+//           //   }))
+//           //   .filter((x) => x.day && x.hours),
+//         };
+//       },
+//       searchTerm,
+//       searchLocation
+//     );
+
+//     // Add email if website exists
+//     if (businessData.website) {
+//       const emailPage = await browser.newPage();
+//       try {
+//         await emailPage.goto(businessData.website, {
+//           waitUntil: "domcontentloaded",
+//           timeout: 15000,
+//         });
+
+//         businessData.email = await emailPage.evaluate(() => {
+//           const emailRegex =
+//             /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+//           return document.body.textContent.match(emailRegex)?.[0] || null;
+//         });
+//       } catch (error) {
+//         console.error(
+//           `Failed to extract email from ${businessData.website}: ${error.message}`
+//         );
+//       } finally {
+//         await emailPage.close();
+//       }
+//     }
+//   } catch (error) {
+//     console.error(`Error extracting details: ${error.message}`);
+//     return null;
+//   }
+
+//   return businessData;
+// }
 
 // async function autoScroll(page) {
 //   await page.evaluate(async () => {
@@ -314,7 +623,3 @@ async function extractBusinessDetails(
 //     });
 //   });
 // }
-
-
-
-
