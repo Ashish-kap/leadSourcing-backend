@@ -8,9 +8,6 @@ import autoScroll from "./autoScroll.js";
 
 async function safeEvaluate(page, fn, ...args) {
   const timeout = 30000;
-  logger.info("SAFE_EVALUATE", "Starting safe evaluate with timeout", {
-    timeout,
-  });
   try {
     const result = await Promise.race([
       page.evaluate(fn, ...args),
@@ -21,10 +18,8 @@ async function safeEvaluate(page, fn, ...args) {
         )
       ),
     ]);
-    logger.info("SAFE_EVALUATE", "Safe evaluate completed successfully");
     return result;
   } catch (error) {
-    logger.error("SAFE_EVALUATE", "Safe evaluate failed", error);
     throw error;
   }
 }
@@ -158,32 +153,11 @@ export async function runScraper({ keyword, city, state }, job) {
 
     // Step 2: Process listings in batches
     const BATCH_SIZE = 1;
-    logger.info("BATCH_PROCESSING", "Starting batch processing", {
-      totalListings: listingUrls.length,
-      batchSize: BATCH_SIZE,
-    });
-
     for (let i = 0; i < listingUrls.length; i += BATCH_SIZE) {
-      logger.info(
-        "BATCH_PROCESSING",
-        `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}`,
-        {
-          batchStart: i,
-          batchEnd: Math.min(i + BATCH_SIZE, listingUrls.length),
-        }
-      );
-
       const batch = listingUrls.slice(i, i + BATCH_SIZE);
-      const batchStart = Date.now();
 
       const batchResults = await Promise.all(
         batch.map(async (url, batchIndex) => {
-          logger.info(
-            "DETAIL_EXTRACTION",
-            `Starting listing ${i + batchIndex + 1}/${listingUrls.length}`,
-            { url }
-          );
-
           let detailPage;
           try {
             detailPage = await browser.newPage();
@@ -203,18 +177,6 @@ export async function runScraper({ keyword, city, state }, job) {
                   `${city}, ${state}`
                 );
 
-                logger.info(
-                  "DETAIL_EXTRACTION",
-                  `Completed listing ${i + batchIndex + 1}/${
-                    listingUrls.length
-                  }`,
-                  {
-                    url,
-                    success: !!businessData,
-                    businessName: businessData?.name,
-                  }
-                );
-
                 return { url, ...businessData };
               })(),
 
@@ -230,25 +192,12 @@ export async function runScraper({ keyword, city, state }, job) {
 
             return result;
           } catch (error) {
-            logger.error(
-              "DETAIL_EXTRACTION",
-              `Failed listing ${i + batchIndex + 1}/${listingUrls.length}`,
-              {
-                url,
-                error: error.message,
-                stack: error.stack,
-              }
-            );
             return null; // Return null instead of throwing
           } finally {
             // Always close the page, even on error
             if (detailPage) {
               try {
                 await detailPage.close();
-                logger.info(
-                  "DETAIL_EXTRACTION",
-                  `Closed page for listing ${i + batchIndex + 1}`
-                );
               } catch (closeError) {
                 logger.warn(
                   "DETAIL_EXTRACTION",
@@ -263,16 +212,7 @@ export async function runScraper({ keyword, city, state }, job) {
         })
       );
 
-      const batchTime = Date.now() - batchStart;
       const successfulExtractions = batchResults.filter(Boolean);
-
-      logger.info("BATCH_PROCESSING", "Batch completed", {
-        batchTimeMs: batchTime,
-        successfulExtractions: successfulExtractions.length,
-        totalInBatch: batch.length,
-        failedExtractions: batch.length - successfulExtractions.length,
-      });
-
       results.push(...successfulExtractions);
 
       const processed = Math.min(i + BATCH_SIZE, listingUrls.length);
@@ -280,31 +220,13 @@ export async function runScraper({ keyword, city, state }, job) {
         processed,
         total: listingUrls.length,
       });
-
-      logger.info("PROGRESS_UPDATE", "Progress updated", {
-        processed,
-        total: listingUrls.length,
-        completionRate: `${((processed / listingUrls.length) * 100).toFixed(
-          1
-        )}%`,
-      });
     }
-
-    logger.info("SCRAPER_COMPLETE", "Scraping completed successfully", {
-      totalResults: results.length,
-      totalListings: listingUrls.length,
-      successRate: `${((results.length / listingUrls.length) * 100).toFixed(
-        2
-      )}%`,
-    });
 
     // Step 3: Generate CSV
     // await generateCSV(results, keyword, city, state);
     return results;
   } finally {
-    logger.info("BROWSER_CLOSE", "Closing browser");
     await browser.close();
-    logger.info("BROWSER_CLOSE", "Browser closed successfully");
   }
 }
 
@@ -314,13 +236,10 @@ async function extractBusinessDetails(
   searchTerm,
   searchLocation
 ) {
-  logger.info("BUSINESS_DETAILS", "Starting business details extraction");
   let businessData;
 
   try {
     // Step 1: Extract business data with timeout
-    logger.info("BUSINESS_DATA_EXTRACT", "Extracting business data from page");
-
     businessData = await Promise.race([
       page.evaluate(
         (searchTerm, searchLocation) => {
@@ -390,26 +309,8 @@ async function extractBusinessDetails(
       ),
     ]);
 
-    logger.info(
-      "BUSINESS_DATA_EXTRACT",
-      "Business data extracted successfully",
-      {
-        businessName: businessData.name,
-        hasWebsite: !!businessData.website,
-        hasPhone: !!businessData.phone,
-      }
-    );
-
     // Step 2: Extract email if website exists (with timeout)
     if (businessData.website) {
-      logger.info(
-        "EMAIL_EXTRACTION",
-        "Website found, attempting email extraction",
-        {
-          website: businessData.website,
-        }
-      );
-
       let emailPage;
       try {
         emailPage = await browser.newPage();
@@ -440,47 +341,19 @@ async function extractBusinessDetails(
         ]);
 
         businessData.email = emailResult;
-        logger.info("EMAIL_EXTRACTION", "Email extraction completed", {
-          emailFound: !!emailResult,
-        });
       } catch (error) {
-        logger.warn("EMAIL_EXTRACTION", "Failed to extract email", {
-          website: businessData.website,
-          error: error.message,
-        });
         businessData.email = null;
       } finally {
         // Always close email page
         if (emailPage) {
           try {
             await emailPage.close();
-          } catch (closeError) {
-            logger.warn("EMAIL_EXTRACTION", "Failed to close email page", {
-              error: closeError.message,
-            });
-          }
+          } catch (closeError) {}
         }
       }
     } else {
-      logger.info(
-        "EMAIL_EXTRACTION",
-        "No website found, skipping email extraction"
-      );
       businessData.email = null;
     }
-
-    logger.info(
-      "BUSINESS_DETAILS",
-      "Business details extraction completed successfully",
-      {
-        businessName: businessData.name,
-        hasAllData: !!(
-          businessData.name &&
-          businessData.phone &&
-          businessData.address
-        ),
-      }
-    );
   } catch (error) {
     logger.error("BUSINESS_DETAILS", "Error extracting business details", {
       error: error.message,

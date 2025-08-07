@@ -1,11 +1,6 @@
 import logger from "./logger.js";
 
 async function autoScroll(page) {
-  logger.info(
-    "AUTO_SCROLL_START",
-    "Starting auto scroll with safety mechanisms"
-  );
-
   try {
     const scrollResult = await Promise.race([
       // Main scroll logic
@@ -13,11 +8,8 @@ async function autoScroll(page) {
         const wrapper = document.querySelector('div[role="feed"]');
 
         if (!wrapper) {
-          console.log("[AUTO_SCROLL] Feed wrapper not found");
           return { success: false, reason: "wrapper_not_found" };
         }
-
-        console.log("[AUTO_SCROLL] Feed wrapper found, starting scroll");
 
         return new Promise((resolve) => {
           let totalHeight = 0;
@@ -32,9 +24,6 @@ async function autoScroll(page) {
 
           const timer = setInterval(async () => {
             scrollAttempts++;
-            console.log(
-              `[AUTO_SCROLL] Attempt ${scrollAttempts}/${maxScrollAttempts}`
-            );
 
             const scrollHeightBefore = wrapper.scrollHeight;
             wrapper.scrollBy(0, distance);
@@ -42,7 +31,6 @@ async function autoScroll(page) {
 
             // Check if we've reached limits
             if (scrollAttempts >= maxScrollAttempts) {
-              console.log("[AUTO_SCROLL] Max attempts reached");
               clearInterval(timer);
               resolve({
                 success: true,
@@ -61,12 +49,8 @@ async function autoScroll(page) {
               // Check if content stopped loading
               if (scrollHeightAfter <= scrollHeightBefore) {
                 stagnantCount++;
-                console.log(
-                  `[AUTO_SCROLL] Content stagnant: ${stagnantCount}/${maxStagnantCount}`
-                );
 
                 if (stagnantCount >= maxStagnantCount) {
-                  console.log("[AUTO_SCROLL] Content stopped loading");
                   clearInterval(timer);
                   resolve({
                     success: true,
@@ -86,13 +70,11 @@ async function autoScroll(page) {
       // Timeout fallback (30 seconds max)
       new Promise((resolve) =>
         setTimeout(() => {
-          logger.warn("AUTO_SCROLL_TIMEOUT", "Auto scroll timed out after 30s");
           resolve({ success: false, reason: "timeout" });
         }, 30000)
       ),
     ]);
 
-    logger.info("AUTO_SCROLL_COMPLETE", "Auto scroll finished", scrollResult);
     return scrollResult;
   } catch (error) {
     logger.error("AUTO_SCROLL_ERROR", "Auto scroll failed", error);
@@ -101,5 +83,4 @@ async function autoScroll(page) {
   }
 }
 
-
-export default autoScroll
+export default autoScroll;
