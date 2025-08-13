@@ -46,6 +46,14 @@ scraperQueue.on("connected", () => {
   console.log("Successfully connected to Redis");
 });
 
+scraperQueue.on('progress', (job, progress) => {
+  console.log(`Job ${job.id} progress:`, progress);
+  // Convert object progress to number if needed
+  if (typeof progress === 'object' && progress.percentage !== undefined) {
+    job.progress(progress.percentage);
+  }
+});
+
 // Process with 1 concurrent worker
 scraperQueue.process(1, scrapeJob);
 
