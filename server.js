@@ -1,24 +1,42 @@
 import express from "express";
 import cors from "cors";
-import scraperRouter from "./api/routes/scraper.js";
+import scraperRouter from "./Routes/scraper.js";
 import { createBullBoard } from "@bull-board/api";
 import { BullAdapter } from "@bull-board/api/bullAdapter.js";
 import { ExpressAdapter } from "@bull-board/express";
 import scraperQueue from "./services/queue.js";
-// import path from "path";
-import { fileURLToPath } from 'url'; 
-// import { dirname } from 'path';   
-
-
-// Create __dirname equivalent for ES modules
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = dirname(__filename);
-
+import userRoute from "./Routes/userRoutes.js";
+import AppError from "./utils/appError.js";
+import globalErrController from "./api/controllers/errController.js";
+import expressMongoSanitize from "express-mongo-sanitize";
+import helmet from "helmet";
+import xssClean from "xss-clean";
+import hpp from "hpp";
+import morgan from "morgan";
+import rateLimit from "express-rate-limit";
+import mongoose from "mongoose";
 const app = express();
+app.use(express.json({ limit: "500kb" }));
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+// app.use(expressMongoSanitize());
+// app.use(xssClean());
+app.use(hpp());
+app.use(helmet());
+
+console.log(process.env.NODE_ENV);
+if (process.env.NODE_ENV === "development") {
+  app.use(morgan("dev"));
+}
+
+//limit request from same API
+const limiter = rateLimit({
+  max: 100,
+  windowMs: 60 * 60 * 1000,
+  message: "too many request from this ip, please try again in an hour",
+});
 
 // Bull Dashboard
 const serverAdapter = new ExpressAdapter();
@@ -31,7 +49,31 @@ serverAdapter.setBasePath("/admin");
 app.use("/admin", serverAdapter.getRouter());
 
 // Routes
-app.use("/api", scraperRouter);
+app.use("/api", limiter);
+app.use("/api/v1/users", userRoute);
+app.use("/api/v1", scraperRouter);
+
+
+// app.all("*", (req, res, next) => {
+//   next(new AppError(`cant find ${req.originalUrl} on this server`, 404));
+// });
+
+app.use(globalErrController);
+
+// mongodb
+const DB = process.env.DATABASE.replace(
+  "password",
+  process.env.DATABASE_PASSWORD
+);
+
+mongoose
+  .connect(DB, {
+    useNewUrlParser: true,
+  })
+  .then((con) => {
+    console.log("db connection successfull....");
+  });
+
 
 // Start Server
 const PORT = process.env.PORT || 3000;

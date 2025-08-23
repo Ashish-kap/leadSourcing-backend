@@ -4,6 +4,7 @@ dotenv.config();
 import puppeteer from "puppeteer-core";
 import logger from "./logger.js";
 import autoScroll from "./autoScroll.js";
+import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
 
 // Helper to shuffle array for random selection
 function shuffleArray(array) {
@@ -41,7 +42,15 @@ async function safeEvaluate(page, fn, ...args) {
 }
 
 export async function runScraper(
-  { keyword, countryCode, stateCode, city, maxRecords },
+  {
+    keyword,
+    countryCode,
+    stateCode,
+    city,
+    maxRecords,
+    minRating = null,
+    reviewTimeRange = null,
+  },
   job
 ) {
   logger.info("SCRAPER_START", "Starting scraper", {
@@ -88,7 +97,6 @@ export async function runScraper(
       country: countryName,
     });
 
-
     const cityResults = await scrapeLocation({
       keyword,
       city: cityName,
@@ -96,6 +104,8 @@ export async function runScraper(
       countryName,
       job,
       maxRecords: recordsRemaining,
+      minRating,
+      reviewTimeRange,
     });
 
     return cityResults;
@@ -253,6 +263,8 @@ async function scrapeLocation({
   countryName,
   job,
   maxRecords = Infinity,
+  minRating = null,
+  reviewTimeRange,
 }) {
   const results = [];
 
@@ -273,6 +285,22 @@ async function scrapeLocation({
   const browser = await puppeteer.connect({
     browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
   });
+
+  // const browser = await puppeteer.launch({
+  //   headless: false,
+  //   // executablePath: executablePath(),
+  //   args: [
+  //     "--no-sandbox",
+  //     "--disable-setuid-sandbox",
+  //     "--disable-gpu",
+  //     "--disable-dev-shm-usage",
+  //     "--single-process",
+  //     "--no-zygote",
+  //     "--disable-accelerated-2d-canvas",
+  //     "--disable-web-security",
+  //   ],
+  //   protocolTimeout: 120000,
+  // });
 
   try {
     const page = await browser.newPage();
@@ -329,10 +357,25 @@ async function scrapeLocation({
                   detailPage,
                   browser,
                   keyword,
-                  locationString
+                  locationString,
+                  minRating
                 );
+                // return { url, ...businessData };
 
-                return { url, ...businessData };
+                if (!businessData) {
+                  return null;
+                }
+
+                if (reviewTimeRange) {
+                  const filteredReviews = await extractFilteredReviews(
+                    detailPage,
+                    reviewTimeRange
+                  );
+                  businessData.filtered_reviews = filteredReviews;
+                  businessData.filtered_review_count = filteredReviews.length;
+                }
+
+                return businessData ? { url, ...businessData } : null;
               })(),
               new Promise((_, reject) =>
                 setTimeout(
@@ -408,13 +451,14 @@ async function extractBusinessDetails(
   page,
   browser,
   searchTerm,
-  searchLocation
+  searchLocation,
+  minRating = null
 ) {
   let businessData;
   try {
     businessData = await Promise.race([
       page.evaluate(
-        (searchTerm, searchLocation) => {
+        (searchTerm, searchLocation, minRating) => {
           const getText = (selector) =>
             document.querySelector(selector)?.textContent?.trim() || null;
 
@@ -435,6 +479,16 @@ async function extractBusinessDetails(
           // Extract rating details
           const ratingElement = document.querySelector('.ceNzKf[role="img"]');
           const ratingText = ratingElement?.getAttribute("aria-label") || "";
+
+          // Parse rating value
+          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+          const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+
+          // Apply rating filter if specified
+          if (minRating && rating && rating < minRating) {
+            return null; // Skip this business
+          }
+
           const phoneElement = document.querySelector(
             'a[aria-label="Call phone number"]'
           );
@@ -469,7 +523,8 @@ async function extractBusinessDetails(
           };
         },
         searchTerm,
-        searchLocation
+        searchLocation,
+        minRating
       ),
       new Promise((_, reject) =>
         setTimeout(
