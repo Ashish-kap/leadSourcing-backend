@@ -33,6 +33,7 @@ router.get("/:jobId/download", jobController.downloadJobResultCSV);
 // Scraping routes
 router.post("/scrape", scrapeController.scrapeData);
 router.get("/status/:jobId", scrapeController.getJobStatus);
+router.post("/kill/:jobId", jobController.killJob);
 
 export default router;
 

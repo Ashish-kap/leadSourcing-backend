@@ -1,3 +1,4 @@
+import scraperQueue from "../../services/queue.js";
 import Job from "./../../models/jobModel.js";
 import User from "./../../models/userModel.js";
 import { Parser } from "json2csv";
@@ -195,6 +196,19 @@ const deleteJob = async (req, res) => {
   }
 };
 
+const killJob = async (req, res) => {
+  const job = await scraperQueue.getJob(req.params.jobId);
+  if (job && job.isActive()) {
+    await job.moveToFailed(
+      new Error("Manually killed via admin endpoint"),
+      true
+    );
+    res.json({ status: "killed", id: job.id });
+  } else {
+    res.status(404).json({ error: "Not found or not active" });
+  }
+};
+
 export const downloadJobResultCSV = async (req, res) => {
   try {
     const { jobId } = req.params;
@@ -238,4 +252,5 @@ export default {
   getJobDetails,
   getUserDashboard,
   deleteJob,
+  killJob,
 };

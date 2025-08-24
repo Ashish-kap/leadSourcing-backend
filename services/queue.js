@@ -94,8 +94,8 @@ if (process.env.REDIS_HOST) {
 const scraperQueue = new Queue("scraper", {
   redis: redisObj,
   settings: {
-    stalledInterval: 300000, // 5 minutes
-    maxStalledCount: 2,
+    stalledInterval: 100000, // 5 minutes
+    maxStalledCount: 1,
     guardInterval: 5000,
     retryProcessDelay: 5000,
   },
