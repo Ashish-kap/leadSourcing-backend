@@ -58,13 +58,12 @@
 
 // export default scraperQueue;
 
-
-
 import dotenv from "dotenv";
 dotenv.config();
 import Queue from "bull";
 import scrapeJob from "../jobs/scrapeJob.js";
 import Job from "../models/jobModel.js";
+import socketService from "./socket.service.js";
 
 let redisObj;
 
@@ -115,13 +114,24 @@ scraperQueue.on("active", async (job) => {
 
   // Update database record
   try {
-    await Job.findOneAndUpdate(
+    const updatedJob = await Job.findOneAndUpdate(
       { jobId: job.data.jobId },
       {
         status: "active",
         startedAt: new Date(),
-      }
+      },
+      { new: true }
     );
+
+    // Emit socket event to user
+    if (updatedJob) {
+      socketService.emitJobUpdate(updatedJob.userId.toString(), "job_started", {
+        jobId: updatedJob.jobId,
+        status: "active",
+        startedAt: updatedJob.startedAt,
+        progress: updatedJob.progress,
+      });
+    }
   } catch (error) {
     console.error(`Error updating job ${job.id} to active:`, error);
   }
@@ -141,7 +151,23 @@ scraperQueue.on("progress", async (job, progress) => {
       updateData["progress.details"] = progress;
     }
 
-    await Job.findOneAndUpdate({ jobId: job.data.jobId }, updateData);
+    const updatedJob = await Job.findOneAndUpdate(
+      { jobId: job.data.jobId },
+      updateData,
+      { new: true }
+    );
+
+    // Emit socket event to user for progress update
+    if (updatedJob) {
+      socketService.emitJobProgress(
+        updatedJob.userId.toString(),
+        updatedJob.jobId,
+        {
+          percentage: updateData["progress.percentage"],
+          details: progress.details || progress,
+        }
+      );
+    }
   } catch (error) {
     console.error(`Error updating job ${job.id} progress:`, error);
   }
@@ -152,7 +178,7 @@ scraperQueue.on("completed", async (job, result) => {
 
   // Update database record
   try {
-    await Job.findOneAndUpdate(
+    const updatedJob = await Job.findOneAndUpdate(
       { jobId: job.data.jobId },
       {
         status: "completed",
@@ -160,8 +186,24 @@ scraperQueue.on("completed", async (job, result) => {
         result: result,
         "progress.percentage": 100,
         "metrics.totalExtractions": result?.length || 0,
-      }
+      },
+      { new: true }
     );
+
+    // Emit socket event to user for job completion
+    if (updatedJob) {
+      socketService.emitJobUpdate(
+        updatedJob.userId.toString(),
+        "job_completed",
+        {
+          jobId: updatedJob.jobId,
+          status: "completed",
+          completedAt: updatedJob.completedAt,
+          progress: { percentage: 100 },
+          totalExtractions: result?.length || 0,
+        }
+      );
+    }
   } catch (error) {
     console.error(`Error updating completed job ${job.id}:`, error);
   }
@@ -172,7 +214,7 @@ scraperQueue.on("failed", async (job, err) => {
 
   // Update database record
   try {
-    await Job.findOneAndUpdate(
+    const updatedJob = await Job.findOneAndUpdate(
       { jobId: job.data.jobId },
       {
         status: "failed",
@@ -182,8 +224,22 @@ scraperQueue.on("failed", async (job, err) => {
           stack: err.stack,
           timestamp: new Date(),
         },
-      }
+      },
+      { new: true }
     );
+
+    // Emit socket event to user for job failure
+    if (updatedJob) {
+      socketService.emitJobUpdate(updatedJob.userId.toString(), "job_failed", {
+        jobId: updatedJob.jobId,
+        status: "failed",
+        completedAt: updatedJob.completedAt,
+        error: {
+          message: err.message,
+          timestamp: new Date(),
+        },
+      });
+    }
   } catch (error) {
     console.error(`Error updating failed job ${job.id}:`, error);
   }
