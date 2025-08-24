@@ -227,6 +227,7 @@ const scrapeData = async (req, res) => {
         jobId,
         userId,
         dbJobId: jobRecord._id,
+        timeout: 30 * 60 * 1000,
       },
       {
         jobId, // Use our custom jobId for the queue
