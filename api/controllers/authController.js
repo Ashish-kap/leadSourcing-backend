@@ -27,7 +27,7 @@ const createSendToken = (user, statusCode, res) => {
   //remove password from output
   user.password = undefined;
   res.status(statusCode).json({
-    status: "sucess",
+    status: "success",
     token,
     // data: {
     //   user: user,
@@ -234,10 +234,96 @@ export const updatePassword = catchAsync(async (req, res, next) => {
 
 // authController.js
 export const logout = (req, res) => {
-  res.cookie('jwt', 'loggedout', {
+  res.cookie("jwt", "loggedout", {
     expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true
+    httpOnly: true,
   });
-  res.status(200).json({ status: 'success' });
+  res.status(200).json({ status: "success" });
 };
 
+// Google OAuth Controllers
+export const googleAuth = (req, res, next) => {
+  // This will redirect to Google's OAuth page
+  // Handled by passport middleware
+};
+
+export const googleCallback = catchAsync(async (req, res, next) => {
+  // User data is available in req.user after successful authentication
+  if (!req.user) {
+    return next(new AppError("Google authentication failed", 400));
+  }
+
+  // Create JWT token for the authenticated user
+  createSendToken(req.user, 200, res);
+});
+
+// Alternative endpoint for mobile/API authentication
+export const googleTokenAuth = catchAsync(async (req, res, next) => {
+  const { authToken } = req.body;
+
+  console.log(
+    "🔍 Debug: Received authToken:",
+    authToken ? "Present" : "Missing"
+  );
+  console.log("🔍 Debug: Token length:", authToken?.length);
+  console.log("🔍 Debug: Token starts with:", authToken?.substring(0, 50));
+  console.log("🔍 Debug: Expected Client ID:", process.env.GOOGLE_CLIENT_ID);
+
+  if (!authToken) {
+    return next(new AppError("Google token is required", 400));
+  }
+
+  try {
+    // Import OAuth2Client correctly
+    const { OAuth2Client } = await import("google-auth-library");
+
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    console.log("🔍 Debug: About to verify token...");
+
+    // Verify the Google token
+    const ticket = await client.verifyIdToken({
+      idToken: authToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    console.log("🔍 Debug: Token verified successfully!");
+
+    const payload = ticket.getPayload();
+    const googleId = payload.sub;
+    const email = payload.email;
+    const name = payload.name;
+    const picture = payload.picture;
+
+    // Check if user exists
+    let user = await User.findOne({ googleId });
+
+    if (!user) {
+      // Check if user exists with same email
+      user = await User.findOne({ emailID: email });
+
+      if (user) {
+        // Link Google account to existing user
+        user.googleId = googleId;
+        user.authProvider = "google";
+        await user.save({ validateBeforeSave: false });
+      } else {
+        // Create new user
+        user = new User({
+          googleId,
+          name,
+          emailID: email,
+          authProvider: "google",
+          photo: picture,
+        });
+        await user.save({ validateBeforeSave: false });
+      }
+    }
+
+    createSendToken(user, 200, res);
+  } catch (error) {
+    console.error("🚨 Google token verification error:", error.message);
+    console.error("🚨 Error details:", error);
+    return next(new AppError("Invalid Google token", 400));
+  }
+});

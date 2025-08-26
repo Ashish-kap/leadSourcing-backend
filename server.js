@@ -18,6 +18,8 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import socketService from "./services/socket.service.js";
+import passport from "passport";
+import "./config/passport.js"; // Initialize passport configuration
 const app = express();
 const httpServer = createServer(app);
 app.use(express.json({ limit: "500kb" }));
@@ -31,6 +33,9 @@ app.use(express.static("public"));
 // app.use(xssClean());
 app.use(hpp());
 app.use(helmet());
+
+// Initialize passport middleware
+app.use(passport.initialize());
 
 console.log(process.env.NODE_ENV);
 if (process.env.NODE_ENV === "development") {
