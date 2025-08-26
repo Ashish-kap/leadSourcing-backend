@@ -157,20 +157,36 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: [true, "Please type your password"],
+      required: function() {
+        return !this.googleId; // Password required only if not using Google OAuth
+      },
       minlength: 8,
       select: false,
     },
 
     passwordConfirm: {
       type: String,
-      required: [true, "Please type your password again to confirm"],
+      required: function() {
+        return !this.googleId && this.isNew; // Only required for new non-OAuth users
+      },
       validate: {
         validator: function (el) {
           return el === this.password;
         },
         message: "password is not same.",
       },
+    },
+
+    // OAuth fields
+    googleId: {
+      type: String,
+      sparse: true, // Allows multiple null values
+    },
+
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
     },
 
     photo: {
