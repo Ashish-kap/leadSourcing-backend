@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Google OAuth Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .auth-button {
+        background-color: #4285f4;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px 0;
+        width: 100%;
+      }
+      .auth-button:hover {
+        background-color: #357ae8;
+      }
+      .token-section {
+        margin-top: 30px;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+      }
+      textarea {
+        width: 100%;
+        height: 100px;
+        margin: 10px 0;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 4px;
+        white-space: pre-wrap;
+      }
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Google OAuth Authentication Test</h1>
+
+      <h2>Method 1: Redirect Flow (Web Applications)</h2>
+      <p>
+        Click the button below to authenticate with Google using redirect flow:
+      </p>
+      <button class="auth-button" onclick="authenticateWithGoogle()">
+        🔐 Sign in with Google (Redirect)
+      </button>
+
+      <h2>Method 2: Token-based Authentication (Mobile/API)</h2>
+      <p>If you have a Google ID token, paste it below to authenticate:</p>
+      <div class="token-section">
+        <label for="googleToken">Google ID Token:</label>
+        <textarea
+          id="googleToken"
+          placeholder="Paste your Google ID token here..."
+        ></textarea>
+        <button class="auth-button" onclick="authenticateWithToken()">
+          🔐 Authenticate with Token
+        </button>
+      </div>
+
+      <div id="result"></div>
+
+      <h2>API Endpoints</h2>
+      <ul>
+        <li>
+          <strong>GET</strong> <code>/api/v1/users/auth/google</code> - Start
+          Google OAuth flow
+        </li>
+        <li>
+          <strong>GET</strong> <code>/api/v1/users/auth/google/callback</code> -
+          OAuth callback endpoint
+        </li>
+        <li>
+          <strong>POST</strong> <code>/api/v1/users/auth/google/token</code> -
+          Token-based authentication
+        </li>
+      </ul>
+    </div>
+
+    <script>
+      function authenticateWithGoogle() {
+        // Redirect to Google OAuth endpoint
+        window.location.href = "/api/v1/users/auth/google";
+      }
+
+      async function authenticateWithToken() {
+        const token = document.getElementById("googleToken").value.trim();
+        const resultDiv = document.getElementById("result");
+
+        if (!token) {
+          showResult("Please enter a Google ID token", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/v1/users/auth/google/token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ googleToken: token }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showResult(
+              `Authentication successful!\nJWT Token: ${data.token}`,
+              "success"
+            );
+            // Store token for future API calls
+            localStorage.setItem("authToken", data.token);
+          } else {
+            showResult(`Authentication failed: ${data.message}`, "error");
+          }
+        } catch (error) {
+          showResult(`Error: ${error.message}`, "error");
+        }
+      }
+
+      function showResult(message, type) {
+        const resultDiv = document.getElementById("result");
+        resultDiv.className = `result ${type}`;
+        resultDiv.textContent = message;
+      }
+
+      // Check for authentication token on page load
+      window.onload = function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get("token");
+
+        if (token) {
+          showResult(
+            `Authentication successful via redirect!\nJWT Token: ${token}`,
+            "success"
+          );
+          localStorage.setItem("authToken", token);
+          // Clean up URL
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+        }
+      };
+    </script>
+  </body>
+</html>
