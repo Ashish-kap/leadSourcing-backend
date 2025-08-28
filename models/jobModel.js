@@ -45,9 +45,23 @@ const jobSchema = new mongoose.Schema(
       },
       minRating: {
         type: Number,
-        default: 0,
+        default: null,
         min: 0,
         max: 5,
+      },
+
+      ratingFilter: {
+        operator: {
+          type: String,
+          enum: ["gt", "lt", "gte", "lte"],
+          default: null,
+        },
+        value: {
+          type: Number,
+          min: 0,
+          max: 5,
+          default: null,
+        },
       },
       reviewTimeRange: {
         type: Number,
