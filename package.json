@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "NODE_OPTIONS='--max-old-space-size=256' node server.js"
+    "start": "NODE_OPTIONS='--max-old-space-size=2048' node server.js"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +37,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "path-to-regexp": "^6.2.0",
+    "playwright": "^1.55.0",
     "puppeteer": "^24.6.1",
     "puppeteer-core": "^24.15.0",
     "react-select": "^5.10.2",

@@ -1,125 +1,3 @@
-// import scraperQueue from "../../services/queue.js";
-
-// const scrapeData = async (req, res) => {
-//   try {
-//     const {
-//       keyword,
-//       city = null,
-//       countryCode,
-//       stateCode = null,
-//       maxRecords = 50,
-//       minRating = 0,
-//       reviewTimeRange = null,
-//     } = req.body;
-
-//     // Validate mandatory fields
-//     if (!keyword) {
-//       return res.status(400).json({
-//         error: "keyword is required",
-//       });
-//     }
-
-//     if (!countryCode) {
-//       return res.status(400).json({
-//         error: "countryCode is required",
-//       });
-//     }
-
-//     // Validate numeric parameters
-//     if (
-//       maxRecords &&
-//       (isNaN(maxRecords) || maxRecords < 1 || maxRecords > 1000)
-//     ) {
-//       return res.status(400).json({
-//         error: "maxRecords must be a number between 1 and 1000",
-//       });
-//     }
-
-//     if (minRating && (isNaN(minRating) || minRating < 0 || minRating > 5)) {
-//       return res.status(400).json({
-//         error: "minRating must be a number between 0 and 5",
-//       });
-//     }
-
-//     if (
-//       reviewTimeRange &&
-//       (isNaN(reviewTimeRange) || reviewTimeRange < 0 || reviewTimeRange > 10)
-//     ) {
-//       return res.status(400).json({
-//         error: "reviewTimeRange must be a number between 0 and 10",
-//       });
-//     }
-
-//     // Create job with all parameters
-//     const job = await scraperQueue.add({
-//       keyword: keyword.trim(),
-//       city: city ? city.trim() : null,
-//       stateCode: stateCode ? stateCode.trim() : null,
-//       countryCode: countryCode.trim().toUpperCase(), // Standardize country code
-//       maxRecords: parseInt(maxRecords),
-//       minRating: parseFloat(minRating),
-//       reviewTimeRange: parseInt(reviewTimeRange),
-//     });
-
-//     res.json({
-//       jobId: job.id,
-//       statusUrl: `/jobs/${job.id}`,
-//       message: "Scraping job queued successfully",
-//       jobParams: {
-//         keyword,
-//         city,
-//         stateCode,
-//         countryCode,
-//         maxRecords: parseInt(maxRecords),
-//         minRating: parseFloat(minRating),
-//         reviewTimeRange: parseInt(reviewTimeRange),
-//         // estimatedLocations: getEstimatedLocations(city, state, country),
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error creating scraping job:", error);
-//     res.status(500).json({
-//       error: "Internal server error",
-//       message: error.message,
-//     });
-//   }
-// };
-
-// const getData = async (req, res) => {
-//   try {
-//     const job = await scraperQueue.getJob(req.params.id);
-//     if (!job) return res.status(404).json({ error: "Job not found" });
-
-//     const progress = job.progress();
-//     let percentage = 0;
-//     let details = {};
-
-//     console.log("progr", progress);
-
-//     // Handle both number and object progress
-//     if (typeof progress === "number") {
-//       percentage = progress;
-//     } else if (typeof progress === "object") {
-//       percentage = progress.percentage || 0;
-//       details = progress;
-//     }
-
-//     res.json({
-//       id: job.id,
-//       status: await job.getState(),
-//       progress: {
-//         percentage,
-//         details,
-//       },
-//       result: job.returnvalue,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// };
-
-// export default { scrapeData, getData };
-
 import scraperQueue from "../../services/queue.js";
 import Job from "./../../models/jobModel.js";
 import User from "./../../models/userModel.js";
@@ -133,7 +11,7 @@ const scrapeData = async (req, res) => {
       countryCode,
       stateCode = null,
       maxRecords = 50,
-      minRating = 0,
+      ratingFilter = null,
       reviewTimeRange = null,
     } = req.body;
 
@@ -164,10 +42,46 @@ const scrapeData = async (req, res) => {
       });
     }
 
-    if (minRating && (isNaN(minRating) || minRating < 0 || minRating > 5)) {
-      return res.status(400).json({
-        error: "minRating must be a number between 0 and 5",
-      });
+    if (ratingFilter) {
+      if (
+        !ratingFilter.operator ||
+        !["gt", "lt", "gte", "lte"].includes(ratingFilter.operator)
+      ) {
+        return res.status(400).json({
+          error: "ratingFilter.operator must be one of: gt, lt, gte, lte",
+        });
+      }
+      if (
+        ratingFilter.value === undefined ||
+        isNaN(ratingFilter.value) ||
+        ratingFilter.value < 0 ||
+        ratingFilter.value > 5
+      ) {
+        return res.status(400).json({
+          error: "ratingFilter.value must be a number between 0 and 5",
+        });
+      }
+
+      // Warn about potentially restrictive filters
+      const isRestrictiveFilter =
+        (ratingFilter.operator === "lte" && ratingFilter.value <= 3) ||
+        (ratingFilter.operator === "lt" && ratingFilter.value <= 3.5) ||
+        (ratingFilter.operator === "gte" && ratingFilter.value >= 4.8) ||
+        (ratingFilter.operator === "gt" && ratingFilter.value >= 4.5);
+
+      if (isRestrictiveFilter) {
+        console.warn(
+          "RESTRICTIVE_FILTER_WARNING",
+          "User applied potentially restrictive rating filter",
+          {
+            ratingFilter,
+            userId,
+            keyword,
+            warning:
+              "This filter may result in very few results or early termination",
+          }
+        );
+      }
     }
 
     if (
@@ -202,7 +116,7 @@ const scrapeData = async (req, res) => {
       stateCode: stateCode ? stateCode.trim() : null,
       countryCode: countryCode.trim().toUpperCase(),
       maxRecords: parseInt(maxRecords),
-      minRating: parseFloat(minRating),
+      ratingFilter: ratingFilter,
       reviewTimeRange: reviewTimeRange ? parseInt(reviewTimeRange) : null,
     };
 
