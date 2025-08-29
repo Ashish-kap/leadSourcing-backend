@@ -49,7 +49,6 @@ const jobSchema = new mongoose.Schema(
         min: 0,
         max: 5,
       },
-
       ratingFilter: {
         operator: {
           type: String,

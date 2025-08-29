@@ -12,6 +12,7 @@ const scrapeData = async (req, res) => {
       stateCode = null,
       maxRecords = 50,
       ratingFilter = null,
+      reviewFilter = null,
       reviewTimeRange = null,
     } = req.body;
 
@@ -84,6 +85,48 @@ const scrapeData = async (req, res) => {
       }
     }
 
+    if (reviewFilter) {
+      if (
+        !reviewFilter.operator ||
+        !["gt", "lt", "gte", "lte"].includes(reviewFilter.operator)
+      ) {
+        return res.status(400).json({
+          error: "reviewFilter.operator must be one of: gt, lt, gte, lte",
+        });
+      }
+      if (
+        reviewFilter.value === undefined ||
+        isNaN(reviewFilter.value) ||
+        reviewFilter.value < 0 ||
+        reviewFilter.value > 10000
+      ) {
+        return res.status(400).json({
+          error: "reviewFilter.value must be a number between 0 and 10,000",
+        });
+      }
+
+      // Warn about potentially restrictive filters
+      const isRestrictiveFilter =
+        (reviewFilter.operator === "lte" && reviewFilter.value <= 5) ||
+        (reviewFilter.operator === "lt" && reviewFilter.value <= 3) ||
+        (reviewFilter.operator === "gte" && reviewFilter.value >= 1000) ||
+        (reviewFilter.operator === "gt" && reviewFilter.value >= 500);
+
+      if (isRestrictiveFilter) {
+        console.warn(
+          "RESTRICTIVE_REVIEW_FILTER_WARNING",
+          "User applied potentially restrictive review filter",
+          {
+            reviewFilter,
+            userId,
+            keyword,
+            warning:
+              "This filter may result in very few results or early termination",
+          }
+        );
+      }
+    }
+
     if (
       reviewTimeRange !== null &&
       reviewTimeRange !== "" &&
@@ -117,6 +160,7 @@ const scrapeData = async (req, res) => {
       countryCode: countryCode.trim().toUpperCase(),
       maxRecords: parseInt(maxRecords),
       ratingFilter: ratingFilter,
+      reviewFilter: reviewFilter,
       reviewTimeRange: reviewTimeRange ? parseInt(reviewTimeRange) : null,
     };
 
