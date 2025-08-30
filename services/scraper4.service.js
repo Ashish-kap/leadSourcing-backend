@@ -109,6 +109,8 @@ export async function runScraper(
       ratingFilter,
       reviewFilter,
       reviewTimeRange,
+      cumulativeResults: results.length, // Pass cumulative count
+      totalMaxRecords: recordLimit, // Pass original limit
     });
 
     return cityResults;
@@ -269,6 +271,8 @@ async function scrapeLocation({
   ratingFilter = null,
   reviewFilter = null,
   reviewTimeRange,
+  cumulativeResults = 0, // Total results so far across all cities
+  totalMaxRecords = maxRecords, // Original target limit
 }) {
   const results = [];
 
@@ -527,13 +531,17 @@ async function scrapeLocation({
       results.push(...successfulExtractions);
 
       if (job && newRecords > 0) {
-        const percentage = calculatePercentage(results.length, maxRecords);
+        const cumulativeCount = cumulativeResults + results.length;
+        const percentage = calculatePercentage(
+          cumulativeCount,
+          totalMaxRecords
+        );
         await job.progress({
           percentage,
           processedListings: i + 1,
           totalListings: listingsToProcess,
-          recordsCollected: results.length,
-          maxRecords,
+          recordsCollected: cumulativeCount, // ✅ Total across all cities
+          maxRecords: totalMaxRecords, // ✅ Original target
           currentLocation: `${city}, ${state}, ${countryName}`,
           preFilterStats: ratingFilter
             ? {
@@ -554,16 +562,17 @@ async function scrapeLocation({
     }
 
     if (job) {
+      const cumulativeCount = cumulativeResults + results.length;
       const finalPercentage =
-        results.length >= maxRecords
+        cumulativeCount >= totalMaxRecords
           ? 100
-          : calculatePercentage(results.length, maxRecords);
+          : calculatePercentage(cumulativeCount, totalMaxRecords);
 
       await job.progress({
         percentage: finalPercentage,
         status: "processing",
-        recordsCollected: results.length,
-        maxRecords,
+        recordsCollected: cumulativeCount, // ✅ Total across all cities
+        maxRecords: totalMaxRecords, // ✅ Original target
         finalStats:
           ratingFilter || reviewFilter
             ? {

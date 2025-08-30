@@ -1,7 +1,6 @@
 // import { runScraper } from "../services/scraper4.service.js";
 // import * as authController from "./../api/controllers/authController.js";
 
-
 // export default async function (job) {
 //   try {
 //     // Initialize progress with object format
@@ -13,7 +12,6 @@
 //     throw error;
 //   }
 // }
-
 
 import { runScraper } from "../services/scraper4.service.js";
 import Job from "../models/jobModel.js";
@@ -34,6 +32,18 @@ export default async function (job) {
 
     // Final progress update
     await job.progress(100);
+
+    // Update database job status to completed
+    if (dbJob) {
+      await dbJob.updateStatus("completed", {
+        result: result,
+        metrics: {
+          totalExtractions: result?.length || 0,
+          dataPointsCollected: result?.length || 0,
+          creditsUsed: Math.ceil((result?.length || 0) / 10) * 10,
+        },
+      });
+    }
 
     return result;
   } catch (error) {

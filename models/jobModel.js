@@ -62,6 +62,19 @@ const jobSchema = new mongoose.Schema(
           default: null,
         },
       },
+      reviewFilter: {
+        operator: {
+          type: String,
+          enum: ["gt", "lt", "gte", "lte"],
+          default: null,
+        },
+        value: {
+          type: Number,
+          min: 0,
+          max: 10000,
+          default: null,
+        },
+      },
       reviewTimeRange: {
         type: Number,
         default: null,
@@ -159,12 +172,38 @@ jobSchema.index({ userId: 1, createdAt: -1 });
 jobSchema.index({ status: 1, createdAt: -1 });
 jobSchema.index({ userId: 1, status: 1 });
 
-// Virtual for duration calculation
+// Virtual for duration calculation (in milliseconds)
 jobSchema.virtual("duration").get(function () {
   if (this.startedAt && this.completedAt) {
     return this.completedAt - this.startedAt;
   }
   return null;
+});
+
+// Virtual for human-readable duration
+jobSchema.virtual("durationFormatted").get(function () {
+  const duration = this.duration;
+  if (!duration) return null;
+
+  const seconds = Math.floor(duration / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  } else if (minutes > 0) {
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  } else {
+    return `${seconds}s`;
+  }
+});
+
+// Virtual for duration in seconds (useful for API responses)
+jobSchema.virtual("durationSeconds").get(function () {
+  const duration = this.duration;
+  return duration ? Math.floor(duration / 1000) : null;
 });
 
 // Instance method to update job status

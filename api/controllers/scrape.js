@@ -270,7 +270,11 @@ const getJobStatus = async (req, res) => {
       createdAt: jobRecord.createdAt,
       startedAt: jobRecord.startedAt,
       completedAt: jobRecord.completedAt,
-      duration: jobRecord.duration,
+      duration: {
+        raw: jobRecord.duration, // milliseconds
+        seconds: jobRecord.durationSeconds,
+        formatted: jobRecord.durationFormatted, // e.g., "5m 30s"
+      },
     });
   } catch (error) {
     console.error("Error fetching job status:", error);
