@@ -64,9 +64,16 @@ const getUserJobs = async (req, res) => {
             .join(", "),
           status: job.status,
           progress: job.progress.percentage,
+          maxRecords: job.jobParams.maxRecords,
+          recordsCollected: job.metrics?.dataPointsCollected || 0,
           createdAt: job.createdAt,
+          startedAt: job.startedAt,
           completedAt: job.completedAt,
-          duration: job.duration,
+          duration: {
+            raw: job.duration, // milliseconds
+            seconds: job.durationSeconds,
+            formatted: job.durationFormatted, // e.g., "5m 30s"
+          },
         })),
         pagination: {
           currentPage: parseInt(page),
@@ -116,7 +123,11 @@ const getJobDetails = async (req, res) => {
         createdAt: job.createdAt,
         startedAt: job.startedAt,
         completedAt: job.completedAt,
-        duration: job.duration,
+        duration: {
+          raw: job.duration, // milliseconds
+          seconds: job.durationSeconds,
+          formatted: job.durationFormatted, // e.g., "5m 30s"
+        },
         user: job.userId,
       },
     });
