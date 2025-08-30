@@ -27,7 +27,7 @@ router.use(authController.protect);
 router.get("/dashboard", jobController.getUserDashboard);
 router.get("/jobs", jobController.getUserJobs);
 router.get("/:jobId", jobController.getJobDetails);
-router.delete("/:jobId", jobController.deleteJob);
+router.delete("/delete/:jobId", jobController.deleteJob);
 router.get("/:jobId/download", jobController.downloadJobResultCSV);
 
 // Scraping routes

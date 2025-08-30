@@ -2,6 +2,7 @@ import scraperQueue from "../../services/queue.js";
 import Job from "./../../models/jobModel.js";
 import User from "./../../models/userModel.js";
 import { Parser } from "json2csv";
+import socketService from "../../services/socket.service.js";
 
 const getUserJobs = async (req, res) => {
   try {
@@ -183,19 +184,64 @@ const deleteJob = async (req, res) => {
       });
     }
 
-    // Only allow deletion of completed or failed jobs
-    if (!["completed", "failed"].includes(job.status)) {
-      return res.status(400).json({
-        success: false,
-        error: "Can only delete completed or failed jobs",
-      });
+    // Kill the job if it's active/running in the queue
+    if (["pending", "active", "waiting"].includes(job.status)) {
+      try {
+        // Update database to reset progress before killing
+        await Job.findOneAndUpdate(
+          { jobId, userId },
+          {
+            status: "failed",
+            "progress.percentage": 0,
+            completedAt: new Date(),
+            error: {
+              message: "Job cancelled by user deletion",
+              timestamp: new Date(),
+            },
+          }
+        );
+
+        const queueJob = await scraperQueue.getJob(jobId);
+        if (queueJob) {
+          // Check if job is active and kill it
+          if (await queueJob.isActive()) {
+            await queueJob.moveToFailed(
+              new Error("Job cancelled by user deletion"),
+              true
+            );
+            console.log(`Killed active job ${jobId} before deletion`);
+          }
+          // Remove job from queue completely
+          await queueJob.remove();
+          console.log(`Removed job ${jobId} from queue`);
+        }
+      } catch (queueError) {
+        console.error(
+          `Error killing/removing job ${jobId} from queue:`,
+          queueError
+        );
+        // Continue with database deletion even if queue cleanup fails
+      }
     }
 
+    // Store job status for message and socket event
+    const wasActive = ["pending", "active", "waiting"].includes(job.status);
+
+    // Delete job from database
     await Job.findByIdAndDelete(job._id);
+
+    // Emit socket event to notify frontend
+    socketService.emitJobUpdate(userId, "job_deleted", {
+      jobId: job.jobId,
+      status: "deleted",
+      wasActive: wasActive,
+      progress: wasActive ? { percentage: 0 } : undefined, // ✅ Reset progress for cancelled jobs
+      deletedAt: new Date(),
+    });
 
     res.json({
       success: true,
-      message: "Job deleted successfully",
+      message: `Job deleted successfully ${wasActive ? "(and cancelled)" : ""}`,
     });
   } catch (error) {
     console.error("Error deleting job:", error);
