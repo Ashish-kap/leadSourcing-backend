@@ -159,6 +159,8 @@ scraperQueue.on("failed", async (job, err) => {
       {
         status: "failed",
         completedAt: new Date(),
+        "progress.percentage": 0,
+        "metrics.totalExtractions": 0,
         error: {
           message: err.message,
           stack: err.stack,
@@ -174,6 +176,7 @@ scraperQueue.on("failed", async (job, err) => {
         jobId: updatedJob.jobId,
         status: "failed",
         completedAt: updatedJob.completedAt,
+        progress: { percentage: 0 }, // ✅ Reset progress to 0 for failed jobs
         error: {
           message: err.message,
           timestamp: new Date(),
