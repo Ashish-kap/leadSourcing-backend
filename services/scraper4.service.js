@@ -290,9 +290,35 @@ async function scrapeLocation({
   const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedLocation}`;
   logger.info("SEARCH_URL", "Generated search URL", { url: searchUrl });
 
-  const browser = await puppeteer.connect({
-    browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
-  });
+  // const browser = await puppeteer.connect({
+  //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+  // });
+
+  const endpoint =
+    process.env.NODE_ENV === "production"
+      ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
+      : process.env.BROWSER_WS_ENDPOINT_LOCAL;
+
+  // const browser = await puppeteer.connect({
+  //   browserWSEndpoint: endpoint,
+  // });
+
+  const getBrowser = async () => {
+    if (endpoint) {
+      // Use Browserless for staging and production
+      console.log(endpoint);
+      return await puppeteer.connect({
+        browserWSEndpoint: endpoint,
+      });
+    } else {
+      // Fallback to production Browserless if BROWSER_WS_ENDPOINT is not set
+      return await puppeteer.connect({
+        browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+      });
+    }
+  };
+
+  const browser = await getBrowser();
 
   // const browser = await puppeteer.launch({
   //   headless: false,
