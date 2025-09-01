@@ -6,6 +6,7 @@ import puppeteer from "puppeteer-core";
 import logger from "./logger.js";
 import autoScroll from "./autoScroll.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
+import { verifyEmail } from "./utils/emailVerifier.js";
 
 // Helper to shuffle array for random selection
 function shuffleArray(array) {
@@ -816,7 +817,34 @@ async function extractBusinessDetails(
           ),
         ]);
 
-        businessData.email = emailResult;
+        // Verify email if one was found
+        if (emailResult) {
+          try {
+            const verificationResult = await verifyEmail(emailResult, {
+              heloHost: process.env.HELO_HOST,
+              mailFrom: process.env.MAIL_FROM,
+              connectionTimeoutMs: 7000,
+              commandTimeoutMs: 7000,
+            });
+
+            // Only set email if verification result is 'deliverable'
+            businessData.email =
+              verificationResult.result === "deliverable" ? emailResult : null;
+          } catch (verificationError) {
+            // If verification fails, set email to null
+            businessData.email = null;
+            logger.warn(
+              "EMAIL_VERIFICATION_ERROR",
+              "Email verification failed",
+              {
+                email: emailResult,
+                error: verificationError.message,
+              }
+            );
+          }
+        } else {
+          businessData.email = null;
+        }
       } catch (error) {
         businessData.email = null;
       } finally {
