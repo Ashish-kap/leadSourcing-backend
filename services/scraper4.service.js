@@ -2,7 +2,7 @@ import { State, City, Country } from "country-state-city";
 import dotenv from "dotenv";
 dotenv.config();
 import puppeteer from "puppeteer-core";
-// import puppeteer from "puppeteer";
+import puppeteerLocal from "puppeteer";
 import logger from "./logger.js";
 import autoScroll from "./autoScroll.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
@@ -298,7 +298,7 @@ async function scrapeLocation({
   const endpoint =
     process.env.NODE_ENV === "production"
       ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
-      : process.env.BROWSER_WS_ENDPOINT_LOCAL;
+      : "";
 
   // const browser = await puppeteer.connect({
   //   browserWSEndpoint: endpoint,
@@ -313,8 +313,23 @@ async function scrapeLocation({
       });
     } else {
       // Fallback to production Browserless if BROWSER_WS_ENDPOINT is not set
-      return await puppeteer.connect({
-        browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+      // return await puppeteer.connect({
+      //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+      // });
+      return await puppeteerLocal.launch({
+        headless: true,
+        // executablePath: executablePath(),
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--single-process",
+          "--no-zygote",
+          "--disable-accelerated-2d-canvas",
+          "--disable-web-security",
+        ],
+        protocolTimeout: 120000,
       });
     }
   };

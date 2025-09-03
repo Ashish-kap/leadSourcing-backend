@@ -146,8 +146,10 @@ const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Get user with credits info
-    const user = await User.findById(userId).select("name emailID credits");
+    // Get user with credits and plan info
+    const user = await User.findById(userId).select(
+      "name emailID credits plan"
+    );
 
     res.json({
       success: true,
@@ -155,8 +157,14 @@ const getUserDashboard = async (req, res) => {
         user: {
           // name: user.name,
           // email: user.emailID,
-          credits: user.credits,
-          creditPercentage: user.creditPercentage,
+          credits: user.hasUnlimitedAccess()
+            ? { unlimited: true }
+            : user.credits,
+          creditPercentage: user.hasUnlimitedAccess()
+            ? null
+            : user.creditPercentage,
+          plan: user.plan,
+          hasUnlimitedAccess: user.hasUnlimitedAccess(),
         },
       },
     });

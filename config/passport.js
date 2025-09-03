@@ -38,6 +38,7 @@ passport.use(
           emailID: profile.emails[0].value,
           authProvider: "google",
           photo: profile.photos[0].value,
+          plan: "freebie", // Default plan for OAuth users
           // No password required for OAuth users
           passwordConfirm: undefined,
         });

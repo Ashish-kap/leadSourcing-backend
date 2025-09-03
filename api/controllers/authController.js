@@ -43,6 +43,7 @@ export const signup = catchAsync(async (req, res) => {
     passwordConfirm: req.body.passwordConfirm,
     passwordChangeAt: req.body.passwordChangeAt,
     role: req.body.role,
+    plan: req.body.plan || "freebie", // Default to 'free' plan
     passwordForgotToken: req.body.passwordForgotToken,
     passwordExpireToken: req.body.passwordExpireToken,
   });
@@ -234,11 +235,11 @@ export const updatePassword = catchAsync(async (req, res, next) => {
 
 // authController.js
 export const logout = (req, res) => {
-  res.cookie('jwt', 'loggedout', {
+  res.cookie("jwt", "loggedout", {
     expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true
+    httpOnly: true,
   });
-  res.status(200).json({ status: 'success' });
+  res.status(200).json({ status: "success" });
 };
 
 // Google OAuth Controllers
@@ -288,7 +289,7 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
     if (!user) {
       // Check if user exists with same email
       user = await User.findOne({ emailID: email });
-      
+
       if (user) {
         // Link Google account to existing user
         user.googleId = googleId;
@@ -302,16 +303,15 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
           emailID: email,
           authProvider: "google",
           photo: picture,
+          plan: "freebie", // Default plan for OAuth users
         });
         await user.save({ validateBeforeSave: false });
       }
     }
 
     createSendToken(user, 200, res);
-    
   } catch (error) {
     console.error("Google token verification error:", error);
     return next(new AppError("Invalid Google token", 400));
   }
 });
-

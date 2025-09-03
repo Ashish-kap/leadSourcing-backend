@@ -137,11 +137,15 @@ const scrapeData = async (req, res) => {
         .json({ error: "reviewTimeRange must be a number between 0 and 10" });
     }
 
-    // Check user credits
+    // Check user credits (skip for business plan users)
     const user = await User.findById(userId);
     const estimatedCredits = Math.ceil((maxRecords / 10) * 10);
 
-    if (user.credits.remaining < estimatedCredits) {
+    // Business plan users have unlimited access
+    if (
+      !user.hasUnlimitedAccess() &&
+      user.credits.remaining < estimatedCredits
+    ) {
       return res.status(402).json({
         error: "Insufficient credits",
         required: estimatedCredits,
@@ -171,7 +175,9 @@ const scrapeData = async (req, res) => {
       jobParams,
       status: "waiting",
       metrics: {
-        creditsUsed: estimatedCredits,
+        creditsUsed: user.hasUnlimitedAccess() ? 0 : estimatedCredits, // Track 0 for business users
+        estimatedCredits: estimatedCredits, // Keep original estimate for analytics
+        planType: user.plan, // Track plan type for analytics
       },
     });
 
