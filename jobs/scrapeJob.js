@@ -15,6 +15,7 @@
 
 import { runScraper } from "../services/scraper4.service.js";
 import Job from "../models/jobModel.js";
+import User from "../models/userModel.js";
 
 export default async function (job) {
   try {
@@ -35,12 +36,20 @@ export default async function (job) {
 
     // Update database job status to completed
     if (dbJob) {
+      // Get user to check plan for credit calculation
+      const user = await User.findById(job.data.userId);
+      const actualCreditsUsed =
+        user && user.hasUnlimitedExtraction()
+          ? 0
+          : Math.ceil((result?.length || 0) / 10) * 10;
+
       await dbJob.updateStatus("completed", {
         result: result,
         metrics: {
           totalExtractions: result?.length || 0,
           dataPointsCollected: result?.length || 0,
-          creditsUsed: Math.ceil((result?.length || 0) / 10) * 10,
+          creditsUsed: actualCreditsUsed,
+          planType: user?.plan || "unknown", // Track plan type for analytics
         },
       });
     }

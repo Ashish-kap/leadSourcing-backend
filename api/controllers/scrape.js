@@ -14,10 +14,11 @@ const scrapeData = async (req, res) => {
       ratingFilter = null,
       reviewFilter = null,
       reviewTimeRange = null,
+      isExtractEmail = false,
     } = req.body;
 
     // Get user from auth middleware (assuming you have auth middleware)
-
+    console.log(req.user);
     const userId = req.user.id;
 
     // Validate mandatory fields
@@ -34,12 +35,9 @@ const scrapeData = async (req, res) => {
     }
 
     // Validate numeric parameters
-    if (
-      maxRecords &&
-      (isNaN(maxRecords) || maxRecords < 1 || maxRecords > 1000)
-    ) {
+    if (maxRecords && (isNaN(maxRecords) || maxRecords < 1)) {
       return res.status(400).json({
-        error: "maxRecords must be a number between 1 and 1000",
+        error: "maxRecords must be a positive number",
       });
     }
 
@@ -137,11 +135,53 @@ const scrapeData = async (req, res) => {
         .json({ error: "reviewTimeRange must be a number between 0 and 10" });
     }
 
-    // Check user credits
+    // Validate isExtractEmail parameter
+    if (isExtractEmail !== null && typeof isExtractEmail !== "boolean") {
+      return res.status(400).json({
+        error: "isExtractEmail must be a boolean value (true or false)",
+      });
+    }
+
+    // Check user and apply plan-based restrictions
     const user = await User.findById(userId);
     const estimatedCredits = Math.ceil((maxRecords / 10) * 10);
 
-    if (user.credits.remaining < estimatedCredits) {
+    // Plan-based restrictions
+    if (!user.hasUnlimitedAccess()) {
+      // Restriction 1: maxRecords limit of 50 for free users (not business)
+      if (maxRecords > 50) {
+        return res.status(422).json({
+          error: "Plan upgrade required",
+          message:
+            "Free plans are limited to 50 records per job. Please upgrade to Business plan for unlimited extractions.",
+          currentPlan: user.plan,
+          maxAllowed: 50,
+          requested: maxRecords,
+        });
+      }
+
+      // Restriction 2: Single active job limit for free users (not business)
+      const activeJobsCount = await Job.countDocuments({
+        userId,
+        status: { $in: ["waiting", "active"] },
+      });
+
+      if (activeJobsCount > 0) {
+        return res.status(429).json({
+          error: "Active job limit exceeded",
+          message:
+            "Free plans can only run one job at a time. Please wait for your current job to complete or upgrade to Business plan.",
+          currentPlan: user.plan,
+          activeJobs: activeJobsCount,
+        });
+      }
+    }
+
+    // Credit check only for PRO users free users have unlimited extraction)
+    if (
+      !user.hasUnlimitedExtraction() &&
+      user.credits.remaining < estimatedCredits
+    ) {
       return res.status(402).json({
         error: "Insufficient credits",
         required: estimatedCredits,
@@ -162,6 +202,7 @@ const scrapeData = async (req, res) => {
       ratingFilter: ratingFilter,
       reviewFilter: reviewFilter,
       reviewTimeRange: reviewTimeRange ? parseInt(reviewTimeRange) : null,
+      isExtractEmail: isExtractEmail,
     };
 
     // Create job record in database
@@ -171,7 +212,9 @@ const scrapeData = async (req, res) => {
       jobParams,
       status: "waiting",
       metrics: {
-        creditsUsed: estimatedCredits,
+        creditsUsed: user.hasUnlimitedExtraction() ? 0 : estimatedCredits, // Track 0 for users with unlimited extraction
+        estimatedCredits: estimatedCredits, // Keep original estimate for analytics
+        planType: user.plan, // Track plan type for analytics
       },
     });
 

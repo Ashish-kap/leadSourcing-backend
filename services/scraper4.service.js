@@ -2,10 +2,11 @@ import { State, City, Country } from "country-state-city";
 import dotenv from "dotenv";
 dotenv.config();
 import puppeteer from "puppeteer-core";
-// import puppeteer from "puppeteer";
+import puppeteerLocal from "puppeteer";
 import logger from "./logger.js";
 import autoScroll from "./autoScroll.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
+import { verifyEmail } from "./utils/emailVerifier.js";
 
 // Helper to shuffle array for random selection
 function shuffleArray(array) {
@@ -52,6 +53,7 @@ export async function runScraper(
     ratingFilter = null,
     reviewFilter = null,
     reviewTimeRange = null,
+    isExtractEmail = false,
   },
   job
 ) {
@@ -109,6 +111,7 @@ export async function runScraper(
       ratingFilter,
       reviewFilter,
       reviewTimeRange,
+      isExtractEmail,
       cumulativeResults: results.length, // Pass cumulative count
       totalMaxRecords: recordLimit, // Pass original limit
     });
@@ -271,6 +274,7 @@ async function scrapeLocation({
   ratingFilter = null,
   reviewFilter = null,
   reviewTimeRange,
+  isExtractEmail = false,
   cumulativeResults = 0, // Total results so far across all cities
   totalMaxRecords = maxRecords, // Original target limit
 }) {
@@ -297,7 +301,7 @@ async function scrapeLocation({
   const endpoint =
     process.env.NODE_ENV === "production"
       ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
-      : process.env.BROWSER_WS_ENDPOINT_LOCAL;
+      : "";
 
   // const browser = await puppeteer.connect({
   //   browserWSEndpoint: endpoint,
@@ -312,8 +316,23 @@ async function scrapeLocation({
       });
     } else {
       // Fallback to production Browserless if BROWSER_WS_ENDPOINT is not set
-      return await puppeteer.connect({
-        browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+      // return await puppeteer.connect({
+      //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+      // });
+      return await puppeteerLocal.launch({
+        headless: true,
+        // executablePath: executablePath(),
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--single-process",
+          "--no-zygote",
+          "--disable-accelerated-2d-canvas",
+          "--disable-web-security",
+        ],
+        protocolTimeout: 120000,
       });
     }
   };
@@ -503,7 +522,8 @@ async function scrapeLocation({
                   keyword,
                   locationString,
                   null, // Pre-filtered, so no need to filter again
-                  null // Pre-filtered, so no need to filter again
+                  null, // Pre-filtered, so no need to filter again
+                  isExtractEmail
                 );
                 // return { url, ...businessData };
 
@@ -652,7 +672,8 @@ async function extractBusinessDetails(
   searchTerm,
   searchLocation,
   ratingFilter = null,
-  reviewFilter = null
+  reviewFilter = null,
+  isExtractEmail = false
 ) {
   let businessData;
   try {
@@ -786,8 +807,8 @@ async function extractBusinessDetails(
       ),
     ]);
 
-    // Extract email if website exists
-    if (businessData.website) {
+    // Extract email if website exists and email extraction is enabled
+    if (isExtractEmail && businessData.website) {
       let emailPage;
       try {
         emailPage = await browser.newPage();
@@ -816,7 +837,34 @@ async function extractBusinessDetails(
           ),
         ]);
 
-        businessData.email = emailResult;
+        // Verify email if one was found
+        if (emailResult) {
+          try {
+            const verificationResult = await verifyEmail(emailResult, {
+              heloHost: process.env.HELO_HOST,
+              mailFrom: process.env.MAIL_FROM,
+              connectionTimeoutMs: 7000,
+              commandTimeoutMs: 7000,
+            });
+
+            // Only set email if verification result is 'deliverable'
+            businessData.email =
+              verificationResult.result === "deliverable" ? emailResult : null;
+          } catch (verificationError) {
+            // If verification fails, set email to null
+            businessData.email = null;
+            logger.warn(
+              "EMAIL_VERIFICATION_ERROR",
+              "Email verification failed",
+              {
+                email: emailResult,
+                error: verificationError.message,
+              }
+            );
+          }
+        } else {
+          businessData.email = null;
+        }
       } catch (error) {
         businessData.email = null;
       } finally {

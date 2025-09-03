@@ -155,9 +155,15 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    plan: {
+      type: String,
+      enum: ["free", "pro", "business"],
+      default: "free",
+    },
+
     password: {
       type: String,
-      required: function() {
+      required: function () {
         return !this.googleId; // Password required only if not using Google OAuth
       },
       minlength: 8,
@@ -166,7 +172,7 @@ const userSchema = new mongoose.Schema(
 
     passwordConfirm: {
       type: String,
-      required: function() {
+      required: function () {
         return !this.googleId && this.isNew; // Only required for new non-OAuth users
       },
       validate: {
@@ -231,8 +237,26 @@ userSchema.virtual("creditPercentage").get(function () {
   return ((this.credits.remaining / this.credits.total) * 100).toFixed(1);
 });
 
-// Method to deduct credits - FIXED VERSION
+// Method to check if user has unlimited access (no restrictions at all)
+userSchema.methods.hasUnlimitedAccess = function () {
+  return this.plan === "business";
+};
+
+// Method to check if user has unlimited extraction (no credit limits)
+userSchema.methods.hasUnlimitedExtraction = function () {
+  return (
+    this.plan === "business" ||  this.plan === "free"
+  );
+};
+
+// Method to deduct credits - FIXED VERSION with plan-based bypass
 userSchema.methods.deductCredits = async function (amount) {
+  // Skip credit deduction for users with unlimited extraction (business, free)
+  if (this.hasUnlimitedExtraction()) {
+    return this; // Return user instance without deduction
+  }
+
+  // Only pro users have credit limitations
   if (this.credits.remaining < amount) {
     throw new Error("Insufficient credits");
   }
