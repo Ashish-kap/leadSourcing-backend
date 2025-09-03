@@ -43,7 +43,7 @@ export const signup = catchAsync(async (req, res) => {
     passwordConfirm: req.body.passwordConfirm,
     passwordChangeAt: req.body.passwordChangeAt,
     role: req.body.role,
-    plan: req.body.plan || "freebie", // Default to 'free' plan
+    plan: req.body.plan || "free", // Default to 'free' plan
     passwordForgotToken: req.body.passwordForgotToken,
     passwordExpireToken: req.body.passwordExpireToken,
   });
@@ -303,7 +303,7 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
           emailID: email,
           authProvider: "google",
           photo: picture,
-          plan: "freebie", // Default plan for OAuth users
+          plan: "free", // Default plan for OAuth users
         });
         await user.save({ validateBeforeSave: false });
       }

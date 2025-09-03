@@ -157,14 +157,15 @@ const getUserDashboard = async (req, res) => {
         user: {
           // name: user.name,
           // email: user.emailID,
-          credits: user.hasUnlimitedAccess()
+          credits: user.hasUnlimitedExtraction()
             ? { unlimited: true }
             : user.credits,
-          creditPercentage: user.hasUnlimitedAccess()
+          creditPercentage: user.hasUnlimitedExtraction()
             ? null
             : user.creditPercentage,
           plan: user.plan,
           hasUnlimitedAccess: user.hasUnlimitedAccess(),
+          hasUnlimitedExtraction: user.hasUnlimitedExtraction(),
         },
       },
     });

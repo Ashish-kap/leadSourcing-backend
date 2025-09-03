@@ -39,7 +39,7 @@ export default async function (job) {
       // Get user to check plan for credit calculation
       const user = await User.findById(job.data.userId);
       const actualCreditsUsed =
-        user && user.hasUnlimitedAccess()
+        user && user.hasUnlimitedExtraction()
           ? 0
           : Math.ceil((result?.length || 0) / 10) * 10;
 

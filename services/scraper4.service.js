@@ -53,6 +53,7 @@ export async function runScraper(
     ratingFilter = null,
     reviewFilter = null,
     reviewTimeRange = null,
+    isExtractEmail = false,
   },
   job
 ) {
@@ -110,6 +111,7 @@ export async function runScraper(
       ratingFilter,
       reviewFilter,
       reviewTimeRange,
+      isExtractEmail,
       cumulativeResults: results.length, // Pass cumulative count
       totalMaxRecords: recordLimit, // Pass original limit
     });
@@ -272,6 +274,7 @@ async function scrapeLocation({
   ratingFilter = null,
   reviewFilter = null,
   reviewTimeRange,
+  isExtractEmail = false,
   cumulativeResults = 0, // Total results so far across all cities
   totalMaxRecords = maxRecords, // Original target limit
 }) {
@@ -519,7 +522,8 @@ async function scrapeLocation({
                   keyword,
                   locationString,
                   null, // Pre-filtered, so no need to filter again
-                  null // Pre-filtered, so no need to filter again
+                  null, // Pre-filtered, so no need to filter again
+                  isExtractEmail
                 );
                 // return { url, ...businessData };
 
@@ -668,7 +672,8 @@ async function extractBusinessDetails(
   searchTerm,
   searchLocation,
   ratingFilter = null,
-  reviewFilter = null
+  reviewFilter = null,
+  isExtractEmail = false
 ) {
   let businessData;
   try {
@@ -802,8 +807,8 @@ async function extractBusinessDetails(
       ),
     ]);
 
-    // Extract email if website exists
-    if (businessData.website) {
+    // Extract email if website exists and email extraction is enabled
+    if (isExtractEmail && businessData.website) {
       let emailPage;
       try {
         emailPage = await browser.newPage();
