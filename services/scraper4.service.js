@@ -540,7 +540,7 @@ async function scrapeLocation({
                   businessData.filtered_review_count = filteredReviews.length;
                 }
 
-                return businessData ? { url, ...businessData } : null;
+                return businessData ? { ...businessData, url } : null;
               })(),
               new Promise((_, reject) =>
                 setTimeout(
