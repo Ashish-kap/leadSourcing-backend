@@ -34,7 +34,7 @@ export default async function (job) {
     // Final progress update
     await job.progress(100);
 
-    // Update database job status to completed
+    // Update database job status based on results
     if (dbJob) {
       // Get user to check plan for credit calculation
       const user = await User.findById(job.data.userId);
@@ -43,11 +43,15 @@ export default async function (job) {
           ? 0
           : Math.ceil((result?.length || 0) / 10) * 10;
 
-      await dbJob.updateStatus("completed", {
+      // Determine status based on results
+      const totalExtractions = result?.length || 0;
+      const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
+
+      await dbJob.updateStatus(jobStatus, {
         result: result,
         metrics: {
-          totalExtractions: result?.length || 0,
-          dataPointsCollected: result?.length || 0,
+          totalExtractions: totalExtractions,
+          dataPointsCollected: totalExtractions,
           creditsUsed: actualCreditsUsed,
           planType: user?.plan || "unknown", // Track plan type for analytics
         },

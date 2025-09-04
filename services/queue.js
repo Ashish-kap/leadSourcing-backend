@@ -116,33 +116,44 @@ scraperQueue.on("progress", async (job, progress) => {
 scraperQueue.on("completed", async (job, result) => {
   console.log(`Job ${job.id} completed`);
 
+  // Check if results are empty
+  const totalExtractions = result?.length || 0;
+  const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
+
+  console.log(
+    `Job ${job.id} finished with ${totalExtractions} records, status: ${jobStatus}`
+  );
+
   // Update database record
   try {
     const updatedJob = await Job.findOneAndUpdate(
       { jobId: job.data.jobId },
       {
-        status: "completed",
+        status: jobStatus,
         completedAt: new Date(),
         result: result,
         "progress.percentage": 100,
-        "metrics.totalExtractions": result?.length || 0,
+        "metrics.totalExtractions": totalExtractions,
       },
       { new: true }
     );
 
     // Emit socket event to user for job completion
     if (updatedJob) {
-      socketService.emitJobUpdate(
-        updatedJob.userId.toString(),
-        "job_completed",
-        {
-          jobId: updatedJob.jobId,
-          status: "completed",
-          completedAt: updatedJob.completedAt,
-          progress: { percentage: 100 },
-          totalExtractions: result?.length || 0,
-        }
-      );
+      const eventType =
+        jobStatus === "completed" ? "job_completed" : "job_no_data_found";
+
+      socketService.emitJobUpdate(updatedJob.userId.toString(), eventType, {
+        jobId: updatedJob.jobId,
+        status: jobStatus,
+        completedAt: updatedJob.completedAt,
+        progress: { percentage: 100 },
+        totalExtractions: totalExtractions,
+        message:
+          jobStatus === "data_not_found"
+            ? "No data found matching your search criteria. Try adjusting your filters or location."
+            : `Successfully extracted ${totalExtractions} records.`,
+      });
     }
   } catch (error) {
     console.error(`Error updating completed job ${job.id}:`, error);
