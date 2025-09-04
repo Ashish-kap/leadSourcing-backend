@@ -86,12 +86,12 @@ const jobSchema = new mongoose.Schema(
     // Job status and progress
     status: {
       type: String,
-      enum: ["waiting", "active", "completed", "failed", "delayed", "paused"],
+      enum: ["waiting", "active", "completed", "failed", "data_not_found", "delayed", "paused"],
       default: "active",
       index: true,
     },
 
-    progress: {
+    progress: { 
       percentage: {
         type: Number,
         default: 0,
