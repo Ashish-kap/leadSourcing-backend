@@ -153,7 +153,7 @@ const scrapeData = async (req, res) => {
         return res.status(422).json({
           error: "Plan upgrade required",
           message:
-            "Free plans are limited to 50 records per job. Please upgrade to Business plan for unlimited extractions.",
+            "Free plans are limited to 50 records. Please upgrade to Business plan for unlimited extractions.",
           currentPlan: user.plan,
           maxAllowed: 50,
           requested: maxRecords,
