@@ -13,7 +13,7 @@
 //   }
 // }
 
-import { runScraper } from "../services/scraper4.service.js";
+import { runScraper } from "../services/scraper3.service.js";
 import Job from "../models/jobModel.js";
 import User from "../models/userModel.js";
 
