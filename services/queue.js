@@ -4,6 +4,7 @@ import Queue from "bull";
 import scrapeJob from "../jobs/scrapeJob.js";
 import Job from "../models/jobModel.js";
 import socketService from "./socket.service.js";
+import logger from "./logger.js";
 
 let redisObj;
 
@@ -42,15 +43,15 @@ const scraperQueue = new Queue("scraper", {
 
 // Event handlers for job lifecycle
 scraperQueue.on("error", (err) => {
-  console.error("Redis connection error:", err);
+  logger.error("REDIS_ERROR", "Redis connection error", err);
 });
 
 scraperQueue.on("connected", () => {
-  console.log("Successfully connected to Redis");
+  logger.info("REDIS_CONNECTED", "Successfully connected to Redis");
 });
 
 scraperQueue.on("active", async (job) => {
-  console.log(`Job ${job.id} started processing`);
+  logger.info("JOB_ACTIVE", `Job ${job.id} started processing`);
 
   // Update database record
   try {
@@ -73,12 +74,16 @@ scraperQueue.on("active", async (job) => {
       });
     }
   } catch (error) {
-    console.error(`Error updating job ${job.id} to active:`, error);
+    logger.error(
+      "JOB_UPDATE_ERROR",
+      `Error updating job ${job.id} to active`,
+      error
+    );
   }
 });
 
 scraperQueue.on("progress", async (job, progress) => {
-  console.log(`Job ${job.id} progress:`, progress);
+  logger.info("JOB_PROGRESS", `Job ${job.id} progress`, progress);
 
   // Update database with progress
   try {
@@ -109,18 +114,23 @@ scraperQueue.on("progress", async (job, progress) => {
       );
     }
   } catch (error) {
-    console.error(`Error updating job ${job.id} progress:`, error);
+    logger.error(
+      "JOB_PROGRESS_ERROR",
+      `Error updating job ${job.id} progress`,
+      error
+    );
   }
 });
 
 scraperQueue.on("completed", async (job, result) => {
-  console.log(`Job ${job.id} completed`);
+  logger.info("JOB_COMPLETED", `Job ${job.id} completed`);
 
   // Check if results are empty
   const totalExtractions = result?.length || 0;
   const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
 
-  console.log(
+  logger.info(
+    "JOB_FINISHED",
     `Job ${job.id} finished with ${totalExtractions} records, status: ${jobStatus}`
   );
 
@@ -156,12 +166,16 @@ scraperQueue.on("completed", async (job, result) => {
       });
     }
   } catch (error) {
-    console.error(`Error updating completed job ${job.id}:`, error);
+    logger.error(
+      "JOB_COMPLETION_ERROR",
+      `Error updating completed job ${job.id}`,
+      error
+    );
   }
 });
 
 scraperQueue.on("failed", async (job, err) => {
-  console.error(`Job ${job.id} failed:`, err.message);
+  logger.error("JOB_FAILED", `Job ${job.id} failed`, err);
 
   // Update database record
   try {
@@ -195,12 +209,16 @@ scraperQueue.on("failed", async (job, err) => {
       });
     }
   } catch (error) {
-    console.error(`Error updating failed job ${job.id}:`, error);
+    logger.error(
+      "JOB_FAILURE_ERROR",
+      `Error updating failed job ${job.id}`,
+      error
+    );
   }
 });
 
 // Process with configurable concurrent workers
-const CONCURRENT_WORKERS = parseInt(process.env.CONCURRENT_WORKERS) || 3;
+const CONCURRENT_WORKERS = parseInt(process.env.CONCURRENT_WORKERS) || 10;
 scraperQueue.process(CONCURRENT_WORKERS, scrapeJob);
 
 export default scraperQueue;

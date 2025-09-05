@@ -82,7 +82,6 @@ export const protect = catchAsync(async (req, res, next) => {
   ) {
     token = req.headers.authorization.split(" ")[1];
 
-    // console.log(token)
   }
 
   if (!token) {
@@ -93,7 +92,6 @@ export const protect = catchAsync(async (req, res, next) => {
 
   // verify token
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-  console.log(decoded);
   //check if user still exist
   const freshUser = await User.findById(decoded.id);
 
@@ -166,7 +164,6 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
       message: "token sent to email",
     });
   } catch (err) {
-    console.log(err);
 
     getUser.passwordExpireToken = undefined;
 
