@@ -1,5 +1,16 @@
+const isProduction = process.env.NODE_ENV === "production";
+
 const logger = {
+  debug: (step, message, data = null) => {
+    if (isProduction) return;
+    const timestamp = new Date().toISOString();
+    console.debug(
+      `[${timestamp}] [DEBUG] [${step}] ${message}`,
+      data ? JSON.stringify(data, null, 2) : ""
+    );
+  },
   info: (step, message, data = null) => {
+    if (isProduction) return;
     const timestamp = new Date().toISOString();
     console.log(
       `[${timestamp}] [INFO] [${step}] ${message}`,
@@ -14,6 +25,7 @@ const logger = {
     );
   },
   warn: (step, message, data = null) => {
+    if (isProduction) return;
     const timestamp = new Date().toISOString();
     console.warn(
       `[${timestamp}] [WARN] [${step}] ${message}`,
@@ -22,5 +34,4 @@ const logger = {
   },
 };
 
-
-export default logger
+export default logger;
