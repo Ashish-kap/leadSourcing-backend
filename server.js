@@ -13,6 +13,7 @@ import globalErrController from "./api/controllers/errController.js";
 import expressMongoSanitize from "express-mongo-sanitize";
 import helmet from "helmet";
 import xssClean from "xss-clean";
+import logger from "./services/logger.js";
 import hpp from "hpp";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
@@ -37,7 +38,6 @@ app.use(helmet());
 // Initialize passport middleware
 app.use(passport.initialize());
 
-console.log(process.env.NODE_ENV);
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
@@ -82,7 +82,7 @@ mongoose
     useNewUrlParser: true,
   })
   .then((con) => {
-    console.log("db connection successfull....");
+    logger.info("DB_CONNECTED", "Database connection successful");
   });
 
 // Initialize Socket.IO
@@ -91,8 +91,14 @@ socketService.init(httpServer);
 // Start Server
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Dashboard: http://localhost:${PORT}/admin`);
-  console.log(`Job Monitor: http://localhost:${PORT}/job-monitor.html`);
-  console.log(`Socket.IO server initialized for real-time job updates`);
+  logger.info("SERVER_STARTED", `Server running on port ${PORT}`);
+  logger.info("DASHBOARD_URL", `Dashboard: http://localhost:${PORT}/admin`);
+  logger.info(
+    "JOB_MONITOR_URL",
+    `Job Monitor: http://localhost:${PORT}/job-monitor.html`
+  );
+  logger.info(
+    "SOCKETIO_READY",
+    "Socket.IO server initialized for real-time job updates"
+  );
 });
