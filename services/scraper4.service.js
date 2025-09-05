@@ -26,7 +26,7 @@ const locationKey = (country, state, city) =>
   `${country}-${state || ""}-${city}`.toLowerCase().replace(/\s+/g, "-");
 
 async function safeEvaluate(page, fn, ...args) {
-  const timeout = 30000;
+  const timeout = 10000;
   try {
     const result = await Promise.race([
       page.evaluate(fn, ...args),
@@ -41,6 +41,57 @@ async function safeEvaluate(page, fn, ...args) {
   } catch (error) {
     throw error;
   }
+}
+
+// Shared browser instance across locations
+let sharedBrowser = null;
+async function getSharedBrowserByEndpoint(endpoint) {
+  if (sharedBrowser) {
+    return sharedBrowser;
+  }
+  if (endpoint) {
+    console.log(endpoint);
+    sharedBrowser = await puppeteer.connect({ browserWSEndpoint: endpoint });
+  } else {
+    sharedBrowser = await puppeteerLocal.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--no-zygote",
+        "--disable-accelerated-2d-canvas",
+        "--disable-web-security",
+      ],
+      protocolTimeout: 120000,
+    });
+  }
+  return sharedBrowser;
+}
+
+
+// Create a new page with minimal retry to avoid Target.createTarget stalls
+async function newPageWithRetry(browser, attempts = 2) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const page = await browser.newPage();
+      return page;
+    } catch (error) {
+      lastError = error;
+      const message = String(error?.message || error || "");
+      if (
+        message.includes("Target.createTarget") ||
+        message.includes("Session with given id not found")
+      ) {
+        await new Promise((r) => setTimeout(r, 200));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError || new Error("Failed to open new page");
 }
 
 export async function runScraper(
@@ -294,74 +345,30 @@ async function scrapeLocation({
   const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedLocation}`;
   logger.info("SEARCH_URL", "Generated search URL", { url: searchUrl });
 
-  // const browser = await puppeteer.connect({
-  //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
-  // });
-
   const endpoint =
     process.env.NODE_ENV === "production"
       ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
       : "";
 
-  // const browser = await puppeteer.connect({
-  //   browserWSEndpoint: endpoint,
-  // });
-
-  const getBrowser = async () => {
-    if (endpoint) {
-      // Use Browserless for staging and production
-      console.log(endpoint);
-      return await puppeteer.connect({
-        browserWSEndpoint: endpoint,
-      });
-    } else {
-      // Fallback to production Browserless if BROWSER_WS_ENDPOINT is not set
-      // return await puppeteer.connect({
-      //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
-      // });
-      return await puppeteerLocal.launch({
-        headless: true,
-        // executablePath: executablePath(),
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-gpu",
-          "--disable-dev-shm-usage",
-          "--single-process",
-          "--no-zygote",
-          "--disable-accelerated-2d-canvas",
-          "--disable-web-security",
-        ],
-        protocolTimeout: 120000,
-      });
-    }
-  };
-
-  const browser = await getBrowser();
-
-  // const browser = await puppeteer.launch({
-  //   headless: false,
-  //   // executablePath: executablePath(),
-  //   args: [
-  //     "--no-sandbox",
-  //     "--disable-setuid-sandbox",
-  //     "--disable-gpu",
-  //     "--disable-dev-shm-usage",
-  //     "--single-process",
-  //     "--no-zygote",
-  //     "--disable-accelerated-2d-canvas",
-  //     "--disable-web-security",
-  //   ],
-  //   protocolTimeout: 120000,
-  // });
+  // Reuse one browser across all locations
+  const browser = await getSharedBrowserByEndpoint(endpoint);
 
   try {
     const page = await browser.newPage();
-    await page.setDefaultNavigationTimeout(60000);
+    await page.setDefaultNavigationTimeout(10000);
 
     // Navigate to search URL
-    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 120000 });
-    await autoScroll(page);
+    await page.goto(searchUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 20000,
+    });
+    // Cap autoScroll to avoid long stalls on heavy result lists
+    await Promise.race([
+      autoScroll(page),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("autoScroll timed out")), 10000)
+      ),
+    ]);
 
     // Extract listing URLs with ratings for pre-filtering
     const listingsData = await safeEvaluate(
@@ -494,7 +501,7 @@ async function scrapeLocation({
     //   location: `${city}, ${state}, ${countryName}`,
     // });
 
-    const BATCH_SIZE = 1;
+    const BATCH_SIZE = 2;
     for (let i = 0; i < listingsToProcess; i += BATCH_SIZE) {
       // Get current batch (usually 1 URL)
       const batch = listingUrls.slice(i, i + BATCH_SIZE);
@@ -503,13 +510,13 @@ async function scrapeLocation({
         batch.map(async (url) => {
           let detailPage;
           try {
-            detailPage = await browser.newPage();
+            detailPage = await newPageWithRetry(browser, 2);
 
             const result = await Promise.race([
               (async () => {
                 await detailPage.goto(url, {
                   waitUntil: "domcontentloaded",
-                  timeout: 20000,
+                  timeout: 15000,
                 });
 
                 const locationString = [city, state, countryName]
@@ -545,8 +552,8 @@ async function scrapeLocation({
               new Promise((_, reject) =>
                 setTimeout(
                   () =>
-                    reject(new Error("Listing processing timed out after 60s")),
-                  60000
+                    reject(new Error("Listing processing timed out after 30s")),
+                  30000
                 )
               ),
             ]);
@@ -662,7 +669,7 @@ async function scrapeLocation({
 
     return results.slice(0, maxRecords);
   } finally {
-    await browser.close();
+    // Do not close the shared browser here; it will be closed by the caller or process end
   }
 }
 
@@ -811,14 +818,19 @@ async function extractBusinessDetails(
     if (isExtractEmail && businessData.website) {
       let emailPage;
       try {
-        emailPage = await browser.newPage();
-        await emailPage.setDefaultNavigationTimeout(10000);
+        emailPage = await newPageWithRetry(browser, 2);
+        await emailPage.setDefaultNavigationTimeout(7000);
 
         const emailResult = await Promise.race([
           (async () => {
+            // If it's a mailto link, use it directly without loading the site
+            if (businessData.website.startsWith("mailto:")) {
+              return businessData.website.replace("mailto:", "");
+            }
+
             await emailPage.goto(businessData.website, {
               waitUntil: "domcontentloaded",
-              timeout: 10000,
+              timeout: 7000,
             });
 
             const email = await emailPage.evaluate(() => {
@@ -832,7 +844,7 @@ async function extractBusinessDetails(
           new Promise((_, reject) =>
             setTimeout(
               () => reject(new Error("Email extraction timed out")),
-              10000
+              7000
             )
           ),
         ]);
@@ -843,8 +855,8 @@ async function extractBusinessDetails(
             const verificationResult = await verifyEmail(emailResult, {
               heloHost: process.env.HELO_HOST,
               mailFrom: process.env.MAIL_FROM,
-              connectionTimeoutMs: 7000,
-              commandTimeoutMs: 7000,
+              connectionTimeoutMs: 5000,
+              commandTimeoutMs: 5000,
             });
 
             // Only set email if verification result is 'deliverable'
