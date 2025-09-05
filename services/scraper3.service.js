@@ -2,9 +2,11 @@ import { State, City, Country } from "country-state-city";
 import dotenv from "dotenv";
 dotenv.config();
 import puppeteer from "puppeteer-core";
+import puppeteerLocal from "puppeteer";
 import logger from "./logger.js";
 import autoScroll from "./autoScroll.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
+import { verifyEmail } from "./utils/emailVerifier.js";
 
 // Helper to shuffle array for random selection
 function shuffleArray(array) {
@@ -48,8 +50,10 @@ export async function runScraper(
     stateCode,
     city,
     maxRecords,
-    minRating = null,
+    ratingFilter = null,
+    reviewFilter = null,
     reviewTimeRange = null,
+    isExtractEmail = false,
   },
   job
 ) {
@@ -104,8 +108,12 @@ export async function runScraper(
       countryName,
       job,
       maxRecords: recordsRemaining,
-      minRating,
+      ratingFilter,
+      reviewFilter,
       reviewTimeRange,
+      isExtractEmail,
+      cumulativeResults: results.length, // Pass cumulative count
+      totalMaxRecords: recordLimit, // Pass original limit
     });
 
     return cityResults;
@@ -263,8 +271,12 @@ async function scrapeLocation({
   countryName,
   job,
   maxRecords = Infinity,
-  minRating = null,
+  ratingFilter = null,
+  reviewFilter = null,
   reviewTimeRange,
+  isExtractEmail = false,
+  cumulativeResults = 0, // Total results so far across all cities
+  totalMaxRecords = maxRecords, // Original target limit
 }) {
   const results = [];
 
@@ -282,9 +294,46 @@ async function scrapeLocation({
   const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedLocation}`;
   logger.info("SEARCH_URL", "Generated search URL", { url: searchUrl });
 
-  const browser = await puppeteer.connect({
-    browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
-  });
+  // const browser = await puppeteer.connect({
+  //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+  // });
+
+  const endpoint =
+    process.env.NODE_ENV === "production"
+      ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
+      : "";
+
+  // const browser = await puppeteer.connect({
+  //   browserWSEndpoint: endpoint,
+  // });
+
+  const getBrowser = async () => {
+    if (endpoint) {
+      // Use Browserless for staging and production
+      console.log(endpoint);
+      return await puppeteer.connect({
+        browserWSEndpoint: endpoint,
+      });
+    } else {
+      return await puppeteerLocal.launch({
+        headless: true,
+        // executablePath: executablePath(),
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--single-process",
+          "--no-zygote",
+          "--disable-accelerated-2d-canvas",
+          "--disable-web-security",
+        ],
+        protocolTimeout: 120000,
+      });
+    }
+  };
+
+  const browser = await getBrowser();
 
   // const browser = await puppeteer.launch({
   //   headless: false,
@@ -310,19 +359,128 @@ async function scrapeLocation({
     await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 120000 });
     await autoScroll(page);
 
-    // Extract listing URLs
-    const listingUrls = await safeEvaluate(page, () => {
-      return Array.from(document.querySelectorAll(".Nv2PK"))
-        .map((listing) => {
-          const anchor = listing.querySelector("a.hfpxzc");
-          return anchor ? anchor.href : null;
-        })
-        .filter(Boolean);
+    // Extract listing URLs with ratings for pre-filtering
+    const listingsData = await safeEvaluate(
+      page,
+      (ratingFilter, reviewFilter) => {
+        return Array.from(document.querySelectorAll(".Nv2PK"))
+          .map((listing) => {
+            const anchor = listing.querySelector("a.hfpxzc");
+            const url = anchor ? anchor.href : null;
+
+            if (!url) return null;
+
+            // Extract rating from the listing
+            const ratingElement = listing.querySelector('.ZkP5Je[role="img"]');
+            const ratingText = ratingElement?.getAttribute("aria-label") || "";
+            const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+            const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+
+            // Extract review count from the listing (using aria-label for consistency)
+            const reviewLabelElement = listing.querySelector(
+              '[aria-label*="reviews"], [aria-label*="Reviews"]'
+            );
+            const reviewLabelText =
+              reviewLabelElement?.getAttribute("aria-label") || "";
+            const reviewMatch = reviewLabelText.match(/(\d+)\s+[Rr]eviews?/);
+            const reviewCount = reviewMatch ? parseInt(reviewMatch[1]) : 0;
+
+            // Extract business name for logging
+            const nameElement = listing.querySelector(".qBF1Pd");
+            const businessName =
+              nameElement?.textContent?.trim() || "Unknown Business";
+
+            return {
+              url,
+              rating,
+              reviewCount,
+              businessName,
+            };
+          })
+          .filter(Boolean)
+          .filter((item) => {
+            // Apply rating filter at URL extraction stage
+            if (ratingFilter && item.rating) {
+              const { operator, value } = ratingFilter;
+              let shouldInclude = true;
+
+              switch (operator) {
+                case "gt":
+                  shouldInclude = item.rating > value;
+                  break;
+                case "gte":
+                  shouldInclude = item.rating >= value;
+                  break;
+                case "lt":
+                  shouldInclude = item.rating < value;
+                  break;
+                case "lte":
+                  shouldInclude = item.rating <= value;
+                  break;
+              }
+
+              if (!shouldInclude) return false;
+            }
+
+            // Apply review count filter at URL extraction stage
+            if (reviewFilter && item.reviewCount !== null) {
+              const { operator, value } = reviewFilter;
+              let shouldInclude = true;
+
+              switch (operator) {
+                case "gt":
+                  shouldInclude = item.reviewCount > value;
+                  break;
+                case "gte":
+                  shouldInclude = item.reviewCount >= value;
+                  break;
+                case "lt":
+                  shouldInclude = item.reviewCount < value;
+                  break;
+                case "lte":
+                  shouldInclude = item.reviewCount <= value;
+                  break;
+              }
+
+              if (!shouldInclude) return false;
+            }
+
+            return true;
+          });
+      },
+      ratingFilter,
+      reviewFilter
+    );
+
+    // Log filtering results
+    const totalListingsFound = await safeEvaluate(page, () => {
+      return document.querySelectorAll(".Nv2PK").length;
     });
 
-    if (listingUrls.length === 0) {
+    logger.info("FILTER_RESULTS", "Pre-filtering results", {
+      location: `${city}, ${state}, ${countryName}`,
+      totalBusinessesFound: totalListingsFound,
+      matchingFilter: listingsData.length,
+      filteredOut: totalListingsFound - listingsData.length,
+      ratingFilter,
+      reviewFilter,
+      filterEfficiency: `${(
+        (listingsData.length / Math.max(totalListingsFound, 1)) *
+        100
+      ).toFixed(1)}%`,
+    });
+
+    if (listingsData.length === 0) {
+      logger.info("NO_MATCHES_FOUND", "No businesses match the rating filter", {
+        location: `${city}, ${state}, ${countryName}`,
+        totalBusinessesFound,
+        ratingFilter,
+      });
       return [];
     }
+
+    // Extract just the URLs for processing
+    const listingUrls = listingsData.map((item) => item.url);
 
     // Calculate how many listings to process
     const listingsToProcess = Math.min(listingUrls.length, maxRecords);
@@ -353,12 +511,15 @@ async function scrapeLocation({
                 const locationString = [city, state, countryName]
                   .filter(Boolean)
                   .join(", ");
+                // No rating/review filter needed here - already pre-filtered at URL extraction
                 const businessData = await extractBusinessDetails(
                   detailPage,
                   browser,
                   keyword,
                   locationString,
-                  minRating
+                  null, // Pre-filtered, so no need to filter again
+                  null, // Pre-filtered, so no need to filter again
+                  isExtractEmail
                 );
                 // return { url, ...businessData };
 
@@ -375,7 +536,7 @@ async function scrapeLocation({
                   businessData.filtered_review_count = filteredReviews.length;
                 }
 
-                return businessData ? { url, ...businessData } : null;
+                return businessData ? { ...businessData, url } : null;
               })(),
               new Promise((_, reject) =>
                 setTimeout(
@@ -412,14 +573,28 @@ async function scrapeLocation({
       results.push(...successfulExtractions);
 
       if (job && newRecords > 0) {
-        const percentage = calculatePercentage(results.length, maxRecords);
+        const cumulativeCount = cumulativeResults + results.length;
+        const percentage = calculatePercentage(
+          cumulativeCount,
+          totalMaxRecords
+        );
         await job.progress({
           percentage,
           processedListings: i + 1,
           totalListings: listingsToProcess,
-          recordsCollected: results.length,
-          maxRecords,
+          recordsCollected: cumulativeCount, // ✅ Total across all cities
+          maxRecords: totalMaxRecords, // ✅ Original target
           currentLocation: `${city}, ${state}, ${countryName}`,
+          preFilterStats: ratingFilter
+            ? {
+                totalFound: totalListingsFound,
+                matchingFilter: listingsData.length,
+                preFilterEfficiency: `${(
+                  (listingsData.length / Math.max(totalListingsFound, 1)) *
+                  100
+                ).toFixed(1)}%`,
+              }
+            : undefined,
         });
       }
       // Early exit if we've reached maxRecords
@@ -429,18 +604,58 @@ async function scrapeLocation({
     }
 
     if (job) {
+      const cumulativeCount = cumulativeResults + results.length;
       const finalPercentage =
-        results.length >= maxRecords
+        cumulativeCount >= totalMaxRecords
           ? 100
-          : calculatePercentage(results.length, maxRecords);
+          : calculatePercentage(cumulativeCount, totalMaxRecords);
 
       await job.progress({
         percentage: finalPercentage,
         status: "processing",
-        recordsCollected: results.length,
-        maxRecords,
+        recordsCollected: cumulativeCount, // ✅ Total across all cities
+        maxRecords: totalMaxRecords, // ✅ Original target
+        finalStats:
+          ratingFilter || reviewFilter
+            ? {
+                totalBusinessesFound: totalListingsFound,
+                preFilteredToProcess: listingsData.length,
+                finalResultsExtracted: results.length,
+                preFilterEfficiency: `${(
+                  (listingsData.length / Math.max(totalListingsFound, 1)) *
+                  100
+                ).toFixed(1)}%`,
+                extractionEfficiency: `${(
+                  (results.length / Math.max(listingsData.length, 1)) *
+                  100
+                ).toFixed(1)}%`,
+                ratingFilter,
+                reviewFilter,
+              }
+            : undefined,
       });
     }
+
+    // Log final statistics for filters
+    if (ratingFilter || reviewFilter) {
+      logger.info("FILTER_STATISTICS", "Filter results", {
+        location: `${city}, ${state}, ${countryName}`,
+        ratingFilter,
+        reviewFilter,
+        totalBusinessesFound: totalListingsFound,
+        preFilteredToProcess: listingsData.length,
+        finalResultsExtracted: results.length,
+        preFilterEfficiency: `${(
+          (listingsData.length / Math.max(totalListingsFound, 1)) *
+          100
+        ).toFixed(1)}%`,
+        extractionEfficiency: `${(
+          (results.length / Math.max(listingsData.length, 1)) *
+          100
+        ).toFixed(1)}%`,
+      });
+    }
+
     return results.slice(0, maxRecords);
   } finally {
     await browser.close();
@@ -452,13 +667,15 @@ async function extractBusinessDetails(
   browser,
   searchTerm,
   searchLocation,
-  minRating = null
+  ratingFilter = null,
+  reviewFilter = null,
+  isExtractEmail = false
 ) {
   let businessData;
   try {
     businessData = await Promise.race([
       page.evaluate(
-        (searchTerm, searchLocation, minRating) => {
+        (searchTerm, searchLocation, ratingFilter, reviewFilter) => {
           const getText = (selector) =>
             document.querySelector(selector)?.textContent?.trim() || null;
 
@@ -485,8 +702,59 @@ async function extractBusinessDetails(
           const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
 
           // Apply rating filter if specified
-          if (minRating && rating && rating < minRating) {
-            return null; // Skip this business
+          if (ratingFilter && rating) {
+            const { operator, value } = ratingFilter;
+            let shouldSkip = false;
+
+            switch (operator) {
+              case "gt":
+                shouldSkip = rating <= value;
+                break;
+              case "gte":
+                shouldSkip = rating < value;
+                break;
+              case "lt":
+                shouldSkip = rating >= value;
+                break;
+              case "lte":
+                shouldSkip = rating > value;
+                break;
+            }
+
+            if (shouldSkip) {
+              return null; // Skip this business
+            }
+          }
+
+          // Extract and apply review count filter if specified
+          const reviewCountText = getText('[aria-label*="reviews"]') || "";
+          const reviewCountMatch = reviewCountText.match(/(\d+)\s+[Rr]eviews?/);
+          const reviewCount = reviewCountMatch
+            ? parseInt(reviewCountMatch[1])
+            : 0;
+
+          if (reviewFilter && reviewCount !== null) {
+            const { operator, value } = reviewFilter;
+            let shouldSkip = false;
+
+            switch (operator) {
+              case "gt":
+                shouldSkip = reviewCount <= value;
+                break;
+              case "gte":
+                shouldSkip = reviewCount < value;
+                break;
+              case "lt":
+                shouldSkip = reviewCount >= value;
+                break;
+              case "lte":
+                shouldSkip = reviewCount > value;
+                break;
+            }
+
+            if (shouldSkip) {
+              return null; // Skip this business
+            }
           }
 
           const phoneElement = document.querySelector(
@@ -524,7 +792,8 @@ async function extractBusinessDetails(
         },
         searchTerm,
         searchLocation,
-        minRating
+        ratingFilter,
+        reviewFilter
       ),
       new Promise((_, reject) =>
         setTimeout(
@@ -534,8 +803,8 @@ async function extractBusinessDetails(
       ),
     ]);
 
-    // Extract email if website exists
-    if (businessData.website) {
+    // Extract email if website exists and email extraction is enabled
+    if (isExtractEmail && businessData.website) {
       let emailPage;
       try {
         emailPage = await browser.newPage();
@@ -564,7 +833,34 @@ async function extractBusinessDetails(
           ),
         ]);
 
-        businessData.email = emailResult;
+        // Verify email if one was found
+        if (emailResult) {
+          try {
+            const verificationResult = await verifyEmail(emailResult, {
+              heloHost: process.env.HELO_HOST,
+              mailFrom: process.env.MAIL_FROM,
+              connectionTimeoutMs: 7000,
+              commandTimeoutMs: 7000,
+            });
+
+            // Only set email if verification result is 'deliverable'
+            businessData.email =
+              verificationResult.result === "deliverable" ? emailResult : null;
+          } catch (verificationError) {
+            // If verification fails, set email to null
+            businessData.email = null;
+            logger.warn(
+              "EMAIL_VERIFICATION_ERROR",
+              "Email verification failed",
+              {
+                email: emailResult,
+                error: verificationError.message,
+              }
+            );
+          }
+        } else {
+          businessData.email = null;
+        }
       } catch (error) {
         businessData.email = null;
       } finally {
