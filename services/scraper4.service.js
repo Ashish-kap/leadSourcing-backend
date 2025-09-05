@@ -50,7 +50,9 @@ async function getSharedBrowserByEndpoint(endpoint) {
     return sharedBrowser;
   }
   if (endpoint) {
-    console.log(endpoint);
+    logger.debug("BROWSER_ENDPOINT", "Connecting to remote browser endpoint", {
+      endpoint,
+    });
     sharedBrowser = await puppeteer.connect({ browserWSEndpoint: endpoint });
   } else {
     sharedBrowser = await puppeteerLocal.launch({
@@ -69,7 +71,6 @@ async function getSharedBrowserByEndpoint(endpoint) {
   }
   return sharedBrowser;
 }
-
 
 // Create a new page with minimal retry to avoid Target.createTarget stalls
 async function newPageWithRetry(browser, attempts = 2) {
