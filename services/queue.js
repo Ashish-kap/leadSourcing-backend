@@ -200,7 +200,7 @@ scraperQueue.on("failed", async (job, err) => {
 });
 
 // Process with configurable concurrent workers
-const CONCURRENT_WORKERS = parseInt(process.env.CONCURRENT_WORKERS) || 3;
+const CONCURRENT_WORKERS = parseInt(process.env.CONCURRENT_WORKERS) || 10;
 scraperQueue.process(CONCURRENT_WORKERS, scrapeJob);
 
 export default scraperQueue;
