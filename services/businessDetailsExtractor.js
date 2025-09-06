@@ -23,14 +23,14 @@ export async function extractBusinessDetails(
   try {
     await page.waitForSelector("h1.DUwDvf.lfPIob", {
       visible: true,
-      timeout: 15000,
+      timeout: 7000,
     });
   } catch (_) {} // some places have slow paint; we’ll still attempt evaluate
 
   try {
     await page.waitForSelector('.F7nice .ceNzKf[role="img"]', {
       visible: true,
-      timeout: 8000,
+      timeout: 7000,
     });
   } catch (_) {}
 
@@ -137,7 +137,7 @@ export async function extractBusinessDetails(
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("Business data extraction timed out")),
-          15000
+          10000
         )
       ),
     ]);
