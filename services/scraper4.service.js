@@ -43,57 +43,235 @@ async function safeEvaluate(page, fn, ...args) {
   }
 }
 
-// Shared browser instance across locations
+// Shared browser instance across locations with connection management
 let sharedBrowser = null;
+const MAX_BROWSER_CONNECTION_ATTEMPTS = 3;
+const BROWSER_CONNECTION_RETRY_DELAY = 2000;
+
 async function getSharedBrowserByEndpoint(endpoint) {
+  // Check if existing browser is still connected
   if (sharedBrowser) {
-    return sharedBrowser;
+    try {
+      // Test if browser is still responsive
+      await sharedBrowser.version();
+      return sharedBrowser;
+    } catch (error) {
+      logger.warn(
+        "BROWSER_CONNECTION_LOST",
+        "Existing browser connection lost, creating new one",
+        {
+          error: error.message,
+        }
+      );
+      sharedBrowser = null;
+    }
   }
-  if (endpoint) {
-    logger.debug("BROWSER_ENDPOINT", "Connecting to remote browser endpoint", {
-      endpoint,
-    });
-    sharedBrowser = await puppeteer.connect({ browserWSEndpoint: endpoint });
-  } else {
-    sharedBrowser = await puppeteerLocal.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-gpu",
-        "--disable-dev-shm-usage",
-        "--no-zygote",
-        "--disable-accelerated-2d-canvas",
-        "--disable-web-security",
-      ],
-      protocolTimeout: 120000,
-    });
+
+  // Create new browser connection with retry logic
+  for (let attempt = 1; attempt <= MAX_BROWSER_CONNECTION_ATTEMPTS; attempt++) {
+    try {
+      if (endpoint) {
+        logger.info(
+          "BROWSER_ENDPOINT",
+          "Connecting to remote browser endpoint",
+          {
+            endpoint: endpoint.replace(/\?.*$/, "?[TOKEN_HIDDEN]"), // Hide token in logs
+            attempt,
+          }
+        );
+
+        sharedBrowser = await puppeteer.connect({
+          browserWSEndpoint: endpoint,
+          protocolTimeout: 30000, // Reduce timeout for faster failure detection
+        });
+      } else {
+        logger.info("BROWSER_LOCAL", "Launching local browser", { attempt });
+        sharedBrowser = await puppeteerLocal.launch({
+          headless: true,
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--no-zygote",
+            "--disable-accelerated-2d-canvas",
+            "--disable-web-security",
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+          ],
+          protocolTimeout: 30000,
+        });
+      }
+
+      // Test the connection
+      await sharedBrowser.version();
+      logger.info("BROWSER_CONNECTED", "Successfully connected to browser", {
+        attempt,
+      });
+      return sharedBrowser;
+    } catch (error) {
+      logger.error(
+        "BROWSER_CONNECTION_FAILED",
+        `Browser connection attempt ${attempt} failed`,
+        {
+          error: error.message,
+          attempt,
+          maxAttempts: MAX_BROWSER_CONNECTION_ATTEMPTS,
+        }
+      );
+
+      if (sharedBrowser) {
+        try {
+          await sharedBrowser.close();
+        } catch (closeError) {
+          // Ignore close errors
+        }
+        sharedBrowser = null;
+      }
+
+      if (attempt < MAX_BROWSER_CONNECTION_ATTEMPTS) {
+        logger.info(
+          "BROWSER_RETRY",
+          `Retrying browser connection in ${BROWSER_CONNECTION_RETRY_DELAY}ms`,
+          {
+            nextAttempt: attempt + 1,
+          }
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, BROWSER_CONNECTION_RETRY_DELAY)
+        );
+      } else {
+        throw new Error(
+          `Failed to connect to browser after ${MAX_BROWSER_CONNECTION_ATTEMPTS} attempts: ${error.message}`
+        );
+      }
+    }
   }
-  return sharedBrowser;
 }
 
-// Create a new page with minimal retry to avoid Target.createTarget stalls
-async function newPageWithRetry(browser, attempts = 2) {
+// Cleanup browser connection
+async function cleanupBrowser() {
+  if (sharedBrowser) {
+    try {
+      await sharedBrowser.close();
+      logger.info("BROWSER_CLEANUP", "Browser connection closed successfully");
+    } catch (error) {
+      logger.warn("BROWSER_CLEANUP_ERROR", "Error closing browser connection", {
+        error: error.message,
+      });
+    } finally {
+      sharedBrowser = null;
+    }
+  }
+}
+
+// Create a new page with enhanced retry logic
+async function newPageWithRetry(browser, attempts = 3) {
   let lastError;
   for (let i = 0; i < attempts; i++) {
     try {
-      const page = await browser.newPage();
+      const page = await Promise.race([
+        browser.newPage(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("newPage timeout")), 10000)
+        ),
+      ]);
+
+      // Set reasonable timeouts for Railway environment
+      await page.setDefaultNavigationTimeout(15000);
+      await page.setDefaultTimeout(15000);
+
+      // Speed up by blocking non-essential resources
+      try {
+        await page.setRequestInterception(true);
+        page.on("request", (req) => {
+          const type = req.resourceType();
+          if (
+            type === "image" ||
+            type === "stylesheet" ||
+            type === "font" ||
+            type === "media"
+          ) {
+            return req.abort();
+          }
+          req.continue();
+        });
+      } catch (_) {
+        // Ignore if interception fails (older chromium or remote limitations)
+      }
+
       return page;
     } catch (error) {
       lastError = error;
       const message = String(error?.message || error || "");
+
+      logger.warn("NEW_PAGE_RETRY", `Page creation attempt ${i + 1} failed`, {
+        error: message,
+        attempt: i + 1,
+        maxAttempts: attempts,
+      });
+
+      // Check if it's a connection issue that requires browser restart
+      if (
+        message.includes("Protocol error") ||
+        message.includes("Connection closed") ||
+        message.includes("Session with given id not found") ||
+        message.includes("Target closed") ||
+        message.includes("newPage timeout")
+      ) {
+        // Force browser reconnection on next attempt
+        if (i < attempts - 1) {
+          logger.info(
+            "BROWSER_RECONNECT",
+            "Forcing browser reconnection due to connection error"
+          );
+          await cleanupBrowser();
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        continue;
+      }
+
       if (
         message.includes("Target.createTarget") ||
         message.includes("Session with given id not found")
       ) {
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 500));
         continue;
       }
+
       throw error;
     }
   }
-  throw lastError || new Error("Failed to open new page");
+  throw lastError || new Error("Failed to open new page after retries");
 }
+
+// Process cleanup handlers
+process.on("SIGINT", async () => {
+  logger.info(
+    "PROCESS_CLEANUP",
+    "Received SIGINT, cleaning up browser connections"
+  );
+  await cleanupBrowser();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  logger.info(
+    "PROCESS_CLEANUP",
+    "Received SIGTERM, cleaning up browser connections"
+  );
+  await cleanupBrowser();
+  process.exit(0);
+});
+
+process.on("uncaughtException", async (error) => {
+  logger.error("UNCAUGHT_EXCEPTION", "Uncaught exception, cleaning up", {
+    error: error.message,
+  });
+  await cleanupBrowser();
+  process.exit(1);
+});
 
 export async function runScraper(
   {
@@ -351,12 +529,24 @@ async function scrapeLocation({
       ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
       : "";
 
-  // Reuse one browser across all locations
-  const browser = await getSharedBrowserByEndpoint(endpoint);
+  // Get browser with retry logic
+  let browser;
+  try {
+    browser = await getSharedBrowserByEndpoint(endpoint);
+  } catch (error) {
+    logger.error(
+      "BROWSER_CONNECTION_ERROR",
+      "Failed to get browser connection",
+      {
+        location: `${city}, ${state}, ${countryName}`,
+        error: error.message,
+      }
+    );
+    throw error;
+  }
 
   try {
-    const page = await browser.newPage();
-    await page.setDefaultNavigationTimeout(10000);
+    const page = await newPageWithRetry(browser, 3);
 
     // Navigate to search URL
     await page.goto(searchUrl, {
@@ -496,123 +686,214 @@ async function scrapeLocation({
 
     // Calculate how many listings to process
     const listingsToProcess = Math.min(listingUrls.length, maxRecords);
-    // await job.progress({
-    //   listingsTotal: listingUrls.length,
-    //   listingsToProcess,
-    //   location: `${city}, ${state}, ${countryName}`,
-    // });
 
-    const BATCH_SIZE = 2;
-    for (let i = 0; i < listingsToProcess; i += BATCH_SIZE) {
-      // Get current batch (usually 1 URL)
-      const batch = listingUrls.slice(i, i + BATCH_SIZE);
+    // Concurrency: configurable via env, safer defaults in production
+    const envConcurrency = Number(process.env.SCRAPER_CONCURRENCY);
+    const defaultConcurrency = process.env.NODE_ENV === "production" ? 2 : 5;
+    const CONCURRENCY = Math.max(
+      1,
+      Math.min(
+        isNaN(envConcurrency) ? defaultConcurrency : envConcurrency,
+        listingsToProcess
+      )
+    );
 
-      const batchResults = await Promise.all(
-        batch.map(async (url) => {
-          let detailPage;
-          try {
-            detailPage = await newPageWithRetry(browser, 2);
+    logger.info("CONCURRENCY", "Processing listings with concurrency", {
+      concurrency: CONCURRENCY,
+      listingsToProcess,
+    });
 
-            const result = await Promise.race([
-              (async () => {
-                await detailPage.goto(url, {
-                  waitUntil: "domcontentloaded",
-                  timeout: 15000,
-                });
+    // Shared progress counters
+    let processed = 0;
 
-                const locationString = [city, state, countryName]
-                  .filter(Boolean)
-                  .join(", ");
-                // No rating/review filter needed here - already pre-filtered at URL extraction
-                const businessData = await extractBusinessDetails(
+    // Helper to process a single URL with retries using a persistent page
+    const processWithPage = async (detailPage, url) => {
+      let retryCount = 0;
+      const maxRetries = 2;
+
+      while (retryCount <= maxRetries) {
+        try {
+          const result = await Promise.race([
+            (async () => {
+              await detailPage.goto(url, {
+                waitUntil: "domcontentloaded",
+                timeout: 12000,
+              });
+
+              const locationString = [city, state, countryName]
+                .filter(Boolean)
+                .join(", ");
+              // No rating/review filter needed here - already pre-filtered at URL extraction
+              const businessData = await extractBusinessDetails(
+                detailPage,
+                browser,
+                keyword,
+                locationString,
+                null,
+                null,
+                isExtractEmail
+              );
+
+              if (!businessData) {
+                return null;
+              }
+
+              if (reviewTimeRange) {
+                const filteredReviews = await extractFilteredReviews(
                   detailPage,
-                  browser,
-                  keyword,
-                  locationString,
-                  null, // Pre-filtered, so no need to filter again
-                  null, // Pre-filtered, so no need to filter again
-                  isExtractEmail
+                  reviewTimeRange
                 );
-                // return { url, ...businessData };
+                businessData.filtered_reviews = filteredReviews;
+                businessData.filtered_review_count = filteredReviews.length;
+              }
 
-                if (!businessData) {
-                  return null;
-                }
+              return businessData ? { ...businessData, url } : null;
+            })(),
+            new Promise((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(new Error("Listing processing timed out after 25s")),
+                25000
+              )
+            ),
+          ]);
 
-                if (reviewTimeRange) {
-                  const filteredReviews = await extractFilteredReviews(
-                    detailPage,
-                    reviewTimeRange
-                  );
-                  businessData.filtered_reviews = filteredReviews;
-                  businessData.filtered_review_count = filteredReviews.length;
-                }
+          return result;
+        } catch (error) {
+          const errorMessage = error?.message || String(error);
+          const isConnectionError =
+            errorMessage.includes("Protocol error") ||
+            errorMessage.includes("Connection closed") ||
+            errorMessage.includes("Session with given id not found") ||
+            errorMessage.includes("Target closed") ||
+            errorMessage.includes("WebSocket connection closed");
 
-                return businessData ? { ...businessData, url } : null;
-              })(),
-              new Promise((_, reject) =>
-                setTimeout(
-                  () =>
-                    reject(new Error("Listing processing timed out after 30s")),
-                  30000
-                )
-              ),
-            ]);
+          if (isConnectionError && retryCount < maxRetries) {
+            retryCount++;
+            logger.warn(
+              "LISTING_RETRY",
+              `Retrying listing due to connection error`,
+              {
+                url,
+                error: errorMessage,
+                retry: retryCount,
+                maxRetries,
+              }
+            );
 
-            return result;
-          } catch (error) {
+            // Recreate page for next attempt
+            try {
+              await detailPage.close().catch(() => {});
+            } catch (_) {}
+            detailPage = await newPageWithRetry(browser, 2);
+            await new Promise((r) => setTimeout(r, 500 * retryCount));
+            continue;
+          } else {
             logger.error("LISTING_ERROR", "Error processing listing", {
               url,
-              error: error.message,
+              error: errorMessage,
+              finalAttempt: true,
+              retryCount,
             });
             return null;
-          } finally {
-            if (detailPage) {
-              try {
-                await detailPage.close();
-              } catch (closeError) {
-                logger.warn("PAGE_CLOSE_ERROR", "Failed to close detail page", {
-                  error: closeError.message,
-                });
-              }
-            }
           }
-        })
-      );
-
-      const successfulExtractions = batchResults.filter(Boolean);
-      const newRecords = successfulExtractions.length;
-      results.push(...successfulExtractions);
-
-      if (job && newRecords > 0) {
-        const cumulativeCount = cumulativeResults + results.length;
-        const percentage = calculatePercentage(
-          cumulativeCount,
-          totalMaxRecords
-        );
-        await job.progress({
-          percentage,
-          processedListings: i + 1,
-          totalListings: listingsToProcess,
-          recordsCollected: cumulativeCount, // ✅ Total across all cities
-          maxRecords: totalMaxRecords, // ✅ Original target
-          currentLocation: `${city}, ${state}, ${countryName}`,
-          preFilterStats: ratingFilter
-            ? {
-                totalFound: totalListingsFound,
-                matchingFilter: listingsData.length,
-                preFilterEfficiency: `${(
-                  (listingsData.length / Math.max(totalListingsFound, 1)) *
-                  100
-                ).toFixed(1)}%`,
-              }
-            : undefined,
-        });
+        }
       }
-      // Early exit if we've reached maxRecords
-      if (results.length >= maxRecords) {
-        break;
+
+      return null; // All retries exhausted
+    };
+
+    // Create a simple worker pool with persistent pages
+    let currentIndex = 0;
+    const resultsBuffer = [];
+
+    const makeWorker = async () => {
+      let pageForWorker;
+      try {
+        pageForWorker = await newPageWithRetry(browser, 2);
+        while (true) {
+          const myIndex = currentIndex++;
+          if (myIndex >= listingsToProcess) break;
+          const url = listingUrls[myIndex];
+          const item = await processWithPage(pageForWorker, url);
+          if (item) resultsBuffer.push(item);
+
+          processed++;
+          // Lightweight, occasional progress update
+          if (
+            job &&
+            processed % Math.max(1, Math.floor(listingsToProcess / 10)) === 0
+          ) {
+            const cumulativeCount = cumulativeResults + resultsBuffer.length;
+            const percentage = calculatePercentage(
+              cumulativeCount,
+              totalMaxRecords
+            );
+            await job.progress({
+              percentage,
+              processedListings: processed,
+              totalListings: listingsToProcess,
+              recordsCollected: cumulativeCount,
+              maxRecords: totalMaxRecords,
+              currentLocation: `${city}, ${state}, ${countryName}`,
+              preFilterStats: ratingFilter
+                ? {
+                    totalFound: totalListingsFound,
+                    matchingFilter: listingsData.length,
+                    preFilterEfficiency: `${(
+                      (listingsData.length / Math.max(totalListingsFound, 1)) *
+                      100
+                    ).toFixed(1)}%`,
+                  }
+                : undefined,
+            });
+          }
+
+          // Early exit if we've reached maxRecords
+          if (resultsBuffer.length >= maxRecords) break;
+        }
+      } finally {
+        if (pageForWorker) {
+          try {
+            await pageForWorker.close();
+          } catch (closeError) {
+            logger.warn("PAGE_CLOSE_ERROR", "Failed to close worker page", {
+              error: closeError.message,
+            });
+          }
+        }
       }
+    };
+
+    const workers = Array.from({ length: CONCURRENCY }, () => makeWorker());
+    await Promise.all(workers);
+
+    // Flush results from buffer in original array
+    const successfulExtractions = resultsBuffer.filter(Boolean);
+    const newRecords = successfulExtractions.length;
+    results.push(...successfulExtractions);
+
+    if (job && newRecords > 0) {
+      const cumulativeCount = cumulativeResults + results.length;
+      const percentage = calculatePercentage(cumulativeCount, totalMaxRecords);
+      await job.progress({
+        percentage,
+        processedListings: processed,
+        totalListings: listingsToProcess,
+        recordsCollected: cumulativeCount, // ✅ Total across all cities
+        maxRecords: totalMaxRecords, // ✅ Original target
+        currentLocation: `${city}, ${state}, ${countryName}`,
+        preFilterStats: ratingFilter
+          ? {
+              totalFound: totalListingsFound,
+              matchingFilter: listingsData.length,
+              preFilterEfficiency: `${(
+                (listingsData.length / Math.max(totalListingsFound, 1)) *
+                100
+              ).toFixed(1)}%`,
+            }
+          : undefined,
+      });
     }
 
     if (job) {
@@ -820,7 +1101,6 @@ async function extractBusinessDetails(
       let emailPage;
       try {
         emailPage = await newPageWithRetry(browser, 2);
-        await emailPage.setDefaultNavigationTimeout(7000);
 
         const emailResult = await Promise.race([
           (async () => {
