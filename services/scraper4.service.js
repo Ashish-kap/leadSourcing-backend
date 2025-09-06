@@ -7,6 +7,7 @@ import logger from "./logger.js";
 import autoScroll from "./autoScroll.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
 import { verifyEmail } from "./utils/emailVerifier.js";
+import { extractBusinessDetails } from "./businessDetailsExtractor.js";
 
 // Helper to shuffle array for random selection
 function shuffleArray(array) {
@@ -717,7 +718,7 @@ async function scrapeLocation({
             (async () => {
               await detailPage.goto(url, {
                 waitUntil: "domcontentloaded",
-                timeout: 12000,
+                timeout: 10000,
               });
 
               const locationString = [city, state, countryName]
@@ -955,224 +956,224 @@ async function scrapeLocation({
   }
 }
 
-async function extractBusinessDetails(
-  page,
-  browser,
-  searchTerm,
-  searchLocation,
-  ratingFilter = null,
-  reviewFilter = null,
-  isExtractEmail = false
-) {
-  let businessData;
-  try {
-    businessData = await Promise.race([
-      page.evaluate(
-        (searchTerm, searchLocation, ratingFilter, reviewFilter) => {
-          const getText = (selector) =>
-            document.querySelector(selector)?.textContent?.trim() || null;
+// async function extractBusinessDetails(
+//   page,
+//   browser,
+//   searchTerm,
+//   searchLocation,
+//   ratingFilter = null,
+//   reviewFilter = null,
+//   isExtractEmail = false
+// ) {
+//   let businessData;
+//   try {
+//     businessData = await Promise.race([
+//       page.evaluate(
+//         (searchTerm, searchLocation, ratingFilter, reviewFilter) => {
+//           const getText = (selector) =>
+//             document.querySelector(selector)?.textContent?.trim() || null;
 
-          const getHref = (selector) =>
-            document.querySelector(selector)?.href || null;
+//           const getHref = (selector) =>
+//             document.querySelector(selector)?.href || null;
 
-          // Extract coordinates from URL parameters
-          const urlParams = new URLSearchParams(window.location.search);
-          const coords = urlParams.get("!3d")?.split("!4d") || [];
+//           // Extract coordinates from URL parameters
+//           const urlParams = new URLSearchParams(window.location.search);
+//           const coords = urlParams.get("!3d")?.split("!4d") || [];
 
-          // Extract categories
-          const categories = Array.from(
-            document.querySelectorAll('[class*="DkEaL"]')
-          )
-            .map((el) => el.textContent.trim())
-            .filter(Boolean);
+//           // Extract categories
+//           const categories = Array.from(
+//             document.querySelectorAll('[class*="DkEaL"]')
+//           )
+//             .map((el) => el.textContent.trim())
+//             .filter(Boolean);
 
-          // Extract rating details
-          const ratingElement = document.querySelector('.ceNzKf[role="img"]');
-          const ratingText = ratingElement?.getAttribute("aria-label") || "";
+//           // Extract rating details
+//           const ratingElement = document.querySelector('.ceNzKf[role="img"]');
+//           const ratingText = ratingElement?.getAttribute("aria-label") || "";
 
-          // Parse rating value
-          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
-          const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+//           // Parse rating value
+//           const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+//           const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
 
-          // Apply rating filter if specified
-          if (ratingFilter && rating) {
-            const { operator, value } = ratingFilter;
-            let shouldSkip = false;
+//           // Apply rating filter if specified
+//           if (ratingFilter && rating) {
+//             const { operator, value } = ratingFilter;
+//             let shouldSkip = false;
 
-            switch (operator) {
-              case "gt":
-                shouldSkip = rating <= value;
-                break;
-              case "gte":
-                shouldSkip = rating < value;
-                break;
-              case "lt":
-                shouldSkip = rating >= value;
-                break;
-              case "lte":
-                shouldSkip = rating > value;
-                break;
-            }
+//             switch (operator) {
+//               case "gt":
+//                 shouldSkip = rating <= value;
+//                 break;
+//               case "gte":
+//                 shouldSkip = rating < value;
+//                 break;
+//               case "lt":
+//                 shouldSkip = rating >= value;
+//                 break;
+//               case "lte":
+//                 shouldSkip = rating > value;
+//                 break;
+//             }
 
-            if (shouldSkip) {
-              return null; // Skip this business
-            }
-          }
+//             if (shouldSkip) {
+//               return null; // Skip this business
+//             }
+//           }
 
-          // Extract and apply review count filter if specified
-          const reviewCountText = getText('[aria-label*="reviews"]') || "";
-          const reviewCountMatch = reviewCountText.match(/(\d+)\s+[Rr]eviews?/);
-          const reviewCount = reviewCountMatch
-            ? parseInt(reviewCountMatch[1])
-            : 0;
+//           // Extract and apply review count filter if specified
+//           const reviewCountText = getText('[aria-label*="reviews"]') || "";
+//           const reviewCountMatch = reviewCountText.match(/(\d+)\s+[Rr]eviews?/);
+//           const reviewCount = reviewCountMatch
+//             ? parseInt(reviewCountMatch[1])
+//             : 0;
 
-          if (reviewFilter && reviewCount !== null) {
-            const { operator, value } = reviewFilter;
-            let shouldSkip = false;
+//           if (reviewFilter && reviewCount !== null) {
+//             const { operator, value } = reviewFilter;
+//             let shouldSkip = false;
 
-            switch (operator) {
-              case "gt":
-                shouldSkip = reviewCount <= value;
-                break;
-              case "gte":
-                shouldSkip = reviewCount < value;
-                break;
-              case "lt":
-                shouldSkip = reviewCount >= value;
-                break;
-              case "lte":
-                shouldSkip = reviewCount > value;
-                break;
-            }
+//             switch (operator) {
+//               case "gt":
+//                 shouldSkip = reviewCount <= value;
+//                 break;
+//               case "gte":
+//                 shouldSkip = reviewCount < value;
+//                 break;
+//               case "lt":
+//                 shouldSkip = reviewCount >= value;
+//                 break;
+//               case "lte":
+//                 shouldSkip = reviewCount > value;
+//                 break;
+//             }
 
-            if (shouldSkip) {
-              return null; // Skip this business
-            }
-          }
+//             if (shouldSkip) {
+//               return null; // Skip this business
+//             }
+//           }
 
-          const phoneElement = document.querySelector(
-            'a[aria-label="Call phone number"]'
-          );
-          const phoneNumber = phoneElement
-            ? phoneElement.href.replace("tel:", "")
-            : null;
+//           const phoneElement = document.querySelector(
+//             'a[aria-label="Call phone number"]'
+//           );
+//           const phoneNumber = phoneElement
+//             ? phoneElement.href.replace("tel:", "")
+//             : null;
 
-          const addressButton = document.querySelector(
-            'button[aria-label^="Address:"]'
-          );
-          const address = addressButton
-            ? addressButton
-                .getAttribute("aria-label")
-                .replace("Address: ", "")
-                .trim()
-            : null;
+//           const addressButton = document.querySelector(
+//             'button[aria-label^="Address:"]'
+//           );
+//           const address = addressButton
+//             ? addressButton
+//                 .getAttribute("aria-label")
+//                 .replace("Address: ", "")
+//                 .trim()
+//             : null;
 
-          return {
-            name: getText(".DUwDvf.lfPIob"),
-            phone: phoneNumber,
-            website: getHref('[aria-label*="Website"]'),
-            address: address,
-            latitude: coords[0] || null,
-            longitude: coords[1] || null,
-            rating: ratingText.replace(/\D+$/g, "") || null,
-            rating_count:
-              getText('[aria-label*="reviews"]')?.match(/\d+/)?.[0] || "0",
-            category: categories.join(", "),
-            search_term: searchTerm,
-            search_type: "Google Maps",
-            search_location: searchLocation,
-          };
-        },
-        searchTerm,
-        searchLocation,
-        ratingFilter,
-        reviewFilter
-      ),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Business data extraction timed out")),
-          15000
-        )
-      ),
-    ]);
+//           return {
+//             name: getText(".DUwDvf.lfPIob"),
+//             phone: phoneNumber,
+//             website: getHref('[aria-label*="Website"]'),
+//             address: address,
+//             latitude: coords[0] || null,
+//             longitude: coords[1] || null,
+//             rating: ratingText.replace(/\D+$/g, "") || null,
+//             rating_count:
+//               getText('[aria-label*="reviews"]')?.match(/\d+/)?.[0] || "0",
+//             category: categories.join(", "),
+//             search_term: searchTerm,
+//             search_type: "Google Maps",
+//             search_location: searchLocation,
+//           };
+//         },
+//         searchTerm,
+//         searchLocation,
+//         ratingFilter,
+//         reviewFilter
+//       ),
+//       new Promise((_, reject) =>
+//         setTimeout(
+//           () => reject(new Error("Business data extraction timed out")),
+//           15000
+//         )
+//       ),
+//     ]);
 
-    // Extract email if website exists and email extraction is enabled
-    if (isExtractEmail && businessData.website) {
-      let emailPage;
-      try {
-        emailPage = await newPageWithRetry(browser, 2);
+//     // Extract email if website exists and email extraction is enabled
+//     if (isExtractEmail && businessData.website) {
+//       let emailPage;
+//       try {
+//         emailPage = await newPageWithRetry(browser, 2);
 
-        const emailResult = await Promise.race([
-          (async () => {
-            // If it's a mailto link, use it directly without loading the site
-            if (businessData.website.startsWith("mailto:")) {
-              return businessData.website.replace("mailto:", "");
-            }
+//         const emailResult = await Promise.race([
+//           (async () => {
+//             // If it's a mailto link, use it directly without loading the site
+//             if (businessData.website.startsWith("mailto:")) {
+//               return businessData.website.replace("mailto:", "");
+//             }
 
-            await emailPage.goto(businessData.website, {
-              waitUntil: "domcontentloaded",
-              timeout: 7000,
-            });
+//             await emailPage.goto(businessData.website, {
+//               waitUntil: "domcontentloaded",
+//               timeout: 7000,
+//             });
 
-            const email = await emailPage.evaluate(() => {
-              const emailRegex =
-                /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
-              return document.body.textContent.match(emailRegex)?.[0] || null;
-            });
+//             const email = await emailPage.evaluate(() => {
+//               const emailRegex =
+//                 /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+//               return document.body.textContent.match(emailRegex)?.[0] || null;
+//             });
 
-            return email;
-          })(),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Email extraction timed out")),
-              7000
-            )
-          ),
-        ]);
+//             return email;
+//           })(),
+//           new Promise((_, reject) =>
+//             setTimeout(
+//               () => reject(new Error("Email extraction timed out")),
+//               7000
+//             )
+//           ),
+//         ]);
 
-        // Verify email if one was found
-        if (emailResult) {
-          try {
-            const verificationResult = await verifyEmail(emailResult, {
-              heloHost: process.env.HELO_HOST,
-              mailFrom: process.env.MAIL_FROM,
-              connectionTimeoutMs: 5000,
-              commandTimeoutMs: 5000,
-            });
+//         // Verify email if one was found
+//         if (emailResult) {
+//           try {
+//             const verificationResult = await verifyEmail(emailResult, {
+//               heloHost: process.env.HELO_HOST,
+//               mailFrom: process.env.MAIL_FROM,
+//               connectionTimeoutMs: 5000,
+//               commandTimeoutMs: 5000,
+//             });
 
-            // Only set email if verification result is 'deliverable'
-            businessData.email =
-              verificationResult.result === "deliverable" ? emailResult : null;
-          } catch (verificationError) {
-            // If verification fails, set email to null
-            businessData.email = null;
-            logger.warn(
-              "EMAIL_VERIFICATION_ERROR",
-              "Email verification failed",
-              {
-                email: emailResult,
-                error: verificationError.message,
-              }
-            );
-          }
-        } else {
-          businessData.email = null;
-        }
-      } catch (error) {
-        businessData.email = null;
-      } finally {
-        if (emailPage) {
-          try {
-            await emailPage.close();
-          } catch (closeError) {}
-        }
-      }
-    } else {
-      businessData.email = null;
-    }
-  } catch (error) {
-    return null;
-  }
+//             // Only set email if verification result is 'deliverable'
+//             businessData.email =
+//               verificationResult.result === "deliverable" ? emailResult : null;
+//           } catch (verificationError) {
+//             // If verification fails, set email to null
+//             businessData.email = null;
+//             logger.warn(
+//               "EMAIL_VERIFICATION_ERROR",
+//               "Email verification failed",
+//               {
+//                 email: emailResult,
+//                 error: verificationError.message,
+//               }
+//             );
+//           }
+//         } else {
+//           businessData.email = null;
+//         }
+//       } catch (error) {
+//         businessData.email = null;
+//       } finally {
+//         if (emailPage) {
+//           try {
+//             await emailPage.close();
+//           } catch (closeError) {}
+//         }
+//       }
+//     } else {
+//       businessData.email = null;
+//     }
+//   } catch (error) {
+//     return null;
+//   }
 
-  return businessData;
-}
+//   return businessData;
+// }
