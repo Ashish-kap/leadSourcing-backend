@@ -83,7 +83,7 @@ async function getSharedBrowserByEndpoint(endpoint) {
 
         sharedBrowser = await puppeteer.connect({
           browserWSEndpoint: endpoint,
-          protocolTimeout: 30000, // Reduce timeout for faster failure detection
+          protocolTimeout: 10000, // Reduce timeout for faster failure detection
         });
       } else {
         logger.info("BROWSER_LOCAL", "Launching local browser", { attempt });
@@ -101,7 +101,7 @@ async function getSharedBrowserByEndpoint(endpoint) {
             "--disable-backgrounding-occluded-windows",
             "--disable-renderer-backgrounding",
           ],
-          protocolTimeout: 30000,
+          protocolTimeout: 10000,
         });
       }
 
@@ -180,8 +180,8 @@ async function newPageWithRetry(browser, attempts = 3) {
       ]);
 
       // Set reasonable timeouts for Railway environment
-      await page.setDefaultNavigationTimeout(15000);
-      await page.setDefaultTimeout(15000);
+      await page.setDefaultNavigationTimeout(10000);
+      await page.setDefaultTimeout(10000);
 
       // Speed up by blocking non-essential resources
       try {
@@ -552,7 +552,7 @@ async function scrapeLocation({
     // Navigate to search URL
     await page.goto(searchUrl, {
       waitUntil: "domcontentloaded",
-      timeout: 20000,
+      timeout: 10000,
     });
     // Cap autoScroll to avoid long stalls on heavy result lists
     await Promise.race([
@@ -753,8 +753,8 @@ async function scrapeLocation({
             new Promise((_, reject) =>
               setTimeout(
                 () =>
-                  reject(new Error("Listing processing timed out after 25s")),
-                25000
+                  reject(new Error("Listing processing timed out after 10s")),
+                10000
               )
             ),
           ]);
