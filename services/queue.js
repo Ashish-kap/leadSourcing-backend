@@ -34,10 +34,19 @@ if (process.env.REDIS_HOST) {
 const scraperQueue = new Queue("scraper", {
   redis: redisObj,
   settings: {
-    stalledInterval: 100000, // 5 minutes
-    maxStalledCount: 1,
-    guardInterval: 5000,
-    retryProcessDelay: 5000,
+    stalledInterval: 60000, // 1 minute (reduced from 5 minutes)
+    maxStalledCount: 2, // Allow more retries
+    guardInterval: 3000, // More frequent checks
+    retryProcessDelay: 3000, // Faster retry
+  },
+  defaultJobOptions: {
+    removeOnComplete: 10, // Keep only last 10 completed jobs
+    removeOnFail: 10, // Keep only last 10 failed jobs
+    attempts: 3, // Retry failed jobs up to 3 times
+    backoff: {
+      type: "exponential",
+      delay: 2000,
+    },
   },
 });
 
@@ -217,8 +226,9 @@ scraperQueue.on("failed", async (job, err) => {
   }
 });
 
-// Process with configurable concurrent workers
-const CONCURRENT_WORKERS = parseInt(process.env.CONCURRENT_WORKERS) || 10;
+// Process with configurable concurrent workers - reduced for Railway environment
+const CONCURRENT_WORKERS =
+  parseInt(process.env.CONCURRENT_WORKERS) || 10;
 scraperQueue.process(CONCURRENT_WORKERS, scrapeJob);
 
 export default scraperQueue;

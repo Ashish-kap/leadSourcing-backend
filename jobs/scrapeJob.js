@@ -1,19 +1,4 @@
-// import { runScraper } from "../services/scraper4.service.js";
-// import * as authController from "./../api/controllers/authController.js";
-
-// export default async function (job) {
-//   try {
-//     // Initialize progress with object format
-//     await job.progress(0);
-//     const result = await runScraper(job.data, job);
-//     return result;
-//   } catch (error) {
-//     await job.progress(100, { error: error.message });
-//     throw error;
-//   }
-// }
-
-import { runScraper } from "../services/scraper3.service.js";
+import { runScraper } from "../services/scraper4.service.js";
 import Job from "../models/jobModel.js";
 import User from "../models/userModel.js";
 
@@ -53,7 +38,7 @@ export default async function (job) {
           totalExtractions: totalExtractions,
           dataPointsCollected: totalExtractions,
           creditsUsed: actualCreditsUsed,
-          planType: user?.plan || "unknown", // Track plan type for analytics
+          planType: user?.plan || "unknown", 
         },
       });
     }
