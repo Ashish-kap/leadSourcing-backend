@@ -753,8 +753,8 @@ async function scrapeLocation({
             new Promise((_, reject) =>
               setTimeout(
                 () =>
-                  reject(new Error("Listing processing timed out after 10s")),
-                10000
+                  reject(new Error("Listing processing timed out after 25s")),
+                25000
               )
             ),
           ]);
