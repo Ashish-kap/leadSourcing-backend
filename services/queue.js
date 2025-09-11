@@ -34,7 +34,7 @@ if (process.env.REDIS_HOST) {
 const scraperQueue = new Queue("scraper", {
   redis: redisObj,
   settings: {
-    stalledInterval: 60000, // 1 minute (reduced from 5 minutes)
+    stalledInterval: 60000,
     maxStalledCount: 2, // Allow more retries
     guardInterval: 3000, // More frequent checks
     retryProcessDelay: 3000, // Faster retry
@@ -42,7 +42,6 @@ const scraperQueue = new Queue("scraper", {
   defaultJobOptions: {
     removeOnComplete: 10, // Keep only last 10 completed jobs
     removeOnFail: 10, // Keep only last 10 failed jobs
-    attempts: 3, // Retry failed jobs up to 3 times
     backoff: {
       type: "exponential",
       delay: 2000,
