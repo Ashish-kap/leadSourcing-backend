@@ -1,76 +1,30 @@
-#!/usr/bin/env node
-/**
- * Email Scraper (ESM, fast + precise)
- * - Only visible text + mailto: + Cloudflare data-cfemail.
- * - Safe deobfuscation: never replaces inside words.
- * - Domain-restricted by default (keeps only emails on the site’s domain).
- */
+// utils/emailScraper.js (ESM)
+// Reusable email scraper for Puppeteer. No CLI / no require.
+// Usage:
+//   import { scrapeEmails } from "./utils/emailScraper.js";
+//   const { emails } = await scrapeEmails({ browser, startUrl: "https://site" });
 
-import puppeteer from "puppeteer";
 import { fileURLToPath } from "url";
 
-// ---------- CLI ----------
-function parseArgs(argv) {
-  const args = {
-    depth: 1,
-    max: 15,
-    timeout: 12000,
-    headful: false,
-    delay: 300,
-    respectRobots: true,
-    // speed/precision knobs
-    wait: "dom", // dom | load | networkidle
-    budget: 20000, // ms overall cap
-    perPageLinks: 8, // top-k links per page
-    blockThirdParty: true,
-    firstOnly: true, // stop once we find ≥1 email
-    restrictDomain: true, // keep only emails on the site’s domain
-    noDeobfuscate: false, // if true, skip 'at'/'dot' guessing
-  };
-  for (const a of argv.slice(2)) {
-    if (!args.startUrl && /^https?:\/\//i.test(a)) {
-      args.startUrl = a;
-      continue;
-    }
-    const m = a.match(/^--([^=]+)=(.*)$/);
-    if (m) {
-      const k = m[1];
-      let v = m[2];
-      if (
-        ["depth", "max", "timeout", "delay", "budget", "perPageLinks"].includes(
-          k
-        )
-      )
-        v = Number(v);
-      if (
-        [
-          "headful",
-          "respectRobots",
-          "blockThirdParty",
-          "firstOnly",
-          "restrictDomain",
-          "noDeobfuscate",
-        ].includes(k)
-      )
-        v = /^true$/i.test(v);
-      args[k] = v;
-    } else if (a.startsWith("--")) {
-      args[a.replace(/^--/, "")] = true;
-    }
-  }
-  if (!args.startUrl)
-    throw new Error(
-      "Usage: node email-scraper.mjs https://example.com [--depth=2] ..."
-    );
-  return args;
-}
+const DEFAULTS = {
+  depth: 1,
+  max: 6,
+  timeout: 20000,
+  delay: 300,
+  wait: "dom", // dom | load | networkidle
+  budget: 20000, // overall ms cap
+  perPageLinks: 12, // top-k links per page
+  firstOnly: false,
+  restrictDomain: false, // keep only emails on the site’s domain
+  noDeobfuscate: true, // safer default: only exact + mailto + cfemail
+};
 
-// ---------- utils ----------
+// ---------- small utils ----------
 const uniq = (arr) => Array.from(new Set(arr));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function decodeHtml(str) {
-  return str
+  return String(str || "")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -78,24 +32,22 @@ function decodeHtml(str) {
     .replace(/&#39;/g, "'");
 }
 
-// Join sequences of single letters with spaces between them: "n a m e" → "name"
 function joinSpacedSingles(text) {
   return text.replace(/\b(?:[a-z0-9]\s+){2,}[a-z0-9]\b/gi, (m) =>
     m.replace(/\s+/g, "")
   );
 }
 
-// Only replace **standalone** "at"/"dot" or bracketed forms — never inside words
 function safeDeobfuscate(text) {
   let t = text.replace(/[\u200B-\u200D\uFEFF]/g, "");
   t = joinSpacedSingles(t);
   // bracketed forms
   t = t.replace(/\(\s*at\s*\)|\[\s*at\s*\]|\{\s*at\s*\}/gi, "@");
   t = t.replace(/\(\s*dot\s*\)|\[\s*dot\s*\]|\{\s*dot\s*\}/gi, ".");
-  // standalone tokens (word-bounded)
+  // standalone tokens
   t = t.replace(/\bat\b/gi, "@");
   t = t.replace(/\bdot\b/gi, ".");
-  // remove junk like "(remove this)"
+  // remove junk like (remove this)
   t = t.replace(/\(remove.*?\)|\[remove.*?\]|\{remove.*?\}/gi, "");
   return t;
 }
@@ -113,7 +65,7 @@ function sameHost(u1, u2) {
 function apexOf(hostname) {
   const parts = String(hostname).split(".");
   if (parts.length <= 2) return hostname.toLowerCase();
-  return parts.slice(-2).join(".").toLowerCase(); // simple heuristic
+  return parts.slice(-2).join(".").toLowerCase();
 }
 
 function sanitizeEmails(emails, opts) {
@@ -153,14 +105,13 @@ function sanitizeEmails(emails, opts) {
     .map((e) => (e || "").replace(/[\u200B-\u200D\uFEFF]/g, "").trim())
     .filter(Boolean)
     .map((e) => e.replace(/^mailto:/i, ""))
-    .filter((e) => !/[\/\\]/.test(e)) // not a path
+    .filter((e) => !/[\\/]/.test(e))
     .filter((e) => {
       const [local, domain] = e.split("@");
       if (!local || !domain) return false;
       const tld = domain.toLowerCase().split(".").pop();
       if (!tld || badTlds.has(tld)) return false;
       if (restrictSet) {
-        // keep only if domain ends with any allowed suffix (.example.com or example.com)
         const d = domain.toLowerCase();
         let ok = false;
         for (const suffix of restrictSet) {
@@ -176,7 +127,6 @@ function sanitizeEmails(emails, opts) {
     .slice(0, 200);
 }
 
-// Cloudflare email decode
 function decodeCf(hex) {
   try {
     const r = parseInt(hex.slice(0, 2), 16);
@@ -190,7 +140,6 @@ function decodeCf(hex) {
   }
 }
 
-// ---------- extraction ----------
 async function extractFromPage(page, { noDeobfuscate, restrictSet }) {
   const fromMailto = await page.$$eval('a[href^="mailto:"]', (as) =>
     as
@@ -222,7 +171,6 @@ async function candidateLinks(page, baseUrl, limit = 8) {
   const links = await page.$$eval("a[href]", (as) =>
     as.map((a) => a.getAttribute("href")).filter(Boolean)
   );
-
   const normalized = links
     .map((href) => {
       try {
@@ -240,23 +188,6 @@ async function candidateLinks(page, baseUrl, limit = 8) {
         )
     );
 
-  // const priority = [
-  //   "contact",
-  //   "about",
-  //   "support",
-  //   "help",
-  //   "team",
-  //   "privacy",
-  //   "legal",
-  //   "imprint",
-  //   "impressum",
-  // ];
-  // const scored = normalized.map((u) => ({
-  //   url: u,
-  //   score: priority.some((p) => u.toLowerCase().includes(p)) ? 1 : 0,
-  // }));
-  // scored.sort((a, b) => b.score - a.score);
-  // return uniq(scored.map((s) => s.url)).slice(0, limit);
   const weights = [
     { key: "contact", w: 100 },
     { key: "contacts", w: 100 },
@@ -268,7 +199,6 @@ async function candidateLinks(page, baseUrl, limit = 8) {
     { key: "privacy", w: 20 },
     { key: "legal", w: 20 },
   ];
-
   const scored = normalized.map((u) => {
     const urlL = u.toLowerCase();
     let score = 0;
@@ -277,29 +207,13 @@ async function candidateLinks(page, baseUrl, limit = 8) {
   });
   scored.sort((a, b) => b.score - a.score);
   return uniq(scored.map((s) => s.url)).slice(0, limit);
-
 }
 
-// ---------- main ----------
-async function main() {
-  const args = parseArgs(process.argv);
-  const {
-    startUrl,
-    depth,
-    max,
-    timeout,
-    headful,
-    delay,
-    respectRobots,
-    wait,
-    budget,
-    perPageLinks,
-    blockThirdParty,
-    firstOnly,
-    restrictDomain,
-    noDeobfuscate,
-  } = args;
+export async function scrapeEmails({ browser, startUrl, options = {} }) {
+  if (!browser) throw new Error("scrapeEmails: missing Puppeteer browser");
+  if (!startUrl) throw new Error("scrapeEmails: missing startUrl");
 
+  const cfg = { ...DEFAULTS, ...options };
   const start = new URL(startUrl);
   const allowSuffixes = new Set([
     start.hostname.toLowerCase(),
@@ -312,10 +226,11 @@ async function main() {
     networkidle: "networkidle2",
     networkidle2: "networkidle2",
   };
-  const waitUntil = waitMap[String(wait).toLowerCase()] || "domcontentloaded";
+  const waitUntil =
+    waitMap[String(cfg.wait).toLowerCase()] || "domcontentloaded";
 
   async function robotsAllow(url) {
-    if (!respectRobots) return true;
+    if (!cfg.respectRobots) return true;
     try {
       const robotsUrl = `${start.origin}/robots.txt`;
       const res = await fetch(robotsUrl);
@@ -341,10 +256,9 @@ async function main() {
     }
   }
 
-  const browser = await puppeteer.launch({ headless: !headful });
   const page = await browser.newPage();
-  page.setDefaultNavigationTimeout(timeout);
-  page.setDefaultTimeout(timeout);
+  page.setDefaultNavigationTimeout(cfg.timeout);
+  page.setDefaultTimeout(cfg.timeout);
 
   await page.setRequestInterception(true);
   page.on("request", (req) => {
@@ -352,7 +266,7 @@ async function main() {
       const type = req.resourceType();
       if (["image", "media", "font", "stylesheet"].includes(type))
         return req.abort();
-      if (blockThirdParty) {
+      if (cfg.blockThirdParty) {
         const u = new URL(req.url());
         if (
           u.hostname !== start.hostname &&
@@ -375,75 +289,62 @@ async function main() {
     }
   });
 
-  const toVisit = [{ url: startUrl, d: 0 }];
   const visited = new Set();
+  const toVisit = [{ url: startUrl, d: 0 }];
   const visitedList = [];
   const found = new Set();
   const startedAt = Date.now();
 
-  while (toVisit.length && visited.size < max) {
-    if (Date.now() - startedAt > budget) {
-      console.error(`[budget] Exceeded ${budget}ms, stopping.`);
-      break;
-    }
-    const { url, d } = toVisit.shift();
-    if (visited.has(url)) continue;
-    if (!sameHost(url, startUrl)) continue;
-    if (!(await robotsAllow(url))) {
-      visited.add(url);
-      continue;
-    }
+  try {
+    while (toVisit.length && visited.size < cfg.max) {
+      if (Date.now() - startedAt > cfg.budget) break;
+      const { url, d } = toVisit.shift();
+      if (visited.has(url)) continue;
+      if (!sameHost(url, startUrl)) continue;
+      if (!(await robotsAllow(url))) {
+        visited.add(url);
+        continue;
+      }
 
+      try {
+        await page.goto(url, { waitUntil, timeout: cfg.timeout });
+        await sleep(250);
+        const emails = await extractFromPage(page, {
+          noDeobfuscate: cfg.noDeobfuscate,
+          restrictSet: cfg.restrictDomain ? allowSuffixes : null,
+        });
+        emails.forEach((e) => found.add(e));
+        visitedList.push(url);
+
+        if (cfg.firstOnly && found.size) {
+          toVisit.length = 0;
+          break;
+        }
+
+        if (d < cfg.depth) {
+          const links = await candidateLinks(page, url, cfg.perPageLinks);
+          for (const l of links)
+            if (!visited.has(l) && toVisit.length + visited.size < cfg.max)
+              toVisit.push({ url: l, d: d + 1 });
+        }
+        if (cfg.delay) await sleep(cfg.delay);
+      } catch (_) {
+        // ignore page-level errors
+      } finally {
+        visited.add(url);
+      }
+    }
+  } finally {
     try {
-      await page.goto(url, { waitUntil, timeout });
-      await sleep(300);
-
-      const emails = await extractFromPage(page, {
-        noDeobfuscate,
-        restrictSet: restrictDomain ? allowSuffixes : null,
-      });
-      emails.forEach((e) => found.add(e));
-      visitedList.push(url);
-
-      if (firstOnly && found.size) {
-        toVisit.length = 0;
-        break;
-      }
-
-      if (d < depth) {
-        const links = await candidateLinks(page, url, perPageLinks);
-        for (const l of links)
-          if (!visited.has(l) && toVisit.length + visited.size < max)
-            toVisit.push({ url: l, d: d + 1 });
-      }
-      if (delay) await sleep(delay);
-    } catch (err) {
-      console.error(`[error] ${url}: ${err.message}`);
-    } finally {
-      visited.add(url);
-    }
+      await page.close();
+    } catch {}
   }
 
-  await browser.close();
-
-  console.log(
-    JSON.stringify(
-      {
-        startUrl,
-        pagesVisited: visitedList.length,
-        emails: Array.from(found).sort((a, b) => a.localeCompare(b)),
-        visited: visitedList,
-      },
-      null,
-      2
-    )
-  );
+  const emails = Array.from(found).sort((a, b) => a.localeCompare(b));
+  return {
+    emails,
+    pagesVisited: visitedList.length,
+    visited: visitedList,
+    meta: { durationMs: Date.now() - startedAt },
+  };
 }
-
-// ESM main-check
-const isDirect = process.argv[1] === fileURLToPath(import.meta.url);
-if (isDirect)
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });

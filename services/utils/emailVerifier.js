@@ -1,6 +1,7 @@
 // emailVerifier.js
 // Node 18+, run with: node emailVerifier.js someone@example.com
-
+import dotenv from "dotenv";
+dotenv.config();
 import { promises as dns } from "dns";
 import net from "net";
 import { randomBytes } from "crypto";
@@ -8,8 +9,8 @@ import punycode from "punycode";
 // import SMTPConnection from "smtp-connection"; // Using native net module instead
 
 const DEFAULT_OPTS = {
-  heloHost: "validator.local",
-  mailFrom: "postmaster@validator.local",
+  heloHost: process.env.HELO_HOST,
+  mailFrom: process.env.MAIL_FROM,
   connectionTimeoutMs: 8000,
   commandTimeoutMs: 8000,
   smtpPort: 25,

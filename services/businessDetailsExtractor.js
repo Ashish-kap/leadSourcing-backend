@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 import { verifyEmail } from "./utils/emailVerifier.js";
+import { scrapeEmails } from "./utils/emailScraper.js";
 
 function getCoordsFromUrl(u) {
   // matches ...!3d24.379259!4d91.4136279...
@@ -34,6 +35,13 @@ export async function extractBusinessDetails(
     });
   } catch (_) {}
 
+  try {
+    await page.waitForSelector(
+      'a[data-item-id="authority"], a[aria-label^="Website"], a[aria-label="Open website"], button[aria-label*="Website"]',
+      { visible: true, timeout: 7000 }
+    );
+  } catch (_) {}
+
   // --- NEW: parse coords from page.url() (reliable) ---
   const { latitude, longitude } = getCoordsFromUrl(page.url());
 
@@ -44,6 +52,21 @@ export async function extractBusinessDetails(
         (searchTerm, searchLocation, ratingFilter, reviewFilter) => {
           const qs = (sel) => document.querySelector(sel);
           const txt = (el) => el?.textContent?.trim() || null;
+
+          const normalizeWebsiteHref = (href) => {
+            if (!href) return null;
+            try {
+              const u = new URL(href, location.href);
+              // Google redirector used by Maps sometimes
+              if (u.hostname.includes("google.") && u.pathname === "/url") {
+                const q = u.searchParams.get("q");
+                return q || u.href;
+              }
+              return u.href;
+            } catch {
+              return href;
+            }
+          };
 
           // Name (place header)
           const name = txt(qs("h1.DUwDvf.lfPIob"));
@@ -104,18 +127,62 @@ export async function extractBusinessDetails(
                 .trim()
             : null;
 
-          // Website: sometimes anchor, sometimes button
-          let website =
-            qs('a[aria-label="Website"]')?.getAttribute("href") || null;
+          let website = null;
+
+          // 1) Primary: explicit Website row
+          const authorityLink = qs('a[data-item-id="authority"]');
+          if (authorityLink) {
+            website = normalizeWebsiteHref(authorityLink.getAttribute("href"));
+          }
+
+          // 2) Common aria/data-tooltip variants
           if (!website) {
-            const websiteBtn = qs('button[aria-label="Website"]');
-            website = websiteBtn?.getAttribute("data-href") || null;
+            const a = qs(
+              'a[aria-label^="Website"], a[aria-label*="Website"], a[data-tooltip="Open website"]'
+            );
+            website = normalizeWebsiteHref(a?.getAttribute("href"));
+          }
+
+          // 3) Fallback: some places only expose an "action" link (booking/menu) that is the site
+          if (!website) {
+            const actionCandidates = [
+              ...document.querySelectorAll('a[data-item-id^="action:"]'),
+            ];
+            const action = actionCandidates.find((a) => {
+              const href = a.getAttribute("href") || "";
+              const label = (
+                a.getAttribute("aria-label") ||
+                a.textContent ||
+                ""
+              ).trim();
+              // pick http(s) links that look like a site (avoid tel:, mailto:, maps links)
+              return (
+                /^https?:\/\//i.test(href) &&
+                !/google\.[^/]+\/maps/i.test(href) &&
+                /\.[a-z]{2,}/i.test(label || href)
+              ); // has a domain-ish TLD
+            });
+            if (action) {
+              website = normalizeWebsiteHref(action.getAttribute("href"));
+            }
+          }
+
+          // 4) Last-ditch: sometimes owner posts include the site (not 100% reliable)
+          if (!website) {
+            const ownerPostLink = document.querySelector(
+              '[data-section-id="345"] [data-link^="http"]'
+            ); // "From the owner"
+            if (ownerPostLink)
+              website = normalizeWebsiteHref(
+                ownerPostLink.getAttribute("data-link")
+              );
           }
 
           return {
             name,
             phone,
             website,
+            email: null,
             address,
             // coords set outside (more reliable), we’ll fill them after evaluate
             latitude: null,
@@ -126,7 +193,6 @@ export async function extractBusinessDetails(
             search_term: searchTerm,
             search_type: "Google Maps",
             search_location: searchLocation,
-            email: null,
           };
         },
         searchTerm,
@@ -148,63 +214,127 @@ export async function extractBusinessDetails(
     businessData.latitude = latitude;
     businessData.longitude = longitude;
 
-    // --- Email extraction (unchanged, just guarded) ---
+    // --- Email extraction via reusable scraper + verification ---
     if (
       isExtractEmail &&
       businessData.website &&
       !businessData.website.startsWith("javascript:")
     ) {
-      let emailPage;
       try {
-        emailPage = await newPageWithRetry(browser, 2);
-        const emailResult = await Promise.race([
-          (async () => {
-            if (businessData.website.startsWith("mailto:")) {
-              return businessData.website.replace("mailto:", "");
-            }
-            await emailPage.goto(businessData.website, {
-              waitUntil: "domcontentloaded",
-              timeout: 7000,
-            });
-            const email = await emailPage.evaluate(() => {
-              const re = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
-              return document.body.textContent.match(re)?.[0] || null;
-            });
-            return email;
-          })(),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Email extraction timed out")),
-              7000
-            )
-          ),
-        ]);
+        // 1) Collect candidate emails from the website
+        const { emails: rawEmails } = await scrapeEmails({
+          browser,
+          startUrl: businessData.website,
+          options: {
+            depth: 1,
+            max: 6,
+            timeout: 8000,
+            delay: 300,
+            wait: "dom",
+            budget: 10000,
+            perPageLinks: 12,
+            firstOnly: false,
+            restrictDomain: false, // allow Gmail/Outlook etc.
+            noDeobfuscate: true, // exact email patterns + mailto + cfemail
+          },
+        });
 
-        if (emailResult) {
-          try {
-            const verificationResult = await verifyEmail(emailResult, {
-              heloHost: process.env.HELO_HOST,
-              mailFrom: process.env.MAIL_FROM,
-              connectionTimeoutMs: 5000,
-              commandTimeoutMs: 5000,
-            });
-            businessData.email =
-              verificationResult.result === "deliverable" ? emailResult : null;
-          } catch (_) {
-            businessData.email = null;
+        // Normalize/dedupe early
+        const uniqueEmails = Array.from(
+          new Set(rawEmails.map((e) => String(e).trim()))
+        );
+
+        console.log("rawEmails:", uniqueEmails);
+
+        // 2) Verify (accept deliverable OR risky by default)
+        const verifyOpts = {
+          heloHost: process.env.HELO_HOST,
+          mailFrom: process.env.MAIL_FROM,
+          connectionTimeoutMs: 20000,
+          commandTimeoutMs: 20000,
+        };
+
+        const ACCEPT_POLICY = "deliverable";
+
+        const concurrency = 3;
+        const q = [...uniqueEmails];
+        const accepted = [];
+        const results = []; // for debug/diagnostics
+
+        const acceptByPolicy = (res) => {
+          if (!res) return false;
+          return res.result === "deliverable";
+        };
+
+        async function worker() {
+          while (q.length) {
+            const email = q.shift();
+            try {
+              const res = await verifyEmail(email, verifyOpts);
+              results.push({ email, result: res?.result, reason: res?.reason });
+              if (acceptByPolicy(res)) accepted.push(email);
+            } catch (err) {
+              results.push({
+                email,
+                result: "error",
+                reason: err?.message || "error",
+              });
+            }
           }
-        } else {
-          businessData.email = null;
         }
-      } catch (_) {
-        businessData.email = null;
-      } finally {
-        try {
-          await emailPage?.close();
-        } catch {}
+
+        await Promise.all(
+          Array.from({ length: Math.min(concurrency, q.length) }, worker)
+        );
+
+        // 3) Optional fallback when SMTP is clearly unreachable (egress blocked)
+        const FALLBACK_ON_SMTP_FAILURE =
+          String(
+            process.env.EMAIL_FALLBACK_ON_SMTP_FAILURE || "true"
+          ).toLowerCase() === "true";
+
+        const smtpLikelyBlocked =
+          accepted.length === 0 &&
+          uniqueEmails.length > 0 &&
+          results.length === uniqueEmails.length &&
+          results.every(
+            (r) =>
+              r.result === "error" ||
+              (r.result === "undeliverable" &&
+                /timeout|connect|refused|unreachable/i.test(r.reason || ""))
+          );
+
+        if (
+          accepted.length === 0 &&
+          smtpLikelyBlocked &&
+          FALLBACK_ON_SMTP_FAILURE
+        ) {
+          // When SMTP is blocked, don't include any emails since we can't verify them
+          // businessData.emails = [];
+          businessData.email = [];
+          businessData.email_verification = {
+            mode: "fallback",
+            details: results,
+          };
+        } else {
+          // businessData.emails = accepted;
+          businessData.email = accepted || null;
+          businessData.email_verification = {
+            mode: ACCEPT_POLICY,
+            details: results,
+          };
+        }
+      } catch (err) {
+        console.warn(
+          "email extraction/verification failed:",
+          err?.message || err
+        );
+        // businessData.emails = [];
+        businessData.email = [];
       }
     } else {
-      businessData.email = null;
+      // businessData.emails = [];
+      businessData.email = [];
     }
   } catch (_) {
     return null;
