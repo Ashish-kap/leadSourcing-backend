@@ -215,13 +215,134 @@ export async function extractBusinessDetails(
     businessData.longitude = longitude;
 
     // --- Email extraction via reusable scraper + verification ---
+    // if (
+    //   isExtractEmail &&
+    //   businessData.website &&
+    //   !businessData.website.startsWith("javascript:")
+    // ) {
+    //   try {
+    //     // 1) Collect candidate emails from the website
+    //     const { emails: rawEmails } = await scrapeEmails({
+    //       browser,
+    //       startUrl: businessData.website,
+    //       options: {
+    //         depth: 1,
+    //         max: 6,
+    //         timeout: 8000,
+    //         delay: 300,
+    //         wait: "dom",
+    //         budget: 10000,
+    //         perPageLinks: 12,
+    //         firstOnly: false,
+    //         restrictDomain: false, // allow Gmail/Outlook etc.
+    //         noDeobfuscate: true, // exact email patterns + mailto + cfemail
+    //       },
+    //     });
+
+    //     // Normalize/dedupe early
+    //     const uniqueEmails = Array.from(
+    //       new Set(rawEmails.map((e) => String(e).trim()))
+    //     );
+
+    //     console.log("rawEmails:", uniqueEmails);
+
+    //     // 2) Verify (accept deliverable OR risky by default)
+    //     const verifyOpts = {
+    //       heloHost: process.env.HELO_HOST,
+    //       mailFrom: process.env.MAIL_FROM,
+    //       connectionTimeoutMs: 20000,
+    //       commandTimeoutMs: 20000,
+    //     };
+
+    //     const ACCEPT_POLICY = "deliverable";
+
+    //     const concurrency = 3;
+    //     const q = [...uniqueEmails];
+    //     const accepted = [];
+    //     const results = []; // for debug/diagnostics
+
+    //     const acceptByPolicy = (res) => {
+    //       if (!res) return false;
+    //       return res.result === "deliverable";
+    //     };
+
+    //     async function worker() {
+    //       while (q.length) {
+    //         const email = q.shift();
+    //         try {
+    //           const res = await verifyEmail(email, verifyOpts);
+    //           results.push({ email, result: res?.result, reason: res?.reason });
+    //           if (acceptByPolicy(res)) accepted.push(email);
+    //         } catch (err) {
+    //           results.push({
+    //             email,
+    //             result: "error",
+    //             reason: err?.message || "error",
+    //           });
+    //         }
+    //       }
+    //     }
+
+    //     await Promise.all(
+    //       Array.from({ length: Math.min(concurrency, q.length) }, worker)
+    //     );
+
+    //     // 3) Optional fallback when SMTP is clearly unreachable (egress blocked)
+    //     const FALLBACK_ON_SMTP_FAILURE =
+    //       String(
+    //         process.env.EMAIL_FALLBACK_ON_SMTP_FAILURE || "true"
+    //       ).toLowerCase() === "true";
+
+    //     const smtpLikelyBlocked =
+    //       accepted.length === 0 &&
+    //       uniqueEmails.length > 0 &&
+    //       results.length === uniqueEmails.length &&
+    //       results.every(
+    //         (r) =>
+    //           r.result === "error" ||
+    //           (r.result === "undeliverable" &&
+    //             /timeout|connect|refused|unreachable/i.test(r.reason || ""))
+    //       );
+
+    //     if (
+    //       accepted.length === 0 &&
+    //       smtpLikelyBlocked &&
+    //       FALLBACK_ON_SMTP_FAILURE
+    //     ) {
+    //       // When SMTP is blocked, don't include any emails since we can't verify them
+    //       // businessData.emails = [];
+    //       businessData.email = [];
+    //       businessData.email_verification = {
+    //         mode: "fallback",
+    //         details: results,
+    //       };
+    //     } else {
+    //       // businessData.emails = accepted;
+    //       businessData.email = accepted || null;
+    //       businessData.email_verification = {
+    //         mode: ACCEPT_POLICY,
+    //         details: results,
+    //       };
+    //     }
+    //   } catch (err) {
+    //     console.warn(
+    //       "email extraction/verification failed:",
+    //       err?.message || err
+    //     );
+    //     // businessData.emails = [];
+    //     businessData.email = [];
+    //   }
+    // } else {
+    //   // businessData.emails = [];
+    //   businessData.email = [];
+    // }
+
     if (
       isExtractEmail &&
       businessData.website &&
       !businessData.website.startsWith("javascript:")
     ) {
       try {
-        // 1) Collect candidate emails from the website
         const { emails: rawEmails } = await scrapeEmails({
           browser,
           startUrl: businessData.website,
@@ -234,36 +355,67 @@ export async function extractBusinessDetails(
             budget: 10000,
             perPageLinks: 12,
             firstOnly: false,
-            restrictDomain: false, // allow Gmail/Outlook etc.
-            noDeobfuscate: true, // exact email patterns + mailto + cfemail
+            restrictDomain: false, // allow gmail/outlook etc.
+            noDeobfuscate: true,
           },
         });
 
-        // Normalize/dedupe early
-        const uniqueEmails = Array.from(
-          new Set(rawEmails.map((e) => String(e).trim()))
-        );
+        // Normalize + dedupe (case-insensitive)
+        const seen = new Set();
+        const uniqueEmails = [];
+        for (const e of rawEmails) {
+          const k = String(e || "")
+            .trim()
+            .toLowerCase();
+          if (k && !seen.has(k)) {
+            seen.add(k);
+            uniqueEmails.push(k);
+          }
+        }
 
-        console.log("rawEmails:", uniqueEmails);
+        // Prefer site-domain emails first (improves yield & speed)
+        const siteHost = (() => {
+          try {
+            return new URL(businessData.website).hostname
+              .replace(/^www\./, "")
+              .toLowerCase();
+          } catch {
+            return null;
+          }
+        })();
+        if (siteHost) {
+          uniqueEmails.sort((a, b) => {
+            const da = a.split("@")[1]?.toLowerCase() || "";
+            const db = b.split("@")[1]?.toLowerCase() || "";
+            return (
+              (db.endsWith(siteHost) ? 1 : 0) - (da.endsWith(siteHost) ? 1 : 0)
+            );
+          });
+        }
 
-        // 2) Verify (accept deliverable OR risky by default)
+        // Verify
         const verifyOpts = {
           heloHost: process.env.HELO_HOST,
           mailFrom: process.env.MAIL_FROM,
-          connectionTimeoutMs: 20000,
-          commandTimeoutMs: 20000,
+          connectionTimeoutMs: Number(
+            process.env.SMTP_CONNECT_TIMEOUT_MS || 10000
+          ),
+          commandTimeoutMs: Number(
+            process.env.SMTP_COMMAND_TIMEOUT_MS || 15000
+          ),
         };
 
-        const ACCEPT_POLICY = "deliverable";
-
+        const ACCEPT_POLICY = "deliverable"; // strict
         const concurrency = 3;
         const q = [...uniqueEmails];
         const accepted = [];
-        const results = []; // for debug/diagnostics
+        const results = [];
 
         const acceptByPolicy = (res) => {
-          if (!res) return false;
-          return res.result === "deliverable";
+          // allow only true "accepted" (non catch-all) mailboxes
+          return (
+            !!res && res.result === "deliverable" && res.reason === "accepted"
+          );
         };
 
         async function worker() {
@@ -271,7 +423,12 @@ export async function extractBusinessDetails(
             const email = q.shift();
             try {
               const res = await verifyEmail(email, verifyOpts);
-              results.push({ email, result: res?.result, reason: res?.reason });
+              results.push({
+                email,
+                result: res?.result,
+                reason: res?.reason,
+                code: res?.smtp?.[0]?.code || null,
+              });
               if (acceptByPolicy(res)) accepted.push(email);
             } catch (err) {
               results.push({
@@ -287,10 +444,10 @@ export async function extractBusinessDetails(
           Array.from({ length: Math.min(concurrency, q.length) }, worker)
         );
 
-        // 3) Optional fallback when SMTP is clearly unreachable (egress blocked)
+        // Decide whether to fallback
         const FALLBACK_ON_SMTP_FAILURE =
           String(
-            process.env.EMAIL_FALLBACK_ON_SMTP_FAILURE || "true"
+            process.env.EMAIL_FALLBACK_ON_SMTP_FAILURE || "false"
           ).toLowerCase() === "true";
 
         const smtpLikelyBlocked =
@@ -300,8 +457,10 @@ export async function extractBusinessDetails(
           results.every(
             (r) =>
               r.result === "error" ||
-              (r.result === "undeliverable" &&
-                /timeout|connect|refused|unreachable/i.test(r.reason || ""))
+              (r.result !== "deliverable" &&
+                /timeout|connect|refused|unreachable|temporary-failure/i.test(
+                  r.reason || ""
+                ))
           );
 
         if (
@@ -309,16 +468,13 @@ export async function extractBusinessDetails(
           smtpLikelyBlocked &&
           FALLBACK_ON_SMTP_FAILURE
         ) {
-          // When SMTP is blocked, don't include any emails since we can't verify them
-          // businessData.emails = [];
-          businessData.email = [];
+          businessData.email = []; // do not add unverified when blocked
           businessData.email_verification = {
             mode: "fallback",
             details: results,
           };
         } else {
-          // businessData.emails = accepted;
-          businessData.email = accepted || null;
+          businessData.email = accepted; // deliverable-only
           businessData.email_verification = {
             mode: ACCEPT_POLICY,
             details: results,
@@ -329,11 +485,9 @@ export async function extractBusinessDetails(
           "email extraction/verification failed:",
           err?.message || err
         );
-        // businessData.emails = [];
         businessData.email = [];
       }
     } else {
-      // businessData.emails = [];
       businessData.email = [];
     }
   } catch (_) {

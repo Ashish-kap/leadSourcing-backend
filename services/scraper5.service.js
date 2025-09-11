@@ -384,24 +384,24 @@ async function scrapeLocation({
         browserWSEndpoint: endpoint,
       });
     } else {
-      // return await puppeteerLocal.launch({
-      //   headless: true,
-      //   // executablePath: executablePath(),
-      //   args: [
-      //     "--no-sandbox",
-      //     "--disable-setuid-sandbox",
-      //     "--disable-gpu",
-      //     "--disable-dev-shm-usage",
-      //     "--single-process",
-      //     "--no-zygote",
-      //     "--disable-accelerated-2d-canvas",
-      //     "--disable-web-security",
-      //   ],
-      //   protocolTimeout: 120000,
-      // });
-      return await puppeteer.connect({
-        browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+      return await puppeteerLocal.launch({
+        headless: true,
+        // executablePath: executablePath(),
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--single-process",
+          "--no-zygote",
+          "--disable-accelerated-2d-canvas",
+          "--disable-web-security",
+        ],
+        protocolTimeout: 120000,
       });
+      // return await puppeteer.connect({
+      //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+      // });
     }
   };
 
