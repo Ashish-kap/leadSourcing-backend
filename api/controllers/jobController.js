@@ -292,6 +292,9 @@ export const downloadJobResultCSV = async (req, res) => {
       if (processedRow.email && Array.isArray(processedRow.email)) {
         processedRow.email = processedRow.email.join(", ");
       }
+      if (processedRow.risk_email && Array.isArray(processedRow.risk_email)) {
+        processedRow.risk_email = processedRow.risk_email.join(", ");
+      }
 
       if (row.filtered_reviews && Array.isArray(row.filtered_reviews)) {
         // pick first review only, or join texts, or explode into multiple rows

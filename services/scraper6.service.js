@@ -17,10 +17,10 @@ const POOL_MAX_PAGES = Number(
   process.env.POOL_MAX_PAGES || CITY_CONCURRENCY + DETAIL_CONCURRENCY + 1
 );
 const SEARCH_NAV_TIMEOUT_MS = Number(
-  process.env.SEARCH_NAV_TIMEOUT_MS || 60000
+  process.env.SEARCH_NAV_TIMEOUT_MS || 30000
 );
 const DETAIL_NAV_TIMEOUT_MS = Number(
-  process.env.DETAIL_NAV_TIMEOUT_MS || 20000
+  process.env.DETAIL_NAV_TIMEOUT_MS || 15000
 );
 
 function shuffleArray(array) {
@@ -220,16 +220,20 @@ export async function runScraper(
   const results = [];
   const processedLocations = new Set();
   const recordLimit = maxRecords || Infinity;
+  // Cooperative cancellation flag used to stop scheduling and tear down fast
   let shouldStop = false;
+  const requestStop = () => {
+    shouldStop = true;
+  };
 
   const pushResult = (r) => {
     if (!r) return;
     if (results.length >= recordLimit) {
-      shouldStop = true;
+      requestStop();
       return;
     }
     results.push(r);
-    if (results.length >= recordLimit) shouldStop = true;
+    if (results.length >= recordLimit) requestStop();
   };
 
   const country = Country.getCountryByCode(countryCode);
@@ -346,14 +350,19 @@ export async function runScraper(
   const scheduleDetail = (url, meta) => {
     if (shouldStop) return;
     const p = limitDetail(async () => {
+      // Re-check stop as soon as the task actually starts
       if (shouldStop) return null;
       const page = await browserPool.acquire();
       try {
+        // If stop was requested after acquire, bail out early without heavy work
+        if (shouldStop) return null;
         // Faster nav: domcontentloaded + short timeout
         await page.goto(url, {
           waitUntil: "domcontentloaded",
           timeout: DETAIL_NAV_TIMEOUT_MS,
         });
+        // In case stop was requested during navigation, exit before parsing
+        if (shouldStop) return null;
 
         const locationString = [meta.city, meta.state, meta.countryName]
           .filter(Boolean)
@@ -584,10 +593,16 @@ export async function runScraper(
       await runBuckets(buckets, `country:${countryName}`);
     }
 
-    // Wait for all details to finish (whatever was scheduled)
-    await Promise.allSettled(detailTasks);
+    // If we've hit the record limit, don't wait on outstanding detail tasks.
+    // Close the browser pool first to force-fast fail any in-flight navigations.
+    if (!shouldStop) {
+      await Promise.allSettled(detailTasks);
+    } else {
+      // Prevent unhandled rejections for tasks we won't await
+      for (const t of detailTasks) t.catch(() => {});
+    }
   } finally {
-    // Close browser resources first so "completed" reflects true finish
+    // Close browser resources; if shouldStop was requested this will abort in-flight work
     await browserPool.close();
 
     // Finalize progress after cleanup

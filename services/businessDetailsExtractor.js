@@ -300,7 +300,7 @@ export async function extractBusinessDetails(
         const concurrency = 3;
         const q = [...uniqueEmails];
         const accepted = [];
-        // const risky = [];
+        const risky = [];
         const results = [];
 
         const acceptByPolicy = (res) => {
@@ -310,10 +310,10 @@ export async function extractBusinessDetails(
           );
         };
 
-        // const isRiskyEmail = (res) => {
-        //   // include emails with risky results (catch-all domains, temporary failures)
-        //   return !!res && res.result === "risky";
-        // };
+        const isRiskyEmail = (res) => {
+          // include emails with risky results (catch-all domains, temporary failures)
+          return !!res && res.result === "risky";
+        };
 
         // const T_VERIFY_WALL_START = performance.now();
         async function worker() {
@@ -331,7 +331,7 @@ export async function extractBusinessDetails(
                 // ms,
               });
               if (acceptByPolicy(res)) accepted.push(email);
-              // if (isRiskyEmail(res)) risky.push(email);
+              if (isRiskyEmail(res)) risky.push(email);
             } catch (err) {
               // const ms = Math.round(performance.now() - t0);
               results.push({
@@ -378,14 +378,14 @@ export async function extractBusinessDetails(
           FALLBACK_ON_SMTP_FAILURE
         ) {
           businessData.email = []; // do not add unverified when blocked
-          // businessData.risky_email = []; // do not add risky emails when blocked
+          businessData.risky_email = []; // do not add risky emails when blocked
           businessData.email_verification = {
             mode: "fallback",
             details: results,
           };
         } else {
           businessData.email = accepted; // deliverable-only
-          // businessData.risky_email = risky; // risky emails (catch-all, temporary failures)
+          businessData.risky_email = risky; // risky emails (catch-all, temporary failures)
           businessData.email_verification = {
             mode: ACCEPT_POLICY,
             details: results,
@@ -410,11 +410,11 @@ export async function extractBusinessDetails(
           err?.message || err
         );
         businessData.email = [];
-        // businessData.risky_email = [];
+        businessData.risky_email = [];
       }
     } else {
       businessData.email = [];
-      // businessData.risky_email = [];
+      businessData.risky_email = [];
     }
   } catch (_) {
     return null;
