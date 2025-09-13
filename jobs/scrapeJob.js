@@ -1,4 +1,4 @@
-import { runScraper } from "../services/scraper5.service.js";
+import { runScraper } from "../services/scraper6.service.js";
 import Job from "../models/jobModel.js";
 import User from "../models/userModel.js";
 

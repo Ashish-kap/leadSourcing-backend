@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import { verifyEmail } from "./utils/emailVerifier.js";
 import { scrapeEmails } from "./utils/emailScraper.js";
+import { performance } from "perf_hooks";
 
 function getCoordsFromUrl(u) {
   // matches ...!3d24.379259!4d91.4136279...
@@ -20,6 +21,8 @@ export async function extractBusinessDetails(
   reviewFilter = null,
   isExtractEmail = false
 ) {
+  // const T_OVERALL_START = performance.now();
+
   // --- NEW: wait for the header & rating cluster to render (don’t hard-fail if rating is missing) ---
   try {
     await page.waitForSelector("h1.DUwDvf.lfPIob", {
@@ -214,128 +217,12 @@ export async function extractBusinessDetails(
     businessData.latitude = latitude;
     businessData.longitude = longitude;
 
-    // --- Email extraction via reusable scraper + verification ---
-    // if (
-    //   isExtractEmail &&
-    //   businessData.website &&
-    //   !businessData.website.startsWith("javascript:")
-    // ) {
-    //   try {
-    //     // 1) Collect candidate emails from the website
-    //     const { emails: rawEmails } = await scrapeEmails({
-    //       browser,
-    //       startUrl: businessData.website,
-    //       options: {
-    //         depth: 1,
-    //         max: 6,
-    //         timeout: 8000,
-    //         delay: 300,
-    //         wait: "dom",
-    //         budget: 10000,
-    //         perPageLinks: 12,
-    //         firstOnly: false,
-    //         restrictDomain: false, // allow Gmail/Outlook etc.
-    //         noDeobfuscate: true, // exact email patterns + mailto + cfemail
-    //       },
-    //     });
-
-    //     // Normalize/dedupe early
-    //     const uniqueEmails = Array.from(
-    //       new Set(rawEmails.map((e) => String(e).trim()))
-    //     );
-
-    //     console.log("rawEmails:", uniqueEmails);
-
-    //     // 2) Verify (accept deliverable OR risky by default)
-    //     const verifyOpts = {
-    //       heloHost: process.env.HELO_HOST,
-    //       mailFrom: process.env.MAIL_FROM,
-    //       connectionTimeoutMs: 20000,
-    //       commandTimeoutMs: 20000,
-    //     };
-
-    //     const ACCEPT_POLICY = "deliverable";
-
-    //     const concurrency = 3;
-    //     const q = [...uniqueEmails];
-    //     const accepted = [];
-    //     const results = []; // for debug/diagnostics
-
-    //     const acceptByPolicy = (res) => {
-    //       if (!res) return false;
-    //       return res.result === "deliverable";
-    //     };
-
-    //     async function worker() {
-    //       while (q.length) {
-    //         const email = q.shift();
-    //         try {
-    //           const res = await verifyEmail(email, verifyOpts);
-    //           results.push({ email, result: res?.result, reason: res?.reason });
-    //           if (acceptByPolicy(res)) accepted.push(email);
-    //         } catch (err) {
-    //           results.push({
-    //             email,
-    //             result: "error",
-    //             reason: err?.message || "error",
-    //           });
-    //         }
-    //       }
-    //     }
-
-    //     await Promise.all(
-    //       Array.from({ length: Math.min(concurrency, q.length) }, worker)
-    //     );
-
-    //     // 3) Optional fallback when SMTP is clearly unreachable (egress blocked)
-    //     const FALLBACK_ON_SMTP_FAILURE =
-    //       String(
-    //         process.env.EMAIL_FALLBACK_ON_SMTP_FAILURE || "true"
-    //       ).toLowerCase() === "true";
-
-    //     const smtpLikelyBlocked =
-    //       accepted.length === 0 &&
-    //       uniqueEmails.length > 0 &&
-    //       results.length === uniqueEmails.length &&
-    //       results.every(
-    //         (r) =>
-    //           r.result === "error" ||
-    //           (r.result === "undeliverable" &&
-    //             /timeout|connect|refused|unreachable/i.test(r.reason || ""))
-    //       );
-
-    //     if (
-    //       accepted.length === 0 &&
-    //       smtpLikelyBlocked &&
-    //       FALLBACK_ON_SMTP_FAILURE
-    //     ) {
-    //       // When SMTP is blocked, don't include any emails since we can't verify them
-    //       // businessData.emails = [];
-    //       businessData.email = [];
-    //       businessData.email_verification = {
-    //         mode: "fallback",
-    //         details: results,
-    //       };
-    //     } else {
-    //       // businessData.emails = accepted;
-    //       businessData.email = accepted || null;
-    //       businessData.email_verification = {
-    //         mode: ACCEPT_POLICY,
-    //         details: results,
-    //       };
-    //     }
-    //   } catch (err) {
-    //     console.warn(
-    //       "email extraction/verification failed:",
-    //       err?.message || err
-    //     );
-    //     // businessData.emails = [];
-    //     businessData.email = [];
-    //   }
-    // } else {
-    //   // businessData.emails = [];
-    //   businessData.email = [];
-    // }
+    // Initialize timings bucket
+    businessData.timings = {
+      scrape_ms: null,
+      verify: { wall_ms: null, sum_email_ms: null, per_email: [] },
+      total_ms: null,
+    };
 
     if (
       isExtractEmail &&
@@ -343,6 +230,7 @@ export async function extractBusinessDetails(
       !businessData.website.startsWith("javascript:")
     ) {
       try {
+        // const T_SCRAPE_START = performance.now();
         const { emails: rawEmails } = await scrapeEmails({
           browser,
           startUrl: businessData.website,
@@ -359,6 +247,9 @@ export async function extractBusinessDetails(
             noDeobfuscate: true,
           },
         });
+        // businessData.timings.scrape_ms = Math.round(
+        //   performance.now() - T_SCRAPE_START
+        // );
 
         // Normalize + dedupe (case-insensitive)
         const seen = new Set();
@@ -409,6 +300,7 @@ export async function extractBusinessDetails(
         const concurrency = 3;
         const q = [...uniqueEmails];
         const accepted = [];
+        // const risky = [];
         const results = [];
 
         const acceptByPolicy = (res) => {
@@ -418,23 +310,35 @@ export async function extractBusinessDetails(
           );
         };
 
+        // const isRiskyEmail = (res) => {
+        //   // include emails with risky results (catch-all domains, temporary failures)
+        //   return !!res && res.result === "risky";
+        // };
+
+        // const T_VERIFY_WALL_START = performance.now();
         async function worker() {
           while (q.length) {
             const email = q.shift();
+            // const t0 = performance.now();
             try {
               const res = await verifyEmail(email, verifyOpts);
+              // const ms = Math.round(performance.now() - t0);
               results.push({
                 email,
                 result: res?.result,
                 reason: res?.reason,
                 code: res?.smtp?.[0]?.code || null,
+                // ms,
               });
               if (acceptByPolicy(res)) accepted.push(email);
+              // if (isRiskyEmail(res)) risky.push(email);
             } catch (err) {
+              // const ms = Math.round(performance.now() - t0);
               results.push({
                 email,
                 result: "error",
                 reason: err?.message || "error",
+                // ms,
               });
             }
           }
@@ -443,6 +347,11 @@ export async function extractBusinessDetails(
         await Promise.all(
           Array.from({ length: Math.min(concurrency, q.length) }, worker)
         );
+
+        // const verifyWallMs = Math.round(
+        //   performance.now() - T_VERIFY_WALL_START
+        // );
+        // const verifySumMs = results.reduce((acc, r) => acc + (r.ms || 0), 0);
 
         // Decide whether to fallback
         const FALLBACK_ON_SMTP_FAILURE =
@@ -469,30 +378,57 @@ export async function extractBusinessDetails(
           FALLBACK_ON_SMTP_FAILURE
         ) {
           businessData.email = []; // do not add unverified when blocked
+          // businessData.risky_email = []; // do not add risky emails when blocked
           businessData.email_verification = {
             mode: "fallback",
             details: results,
           };
         } else {
           businessData.email = accepted; // deliverable-only
+          // businessData.risky_email = risky; // risky emails (catch-all, temporary failures)
           businessData.email_verification = {
             mode: ACCEPT_POLICY,
             details: results,
           };
         }
+
+        // attach verification timing summary
+        // businessData.timings.verify = {
+        //   wall_ms: verifyWallMs,
+        //   sum_email_ms: verifySumMs,
+        //   per_email: results.map(({ email, ms, result, reason, code }) => ({
+        //     email,
+        //     ms,
+        //     result,
+        //     reason,
+        //     code,
+        //   })),
+        // };
       } catch (err) {
         console.warn(
           "email extraction/verification failed:",
           err?.message || err
         );
         businessData.email = [];
+        // businessData.risky_email = [];
       }
     } else {
       businessData.email = [];
+      // businessData.risky_email = [];
     }
   } catch (_) {
     return null;
   }
+
+  // total time for this extractor run
+  // businessData.timings = businessData.timings || {
+  //   scrape_ms: null,
+  //   verify: { wall_ms: null, sum_email_ms: null, per_email: [] },
+  //   total_ms: null,
+  // };
+  // businessData.timings.total_ms = Math.round(
+  //   performance.now() - T_OVERALL_START
+  // );
 
   return businessData;
 }
