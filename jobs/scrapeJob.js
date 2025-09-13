@@ -16,8 +16,7 @@ export default async function (job) {
     // Run the scraper with progress updates
     const result = await runScraper(job.data, job);
 
-    // Final progress update
-    await job.progress(100);
+    // Final progress update emitted inside runScraper after cleanup
 
     // Update database job status based on results
     if (dbJob) {

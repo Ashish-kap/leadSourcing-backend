@@ -139,10 +139,50 @@ export class BrowserPool {
     }
     this.pending = [];
     this.available = [];
-    if (this.browser) {
+
+    const browser = this.browser;
+    this.browser = null;
+    if (!browser) return;
+
+    // Try closing all pages first to speed up shutdown
+    try {
+      const pages = await browser.pages();
+      const withTimeout = (p, ms) =>
+        Promise.race([
+          p,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("page close timeout")), ms)
+          ),
+        ]);
+      const perPageTimeout = Number(process.env.PAGE_CLOSE_TIMEOUT_MS || 5000);
+      await Promise.allSettled(
+        pages.map((pg) => withTimeout(pg.close().catch(() => {}), perPageTimeout))
+      );
+    } catch (_) {
+      // ignore
+    }
+
+    // Close browser with a hard timeout; force-kill if needed
+    const closeTimeout = Number(process.env.BROWSER_CLOSE_TIMEOUT_MS || 10000);
+    try {
+      await Promise.race([
+        browser.close(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("browser close timeout")), closeTimeout)
+        ),
+      ]);
+    } catch (_) {
       try {
-        await this.browser.close();
-      } catch (_) {}
+        // If local browser, kill the process; if remote, disconnect
+        const proc = typeof browser.process === "function" ? browser.process() : null;
+        if (proc && typeof proc.kill === "function") {
+          proc.kill("SIGKILL");
+        } else if (typeof browser.disconnect === "function") {
+          browser.disconnect();
+        }
+      } catch (_) {
+        // ignore
+      }
     }
   }
 }

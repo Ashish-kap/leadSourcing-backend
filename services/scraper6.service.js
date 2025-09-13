@@ -587,7 +587,10 @@ export async function runScraper(
     // Wait for all details to finish (whatever was scheduled)
     await Promise.allSettled(detailTasks);
   } finally {
-    // Finalize progress
+    // Close browser resources first so "completed" reflects true finish
+    await browserPool.close();
+
+    // Finalize progress after cleanup
     const finalPercentage =
       results.length >= recordLimit
         ? 100
@@ -601,7 +604,6 @@ export async function runScraper(
         maxRecords: recordLimit,
       });
     }
-    await browserPool.close();
   }
 
   return results.slice(0, recordLimit);
