@@ -1,4 +1,4 @@
-import { runScraper } from "../services/scraper5.service.js";
+import { runScraper } from "../services/scraper6.service.js";
 import Job from "../models/jobModel.js";
 import User from "../models/userModel.js";
 
@@ -16,8 +16,7 @@ export default async function (job) {
     // Run the scraper with progress updates
     const result = await runScraper(job.data, job);
 
-    // Final progress update
-    await job.progress(100);
+    // Final progress update emitted inside runScraper after cleanup
 
     // Update database job status based on results
     if (dbJob) {

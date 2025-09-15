@@ -284,19 +284,36 @@ export const downloadJobResultCSV = async (req, res) => {
       return res.status(404).json({ error: "Result data not found" });
     }
 
-    // Flatten nested filtered_reviews for CSV (optional, see below)
+    // Flatten nested filtered_reviews for CSV and convert email array to comma-separated string
     const flatData = job.result.map((row) => {
+      const processedRow = { ...row };
+
+      // Remove email_verification field from the data
+      delete processedRow.email_verification;
+
+      // Convert email array to comma-separated string
+      if (processedRow.email && Array.isArray(processedRow.email)) {
+        processedRow.email =
+          processedRow.email.length > 0 ? processedRow.email.join(", ") : "";
+      }
+      if (processedRow.risky_email && Array.isArray(processedRow.risky_email)) {
+        processedRow.risky_email =
+          processedRow.risky_email.length > 0
+            ? processedRow.risky_email.join(", ")
+            : "";
+      }
+
       if (row.filtered_reviews && Array.isArray(row.filtered_reviews)) {
         // pick first review only, or join texts, or explode into multiple rows
         return {
-          ...row,
+          ...processedRow,
           reviews_count: row.filtered_reviews.length,
           review_1_text: row.filtered_reviews[0]?.text,
           review_1_rating: row.filtered_reviews?.rating,
           review_1_date: row.filtered_reviews?.date,
         };
       }
-      return row;
+      return processedRow;
     });
 
     // Convert to CSV
