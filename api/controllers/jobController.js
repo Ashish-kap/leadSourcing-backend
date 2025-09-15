@@ -288,12 +288,19 @@ export const downloadJobResultCSV = async (req, res) => {
     const flatData = job.result.map((row) => {
       const processedRow = { ...row };
 
+      // Remove email_verification field from the data
+      delete processedRow.email_verification;
+
       // Convert email array to comma-separated string
       if (processedRow.email && Array.isArray(processedRow.email)) {
-        processedRow.email = processedRow.email.join(", ");
+        processedRow.email =
+          processedRow.email.length > 0 ? processedRow.email.join(", ") : "";
       }
-      if (processedRow.risk_email && Array.isArray(processedRow.risk_email)) {
-        processedRow.risk_email = processedRow.risk_email.join(", ");
+      if (processedRow.risky_email && Array.isArray(processedRow.risky_email)) {
+        processedRow.risky_email =
+          processedRow.risky_email.length > 0
+            ? processedRow.risky_email.join(", ")
+            : "";
       }
 
       if (row.filtered_reviews && Array.isArray(row.filtered_reviews)) {

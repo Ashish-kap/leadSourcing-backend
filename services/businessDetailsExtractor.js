@@ -218,11 +218,11 @@ export async function extractBusinessDetails(
     businessData.longitude = longitude;
 
     // Initialize timings bucket
-    businessData.timings = {
-      scrape_ms: null,
-      verify: { wall_ms: null, sum_email_ms: null, per_email: [] },
-      total_ms: null,
-    };
+    // businessData.timings = {
+    //   scrape_ms: null,
+    //   verify: { wall_ms: null, sum_email_ms: null, per_email: [] },
+    //   total_ms: null,
+    // };
 
     if (
       isExtractEmail &&
