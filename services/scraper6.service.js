@@ -11,16 +11,16 @@ import { BrowserPool } from "./utils/browserPool.js";
 const defaultPopulationResolver = createPopulationResolverAllTheCities();
 
 // ---- Tunables (or use env) ----
-const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 3);
-const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 3);
+const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 6);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 4);
 const POOL_MAX_PAGES = Number(
   process.env.POOL_MAX_PAGES || CITY_CONCURRENCY + DETAIL_CONCURRENCY + 1
 );
 const SEARCH_NAV_TIMEOUT_MS = Number(
-  process.env.SEARCH_NAV_TIMEOUT_MS || 30000
+  process.env.SEARCH_NAV_TIMEOUT_MS || 60000
 );
 const DETAIL_NAV_TIMEOUT_MS = Number(
-  process.env.DETAIL_NAV_TIMEOUT_MS || 15000
+  process.env.DETAIL_NAV_TIMEOUT_MS || 30000
 );
 
 function shuffleArray(array) {

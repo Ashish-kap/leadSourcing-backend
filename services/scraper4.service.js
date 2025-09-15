@@ -6,7 +6,6 @@ import puppeteerLocal from "puppeteer";
 import logger from "./logger.js";
 import autoScroll from "./autoScroll.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
-import { verifyEmail } from "./utils/emailVerifier.js";
 import { extractBusinessDetails } from "./businessDetailsExtractor.js";
 
 // Helper to shuffle array for random selection
