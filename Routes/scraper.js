@@ -1,22 +1,7 @@
-// import express from "express";
-// import scrapController from "../api/controllers/scrape.js";
-// import * as authController from "./../api/controllers/authController.js";
-
-// const router = express.Router();
-
-// router.use(authController.protect);
-
-// router.post("/scrape", scrapController.scrapeData);
-// router.get("/jobs/:id", scrapController.getData);
-
-// export default router;
-
-
 import express from "express";
 import jobController from "./../api/controllers/jobController.js";
 import scrapeController from "./../api/controllers/scrape.js";
 import * as authController from "./../api/controllers/authController.js";
-
 
 const router = express.Router();
 
@@ -36,4 +21,3 @@ router.get("/status/:jobId", scrapeController.getJobStatus);
 router.post("/kill/:jobId", jobController.killJob);
 
 export default router;
-

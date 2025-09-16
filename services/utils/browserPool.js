@@ -12,7 +12,7 @@ import puppeteerLocal from "puppeteer";
  */
 export class BrowserPool {
   constructor({
-    maxPages = 12,
+    maxPages = 10,
     navigationTimeoutMs = 30000,
     blockResources = true,
     userAgent = null,
@@ -156,7 +156,12 @@ export class BrowserPool {
         ]);
       const perPageTimeout = Number(process.env.PAGE_CLOSE_TIMEOUT_MS || 5000);
       await Promise.allSettled(
-        pages.map((pg) => withTimeout(pg.close().catch(() => {}), perPageTimeout))
+        pages.map((pg) =>
+          withTimeout(
+            pg.close().catch(() => {}),
+            perPageTimeout
+          )
+        )
       );
     } catch (_) {
       // ignore
@@ -168,13 +173,17 @@ export class BrowserPool {
       await Promise.race([
         browser.close(),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("browser close timeout")), closeTimeout)
+          setTimeout(
+            () => reject(new Error("browser close timeout")),
+            closeTimeout
+          )
         ),
       ]);
     } catch (_) {
       try {
         // If local browser, kill the process; if remote, disconnect
-        const proc = typeof browser.process === "function" ? browser.process() : null;
+        const proc =
+          typeof browser.process === "function" ? browser.process() : null;
         if (proc && typeof proc.kill === "function") {
           proc.kill("SIGKILL");
         } else if (typeof browser.disconnect === "function") {

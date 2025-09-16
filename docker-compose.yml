@@ -24,8 +24,6 @@
 # volumes:
 #   redis-data:
 
-
-
 version: "3.8"
 
 services:
@@ -44,9 +42,9 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - CONCURRENT=10
       - TOKEN=2SxiECl9q7mfgqW368f0c7e8264cc54dca4d87a30dc46cfa2
       - CONCURRENT=10
+      - TIMEOUT=-1
     restart: unless-stopped
     shm_size: "1gb"
 
