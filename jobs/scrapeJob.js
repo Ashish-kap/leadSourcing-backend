@@ -37,7 +37,7 @@ export default async function (job) {
           totalExtractions: totalExtractions,
           dataPointsCollected: totalExtractions,
           creditsUsed: actualCreditsUsed,
-          planType: user?.plan || "unknown", 
+          planType: user?.plan || "unknown",
         },
       });
     }
