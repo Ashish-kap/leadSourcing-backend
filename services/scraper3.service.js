@@ -11,7 +11,7 @@ const defaultPopulationResolver = createPopulationResolverAllTheCities();
 
 // ---- Tunables (or use env) ----
 const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 5);
-const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 4);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 6);
 const POOL_MAX_PAGES = Number(
   process.env.POOL_MAX_PAGES || CITY_CONCURRENCY + DETAIL_CONCURRENCY + 1
 );
@@ -23,7 +23,7 @@ const DETAIL_NAV_TIMEOUT_MS = Number(
 );
 
 const BROWSER_SESSION_MAX_MS = Number(
-  process.env.BROWSER_SESSION_MAX_MS || 55000
+  process.env.BROWSER_SESSION_MAX_MS || 25000
 );
 const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
   process.env.BROWSER_SESSION_DRAIN_TIMEOUT_MS || 10000
