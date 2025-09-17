@@ -151,7 +151,7 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["user", "tour-guide", "lead-guide", "admin"],
+      enum: ["user", "admin"],
       default: "user",
     },
 
@@ -197,6 +197,19 @@ const userSchema = new mongoose.Schema(
 
     photo: {
       type: String,
+    },
+
+    dodoCustomerId: {
+      type: String,
+      sparse: true,
+    },
+
+    dodoBusinessId: {
+      type: String,
+    },
+
+    dodoCustomerCreatedAt: {
+      type: Date,
     },
 
     // User credits and limits

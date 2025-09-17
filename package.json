@@ -21,6 +21,7 @@
     "cors": "^2.8.5",
     "country-state-city": "^3.2.1",
     "csv-writer": "^1.6.0",
+    "dodopayments": "^2.0.1",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "express-mongo-sanitize": "^2.2.0",
