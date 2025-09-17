@@ -1,15 +1,37 @@
 import { State, City, Country } from "country-state-city";
 import dotenv from "dotenv";
 dotenv.config();
-import puppeteer from "puppeteer-core";
-import puppeteerLocal from "puppeteer";
 import logger from "./logger.js";
-import autoScroll from "./autoScroll.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
-import { verifyEmail } from "./utils/emailVerifier.js";
 import { extractBusinessDetails } from "./businessDetailsExtractor.js";
+import { createPopulationResolverAllTheCities } from "./utils/populationResolver.allTheCities.js";
+import { BrowserPool } from "./utils/browserPool.js";
 
-// Helper to shuffle array for random selection
+const defaultPopulationResolver = createPopulationResolverAllTheCities();
+
+// ---- Tunables (or use env) ----
+const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 5);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 4);
+const POOL_MAX_PAGES = Number(
+  process.env.POOL_MAX_PAGES || CITY_CONCURRENCY + DETAIL_CONCURRENCY + 1
+);
+const SEARCH_NAV_TIMEOUT_MS = Number(
+  process.env.SEARCH_NAV_TIMEOUT_MS || 60000
+);
+const DETAIL_NAV_TIMEOUT_MS = Number(
+  process.env.DETAIL_NAV_TIMEOUT_MS || 30000
+);
+
+const BROWSER_SESSION_MAX_MS = Number(
+  process.env.BROWSER_SESSION_MAX_MS || 55000
+);
+const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
+  process.env.BROWSER_SESSION_DRAIN_TIMEOUT_MS || 10000
+);
+const BROWSER_SESSION_RETRY_LIMIT = Number(
+  process.env.BROWSER_SESSION_RETRY_LIMIT || 3
+);
+
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -22,26 +44,152 @@ function calculatePercentage(processed, total) {
   return total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
 }
 
-// Helper function to create location key
 const locationKey = (country, state, city) =>
   `${country}-${state || ""}-${city}`.toLowerCase().replace(/\s+/g, "-");
 
 async function safeEvaluate(page, fn, ...args) {
   const timeout = 30000;
+  return Promise.race([
+    page.evaluate(fn, ...args),
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`evaluate timed out after ${timeout}ms`)),
+        timeout
+      )
+    ),
+  ]);
+}
+
+// Simple in-file concurrency limiter (no deps)
+function createLimiter(concurrency) {
+  let active = 0;
+  const q = [];
+  const runNext = () => {
+    if (active >= concurrency) return;
+    const next = q.shift();
+    if (!next) return;
+    active++;
+    const { fn, resolve, reject } = next;
+    Promise.resolve()
+      .then(fn)
+      .then((v) => {
+        active--;
+        resolve(v);
+        runNext();
+      })
+      .catch((err) => {
+        active--;
+        reject(err);
+        runNext();
+      });
+  };
+  return (fn) =>
+    new Promise((resolve, reject) => {
+      q.push({ fn, resolve, reject });
+      runNext();
+    });
+}
+
+/**
+ * Scrolls the results panel only until at least `minCount` cards are present (or steps exhausted).
+ */
+async function scrollResultsPanelToCount(page, minCount, maxSteps = 24) {
   try {
-    const result = await Promise.race([
-      page.evaluate(fn, ...args),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`evaluate timed out after ${timeout}ms`)),
-          timeout
-        )
-      ),
-    ]);
-    return result;
-  } catch (error) {
-    throw error;
+    await page.waitForSelector(".Nv2PK", { timeout: 8000 });
+  } catch (_) {
+    // Panel not ready yet; keep going
   }
+  await page.evaluate(
+    async (minCount, maxSteps) => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const scroller =
+        document.querySelector('.m6QEr[aria-label][role="region"]') ||
+        document.querySelector(".m6QEr") ||
+        document.body;
+      let steps = 0;
+      let lastCount = 0;
+      while (steps < maxSteps) {
+        const cards = document.querySelectorAll(".Nv2PK");
+        const count = cards.length;
+        if (count >= minCount) break;
+        scroller.scrollBy(0, 1200);
+        await sleep(250);
+        steps++;
+        if (count === lastCount) {
+          scroller.scrollBy(0, -200);
+          await sleep(120);
+          scroller.scrollBy(0, 1400);
+        }
+        lastCount = count;
+      }
+    },
+    minCount,
+    maxSteps
+  );
+}
+
+/**
+ * Extract listing metadata from the search page (pre-filtered).
+ */
+async function getListingsData(page, ratingFilter, reviewFilter) {
+  return safeEvaluate(
+    page,
+    (ratingFilter, reviewFilter) => {
+      return Array.from(document.querySelectorAll(".Nv2PK"))
+        .map((listing) => {
+          const anchor = listing.querySelector("a.hfpxzc");
+          const url = anchor ? anchor.href : null;
+          if (!url) return null;
+
+          const ratingElement = listing.querySelector('.ZkP5Je[role="img"]');
+          const ratingText = ratingElement?.getAttribute("aria-label") || "";
+          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+          const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+
+          const reviewLabelElement = listing.querySelector(
+            '[aria-label*="reviews"], [aria-label*="Reviews"]'
+          );
+          const reviewLabelText =
+            reviewLabelElement?.getAttribute("aria-label") || "";
+          const reviewMatch = reviewLabelText.match(/(\d+)\s+[Rr]eviews?/);
+          const reviewCount = reviewMatch ? parseInt(reviewMatch[1], 10) : 0;
+
+          const nameElement = listing.querySelector(".qBF1Pd");
+          const businessName =
+            nameElement?.textContent?.trim() || "Unknown Business";
+
+          return { url, rating, reviewCount, businessName };
+        })
+        .filter(Boolean)
+        .filter((item) => {
+          if (ratingFilter && item.rating != null) {
+            const { operator, value } = ratingFilter;
+            if (
+              (operator === "gt" && !(item.rating > value)) ||
+              (operator === "gte" && !(item.rating >= value)) ||
+              (operator === "lt" && !(item.rating < value)) ||
+              (operator === "lte" && !(item.rating <= value))
+            ) {
+              return false;
+            }
+          }
+          if (reviewFilter && item.reviewCount != null) {
+            const { operator, value } = reviewFilter;
+            if (
+              (operator === "gt" && !(item.reviewCount > value)) ||
+              (operator === "gte" && !(item.reviewCount >= value)) ||
+              (operator === "lt" && !(item.reviewCount < value)) ||
+              (operator === "lte" && !(item.reviewCount <= value))
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+    },
+    ratingFilter,
+    reviewFilter
+  );
 }
 
 export async function runScraper(
@@ -55,35 +203,388 @@ export async function runScraper(
     reviewFilter = null,
     reviewTimeRange = null,
     isExtractEmail = false,
+
+    // Population / ordering options
+    minPopulation = 5000,
+    populationResolver = defaultPopulationResolver,
+
+    bigPopulationThreshold = 1_000_000,
+    midPopulationThreshold = 100_000,
   },
   job
 ) {
-  logger.info("SCRAPER_START", "Starting scraper", {
+  // ---------------- pooling + queues ----------------
+  const createBrowserPool = async () => {
+    const pool = new BrowserPool({
+      maxPages: POOL_MAX_PAGES,
+      navigationTimeoutMs: Math.max(
+        SEARCH_NAV_TIMEOUT_MS,
+        DETAIL_NAV_TIMEOUT_MS
+      ),
+      blockResources:
+        String(process.env.BLOCK_HEAVY_RESOURCES || "true") === "true",
+    });
+    await pool.init();
+    return pool;
+  };
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const isSessionError = (error) => {
+    if (!error) return false;
+    const message = String(error.message || error.stack || "").toLowerCase();
+    return (
+      error.status === 408 ||
+      message.includes("http status 408") ||
+      message.includes("websocket is not open") ||
+      message.includes("target closed") ||
+      message.includes("session closed") ||
+      message.includes("browser disconnected")
+    );
+  };
+
+  const PAGE_POOL_REF = Symbol("poolRef");
+
+  let browserPool = await createBrowserPool();
+  let sessionStartedAt = Date.now();
+  let refreshingPromise = null;
+  let activePages = 0;
+
+  const rotateBrowserSession = async (reason, meta = {}) => {
+    if (refreshingPromise) {
+      await refreshingPromise;
+      return;
+    }
+    const previousPool = browserPool;
+    refreshingPromise = (async () => {
+      logger.warn("BROWSER_SESSION_REFRESH", "Refreshing browser session", {
+        reason,
+        ...meta,
+      });
+      const waitStart = Date.now();
+      while (
+        activePages > 0 &&
+        Date.now() - waitStart < BROWSER_SESSION_DRAIN_TIMEOUT_MS
+      ) {
+        await wait(150);
+      }
+      if (activePages > 0) {
+        logger.warn(
+          "BROWSER_SESSION_FORCE_ROTATE",
+          "Closing browser with active pages",
+          {
+            pendingPages: activePages,
+          }
+        );
+      }
+      try {
+        await previousPool.close();
+      } catch (closeError) {
+        logger.warn("BROWSER_SESSION_CLOSE_ERROR", "Error closing browser", {
+          message: closeError.message,
+        });
+      }
+      browserPool = await createBrowserPool();
+      sessionStartedAt = Date.now();
+    })();
+    try {
+      await refreshingPromise;
+    } finally {
+      refreshingPromise = null;
+    }
+  };
+
+  const ensureActiveSession = async () => {
+    if (refreshingPromise) await refreshingPromise;
+    if (Date.now() - sessionStartedAt >= BROWSER_SESSION_MAX_MS) {
+      await rotateBrowserSession("ttl-expired");
+    }
+  };
+
+  const acquirePage = async () => {
+    let attempts = 0;
+    while (attempts < 2) {
+      attempts += 1;
+      await ensureActiveSession();
+      const poolRef = browserPool;
+      try {
+        const page = await poolRef.acquire();
+        activePages += 1;
+        page[PAGE_POOL_REF] = poolRef;
+        return page;
+      } catch (error) {
+        const closedMessage =
+          typeof error?.message === "string" &&
+          error.message.toLowerCase().includes("browserpool closed");
+        if (poolRef !== browserPool || closedMessage) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error("Failed to acquire page after refreshing browser session");
+  };
+
+  const releasePage = (page) => {
+    if (!page) return;
+    const poolRef = page[PAGE_POOL_REF] || browserPool;
+    if (activePages > 0) activePages -= 1;
+    try {
+      if (poolRef && typeof poolRef.release === "function") {
+        poolRef.release(page);
+      } else if (
+        typeof page.close === "function" &&
+        !(typeof page.isClosed === "function" && page.isClosed())
+      ) {
+        page.close().catch(() => {});
+      }
+    } catch (_) {
+      // ignore release errors
+    } finally {
+      delete page[PAGE_POOL_REF];
+    }
+  };
+
+  const limitCity = createLimiter(CITY_CONCURRENCY);
+  const limitDetail = createLimiter(DETAIL_CONCURRENCY);
+
+  // ---------------- bookkeeping ----------------
+  const results = [];
+  const processedLocations = new Set();
+  const recordLimit = maxRecords || Infinity;
+  // Cooperative cancellation flag used to stop scheduling and tear down fast
+  let shouldStop = false;
+  const requestStop = () => {
+    shouldStop = true;
+  };
+
+  const withPage = async (context, fn) => {
+    let attempt = 0;
+    let lastError;
+    while (attempt < BROWSER_SESSION_RETRY_LIMIT) {
+      attempt += 1;
+      const page = await acquirePage();
+      try {
+        if (shouldStop) return null;
+        return await fn(page);
+      } catch (error) {
+        lastError = error;
+        if (isSessionError(error) && attempt < BROWSER_SESSION_RETRY_LIMIT) {
+          logger.warn(
+            "BROWSER_SESSION_RETRY",
+            "Retrying task after session error",
+            {
+              context,
+              attempt,
+              maxAttempts: BROWSER_SESSION_RETRY_LIMIT,
+              message: error.message,
+            }
+          );
+          await rotateBrowserSession("error", {
+            context,
+            message: error.message,
+          });
+          continue;
+        }
+        throw error;
+      } finally {
+        releasePage(page);
+      }
+    }
+    throw lastError;
+  };
+
+  const pushResult = (r) => {
+    if (!r) return;
+    if (results.length >= recordLimit) {
+      requestStop();
+      return;
+    }
+    results.push(r);
+    if (results.length >= recordLimit) requestStop();
+  };
+
+  const country = Country.getCountryByCode(countryCode);
+  if (!country) throw new Error(`Invalid country code: ${countryCode}`);
+  const countryName = country.name;
+
+  logger.info("SCRAPER_START", "Starting scraper (pooled)", {
     keyword,
     countryCode,
     stateCode,
     city,
     maxRecords,
+    CITY_CONCURRENCY,
+    DETAIL_CONCURRENCY,
+    POOL_MAX_PAGES,
   });
 
-  // Initialize results and tracking
-  const results = [];
-  const processedLocations = new Set();
+  // ---------------- helpers ----------------
+  const toCandidate = (cityObj, stateIsoCode = null, stateName = null) => ({
+    cityName: cityObj.name,
+    stateCode: stateIsoCode,
+    stateName: stateName,
+  });
 
-  // Handle maxRecords default
-  const recordLimit = maxRecords || Infinity;
-  let recordsRemaining = recordLimit;
+  const listCitiesForScope = (iso2, stateIsoCode) => {
+    if (stateIsoCode) {
+      const state = State.getStateByCodeAndCountry(stateIsoCode, iso2);
+      const sName = state?.name || null;
+      const cities = City.getCitiesOfState(iso2, stateIsoCode) || [];
+      return cities.map((c) => toCandidate(c, stateIsoCode, sName));
+    }
+    const states = (State.getStatesOfCountry(iso2) || []).filter(Boolean);
+    if (states.length > 0) {
+      const out = [];
+      for (const s of states) {
+        const cities = City.getCitiesOfState(iso2, s.isoCode) || [];
+        for (const c of cities) out.push(toCandidate(c, s.isoCode, s.name));
+      }
+      return out;
+    }
+    const cities = City.getCitiesOfCountry(iso2) || [];
+    return cities.map((c) => {
+      const maybeState = c.stateCode
+        ? State.getStateByCodeAndCountry(c.stateCode, iso2)
+        : null;
+      return toCandidate(c, c.stateCode || null, maybeState?.name || null);
+    });
+  };
 
-  // Get country name
-  const country = Country.getCountryByCode(countryCode);
-  if (!country) {
-    throw new Error(`Invalid country code: ${countryCode}`);
-  }
-  const countryName = country.name;
+  const bucketizeCandidates = async (candidates, scopeLabel) => {
+    const buckets = { big: [], mid: [], small: [], unknown: [] };
+    let total = 0;
+    for (const cand of candidates) {
+      let pop = null;
+      try {
+        if (populationResolver) {
+          pop = await populationResolver({
+            iso2: countryCode,
+            adminCode: cand.stateCode || null,
+            city: cand.cityName,
+          });
+        }
+      } catch {
+        pop = null;
+      }
+      if (minPopulation > 0 && pop !== null && pop < minPopulation) continue;
 
-  // Helper to scrape a specific city
-  const scrapeCity = async (cityName, stateCode, stateName) => {
-    if (recordsRemaining <= 0) return [];
+      const enriched = { ...cand, __pop: pop };
+      if (pop === null) buckets.unknown.push(enriched);
+      else if (pop >= bigPopulationThreshold) buckets.big.push(enriched);
+      else if (pop >= midPopulationThreshold) buckets.mid.push(enriched);
+      else buckets.small.push(enriched);
+      total++;
+    }
+    shuffleArray(buckets.big);
+    shuffleArray(buckets.mid);
+    shuffleArray(buckets.small);
+    shuffleArray(buckets.unknown);
+
+    logger.info("CITY_BUCKETS", "Bucketized candidates", {
+      scope: scopeLabel,
+      totalCandidates: total,
+      thresholds: {
+        minPopulation,
+        midPopulationThreshold,
+        bigPopulationThreshold,
+      },
+      counts: {
+        big: buckets.big.length,
+        mid: buckets.mid.length,
+        small: buckets.small.length,
+        unknown: buckets.unknown.length,
+      },
+    });
+    return buckets;
+  };
+
+  const updateProgress = async (extra = {}) => {
+    if (!job) return;
+    const percentage =
+      results.length >= recordLimit
+        ? 100
+        : calculatePercentage(results.length, recordLimit);
+    await job.progress({
+      percentage,
+      recordsCollected: results.length,
+      maxRecords: recordLimit,
+      ...extra,
+    });
+  };
+
+  // -------- Tier B: detail worker --------
+  const detailTasks = [];
+  const scheduleDetail = (url, meta) => {
+    if (shouldStop) return;
+    const p = limitDetail(async () => {
+      // Re-check stop as soon as the task actually starts
+      if (shouldStop) return null;
+      try {
+        return await withPage(`detail:${url}`, async (page) => {
+          if (shouldStop) return null;
+          // Faster nav: domcontentloaded + short timeout
+          await page.goto(url, {
+            waitUntil: "domcontentloaded",
+            timeout: DETAIL_NAV_TIMEOUT_MS,
+          });
+          // In case stop was requested during navigation, exit before parsing
+          if (shouldStop) return null;
+
+          const locationString = [meta.city, meta.state, meta.countryName]
+            .filter(Boolean)
+            .join(", ");
+          const businessData = await extractBusinessDetails(
+            page,
+            page.browser(),
+            meta.keyword,
+            locationString,
+            null,
+            null,
+            meta.isExtractEmail
+          );
+
+          if (!businessData) return null;
+
+          // Optional review filtering on the same page
+          if (meta.reviewTimeRange) {
+            try {
+              const filteredReviews = await extractFilteredReviews(
+                page,
+                meta.reviewTimeRange
+              );
+              businessData.filtered_reviews = filteredReviews;
+              businessData.filtered_review_count = filteredReviews.length;
+            } catch (err) {
+              // non-fatal
+            }
+          }
+
+          businessData.url = url;
+          pushResult(businessData);
+
+          await updateProgress({
+            currentLocation: `${meta.city}, ${meta.state || ""}, ${
+              meta.countryName
+            }`.replace(/,\s*,/g, ","),
+          });
+
+          return businessData;
+        });
+      } catch (error) {
+        logger.error("LISTING_ERROR", "Error processing listing", {
+          url,
+          error: error.message,
+        });
+        return null;
+      }
+    });
+    detailTasks.push(p);
+  };
+
+  // -------- Tier A: city discovery --------
+  async function scrapeCity({ cityName, stateCode, stateName }) {
+    if (shouldStop) return;
 
     const key = locationKey(countryCode, stateCode, cityName);
     if (processedLocations.has(key)) {
@@ -92,791 +593,200 @@ export async function runScraper(
         state: stateName,
         country: countryName,
       });
-      return [];
+      return;
     }
-
     processedLocations.add(key);
-    logger.info("CITY_SCRAPE_START", "Scraping specific city", {
+
+    const searchUrlBase = `https://www.google.com/maps/search/`;
+    const formattedLocation = [cityName, stateName, countryName]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/,/g, "")
+      .replace(/\s+/g, "+");
+    const query = `${encodeURIComponent(keyword)}+in+${formattedLocation}`;
+    // Stabilize locale a bit (optional)
+    const searchUrl = `${searchUrlBase}${query}?hl=en`;
+
+    logger.info("CITY_SCRAPE_START", "Scraping city (discovery only)", {
+      url: searchUrl,
       city: cityName,
       state: stateName,
       country: countryName,
     });
 
-    const cityResults = await scrapeLocation({
-      keyword,
-      city: cityName,
-      state: stateName,
-      countryName,
-      job,
-      maxRecords: recordsRemaining,
-      ratingFilter,
-      reviewFilter,
-      reviewTimeRange,
-      isExtractEmail,
-      cumulativeResults: results.length, // Pass cumulative count
-      totalMaxRecords: recordLimit, // Pass original limit
-    });
+    try {
+      await withPage(`city:${cityName}`, async (page) => {
+        await page.goto(searchUrl, {
+          waitUntil: "domcontentloaded", // faster than networkidle2
+          timeout: SEARCH_NAV_TIMEOUT_MS,
+        });
 
-    return cityResults;
+        // How many listings do we still need overall?
+        const remaining = recordLimit - results.length;
+        if (remaining <= 0) {
+          shouldStop = true;
+          return;
+        }
+
+        // Early-stop scroll: aim for enough to more than cover failures.
+        const neededForCity = Math.min(remaining, 30);
+        const targetCount = Math.ceil(neededForCity * 1.5);
+        await scrollResultsPanelToCount(page, targetCount);
+
+        const listingsData = await getListingsData(
+          page,
+          ratingFilter,
+          reviewFilter
+        );
+
+        // Logging + progress
+        const totalListingsFound = await safeEvaluate(page, () => {
+          return document.querySelectorAll(".Nv2PK").length;
+        });
+        logger.info("FILTER_RESULTS", "Pre-filtering results", {
+          location: `${cityName}, ${stateName}, ${countryName}`,
+          totalBusinessesFound: totalListingsFound,
+          matchingFilter: listingsData.length,
+          filteredOut: totalListingsFound - listingsData.length,
+          ratingFilter,
+          reviewFilter,
+          filterEfficiency: `${(
+            (listingsData.length / Math.max(totalListingsFound, 1)) *
+            100
+          ).toFixed(1)}%`,
+        });
+
+        if (listingsData.length === 0) return;
+
+        // Schedule details globally (Tier B)
+        const urls = listingsData.map((x) => x.url);
+        const toSchedule = Math.min(urls.length, remaining);
+        const meta = {
+          keyword,
+          city: cityName,
+          state: stateName,
+          countryName,
+          isExtractEmail,
+          reviewTimeRange,
+        };
+
+        for (let i = 0; i < toSchedule && !shouldStop; i++) {
+          scheduleDetail(urls[i], meta);
+        }
+      });
+    } catch (error) {
+      logger.error("CITY_SCRAPE_ERROR", "Error scraping city", {
+        city: cityName,
+        state: stateName,
+        error: error.message,
+      });
+    }
+  }
+
+  // ------- Phased bucket processing with parallel city discovery -------
+  const runBuckets = async (buckets, scopeLabel) => {
+    const order = ["big", "mid", "small", "unknown"];
+    for (const bucketName of order) {
+      if (shouldStop) break;
+      const list = buckets[bucketName];
+      const cityPromises = [];
+      for (const cand of list) {
+        if (shouldStop || results.length >= recordLimit) break;
+        cityPromises.push(
+          limitCity(() =>
+            scrapeCity({
+              cityName: cand.cityName,
+              stateCode: cand.stateCode,
+              stateName: cand.stateName,
+            })
+          )
+        );
+      }
+      // Wait all cities in this bucket to complete discovery
+      await Promise.allSettled(cityPromises);
+    }
   };
 
-  // Scenario 1: Full city + state + country provided
-  if (city && stateCode) {
-    logger.info("MODE_FULL_LOCATION", "Using exact location", {
-      city,
-      state: stateCode,
-      country: countryName,
-    });
+  try {
+    // Scenario 1: exact city + state
+    if (city && stateCode) {
+      logger.info("MODE_FULL_LOCATION", "Using exact location", {
+        city,
+        state: stateCode,
+        country: countryName,
+      });
+      const state = State.getStateByCodeAndCountry(stateCode, countryCode);
+      if (!state)
+        throw new Error(
+          `Invalid state code: ${stateCode} for country: ${countryCode}`
+        );
 
-    const state = State.getStateByCodeAndCountry(stateCode, countryCode);
-    if (!state) {
-      throw new Error(
-        `Invalid state code: ${stateCode} for country: ${countryCode}`
+      await limitCity(() =>
+        scrapeCity({ cityName: city, stateCode, stateName: state.name })
       );
     }
+    // Scenario 2: state only
+    else if (stateCode) {
+      logger.info("MODE_STATE_ONLY", "Scraping all cities in state", {
+        state: stateCode,
+        country: countryName,
+      });
+      const state = State.getStateByCodeAndCountry(stateCode, countryCode);
+      if (!state)
+        throw new Error(
+          `Invalid state code: ${stateCode} for country: ${countryCode}`
+        );
 
-    const cityResults = await scrapeCity(city, stateCode, state.name);
-    results.push(...cityResults);
-    recordsRemaining = recordLimit - results.length;
-
-    return results.slice(0, recordLimit);
-  }
-
-  // Scenario 2: State + country provided
-  if (stateCode) {
-    logger.info("MODE_STATE_ONLY", "Scraping all cities in state", {
-      state: stateCode,
-      country: countryName,
-    });
-
-    const state = State.getStateByCodeAndCountry(stateCode, countryCode);
-    if (!state) {
-      throw new Error(
-        `Invalid state code: ${stateCode} for country: ${countryCode}`
+      const candidates = listCitiesForScope(countryCode, stateCode);
+      const buckets = await bucketizeCandidates(
+        candidates,
+        `state:${state.name}`
       );
+      await runBuckets(buckets, `state:${state.name}`);
     }
-    const stateName = state.name;
-
-    const cities = City.getCitiesOfState(countryCode, stateCode);
-    if (cities.length === 0) {
-      return [];
+    // Scenario 3: country only
+    else {
+      logger.info("MODE_COUNTRY_ONLY", "Scraping entire country", {
+        country: countryName,
+      });
+      const candidates = listCitiesForScope(countryCode /* no state */);
+      const buckets = await bucketizeCandidates(
+        candidates,
+        `country:${countryName}`
+      );
+      await runBuckets(buckets, `country:${countryName}`);
     }
 
-    // Shuffle for random selection
-    const shuffledCities = shuffleArray([...cities]);
-    const totalCities = shuffledCities.length;
-
-    for (const [index, cityObj] of shuffledCities.entries()) {
-      // Stop if we've reached maxRecords
-      if (recordsRemaining <= 0) break;
-
-      try {
-        const cityResults = await scrapeCity(
-          cityObj.name,
-          stateCode,
-          stateName
-        );
-        results.push(...cityResults);
-        recordsRemaining = recordLimit - results.length;
-
-        // Stop if we've reached maxRecords
-        if (recordsRemaining <= 0) break;
-      } catch (error) {
-        logger.error("CITY_SCRAPE_ERROR", "Error scraping city", {
-          city: cityObj.name,
-          state: stateName,
-          error: error.message,
-        });
-      }
+    // If we've hit the record limit, don't wait on outstanding detail tasks.
+    // Close the browser pool first to force-fast fail any in-flight navigations.
+    if (!shouldStop) {
+      await Promise.allSettled(detailTasks);
+    } else {
+      // Prevent unhandled rejections for tasks we won't await
+      for (const t of detailTasks) t.catch(() => {});
     }
-    return results.slice(0, recordLimit);
-  }
-
-  // Scenario 3: Country only provided
-  logger.info("MODE_COUNTRY_ONLY", "Scraping entire country", {
-    country: countryName,
-  });
-
-  const states = State.getStatesOfCountry(countryCode);
-  if (states.length === 0) {
-    return [];
-  }
-
-  // Shuffle states for random selection
-  const shuffledStates = shuffleArray([...states]);
-  let totalLocations = 0;
-
-  // First pass: Count total locations
-  for (const state of shuffledStates) {
-    const cities = City.getCitiesOfState(countryCode, state.isoCode);
-    totalLocations += cities.length;
-  }
-
-  let processedCount = 0;
-  // Second pass: Process locations
-  for (const state of shuffledStates) {
-    // Stop if we've reached maxRecords
-    if (recordsRemaining <= 0) break;
-
-    const cities = City.getCitiesOfState(countryCode, state.isoCode);
-    if (cities.length === 0) continue;
-
-    const shuffledCities = shuffleArray([...cities]);
-
-    for (const cityObj of shuffledCities) {
-      // Stop if we've reached maxRecords
-      if (recordsRemaining <= 0) break;
-
-      processedCount++;
-
-      try {
-        const cityResults = await scrapeCity(
-          cityObj.name,
-          state.isoCode,
-          state.name
-        );
-        results.push(...cityResults);
-        recordsRemaining = recordLimit - results.length;
-      } catch (error) {
-        logger.error("CITY_SCRAPE_ERROR", "Error scraping city", {
-          city: cityObj.name,
-          state: state.name,
-          error: error.message,
-        });
-      }
+  } finally {
+    // Close browser resources; if shouldStop was requested this will abort in-flight work
+    if (refreshingPromise) {
+      await refreshingPromise;
     }
-  }
+    await browserPool.close();
 
-  const finalPercentage =
-    results.length >= recordLimit
-      ? 100
-      : calculatePercentage(results.length, recordLimit);
+    // Finalize progress after cleanup
+    const finalPercentage =
+      results.length >= recordLimit
+        ? 100
+        : calculatePercentage(results.length, recordLimit);
 
-  if (job) {
-    await job.progress({
-      percentage: finalPercentage,
-      status: "completed",
-      recordsCollected: results.length,
-      maxRecords: recordLimit,
-    });
+    if (job) {
+      await job.progress({
+        percentage: finalPercentage,
+        status: "completed",
+        recordsCollected: results.length,
+        maxRecords: recordLimit,
+      });
+    }
   }
 
   return results.slice(0, recordLimit);
-}
-
-// Core scraping function for a specific location
-async function scrapeLocation({
-  keyword,
-  city,
-  state,
-  countryName,
-  job,
-  maxRecords = Infinity,
-  ratingFilter = null,
-  reviewFilter = null,
-  reviewTimeRange,
-  isExtractEmail = false,
-  cumulativeResults = 0, // Total results so far across all cities
-  totalMaxRecords = maxRecords, // Original target limit
-}) {
-  const results = [];
-
-  // Build the search location string
-  const locationParts = [city];
-  if (state) locationParts.push(state);
-  if (countryName) locationParts.push(countryName);
-
-  // Format for URL
-  const formattedLocation = locationParts
-    .join(" ")
-    .replace(/,/g, "")
-    .replace(/\s+/g, "+");
-
-  const searchUrl = `https://www.google.com/maps/search/${keyword}+in+${formattedLocation}`;
-  logger.info("SEARCH_URL", "Generated search URL", { url: searchUrl });
-
-  // const browser = await puppeteer.connect({
-  //   browserWSEndpoint: `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
-  // });
-
-  const endpoint =
-    process.env.NODE_ENV === "production"
-      ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
-      : "";
-
-  // const browser = await puppeteer.connect({
-  //   browserWSEndpoint: endpoint,
-  // });
-
-  const getBrowser = async () => {
-    if (endpoint) {
-      // Use Browserless for staging and production
-      console.log(endpoint);
-      return await puppeteer.connect({
-        browserWSEndpoint: endpoint,
-      });
-    } else {
-      return await puppeteerLocal.launch({
-        headless: true,
-        // executablePath: executablePath(),
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-gpu",
-          "--disable-dev-shm-usage",
-          "--single-process",
-          "--no-zygote",
-          "--disable-accelerated-2d-canvas",
-          "--disable-web-security",
-        ],
-        protocolTimeout: 120000,
-      });
-    }
-  };
-
-  const browser = await getBrowser();
-
-  // const browser = await puppeteer.launch({
-  //   headless: false,
-  //   // executablePath: executablePath(),
-  //   args: [
-  //     "--no-sandbox",
-  //     "--disable-setuid-sandbox",
-  //     "--disable-gpu",
-  //     "--disable-dev-shm-usage",
-  //     "--single-process",
-  //     "--no-zygote",
-  //     "--disable-accelerated-2d-canvas",
-  //     "--disable-web-security",
-  //   ],
-  //   protocolTimeout: 120000,
-  // });
-
-  try {
-    const page = await browser.newPage();
-    await page.setDefaultNavigationTimeout(60000);
-
-    // Navigate to search URL
-    await page.goto(searchUrl, { waitUntil: "networkidle2", timeout: 120000 });
-    await autoScroll(page);
-
-    // Extract listing URLs with ratings for pre-filtering
-    const listingsData = await safeEvaluate(
-      page,
-      (ratingFilter, reviewFilter) => {
-        return Array.from(document.querySelectorAll(".Nv2PK"))
-          .map((listing) => {
-            const anchor = listing.querySelector("a.hfpxzc");
-            const url = anchor ? anchor.href : null;
-
-            if (!url) return null;
-
-            // Extract rating from the listing
-            const ratingElement = listing.querySelector('.ZkP5Je[role="img"]');
-            const ratingText = ratingElement?.getAttribute("aria-label") || "";
-            const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
-            const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
-
-            // Extract review count from the listing (using aria-label for consistency)
-            const reviewLabelElement = listing.querySelector(
-              '[aria-label*="reviews"], [aria-label*="Reviews"]'
-            );
-            const reviewLabelText =
-              reviewLabelElement?.getAttribute("aria-label") || "";
-            const reviewMatch = reviewLabelText.match(/(\d+)\s+[Rr]eviews?/);
-            const reviewCount = reviewMatch ? parseInt(reviewMatch[1]) : 0;
-
-            // Extract business name for logging
-            const nameElement = listing.querySelector(".qBF1Pd");
-            const businessName =
-              nameElement?.textContent?.trim() || "Unknown Business";
-
-            return {
-              url,
-              rating,
-              reviewCount,
-              businessName,
-            };
-          })
-          .filter(Boolean)
-          .filter((item) => {
-            // Apply rating filter at URL extraction stage
-            if (ratingFilter && item.rating) {
-              const { operator, value } = ratingFilter;
-              let shouldInclude = true;
-
-              switch (operator) {
-                case "gt":
-                  shouldInclude = item.rating > value;
-                  break;
-                case "gte":
-                  shouldInclude = item.rating >= value;
-                  break;
-                case "lt":
-                  shouldInclude = item.rating < value;
-                  break;
-                case "lte":
-                  shouldInclude = item.rating <= value;
-                  break;
-              }
-
-              if (!shouldInclude) return false;
-            }
-
-            // Apply review count filter at URL extraction stage
-            if (reviewFilter && item.reviewCount !== null) {
-              const { operator, value } = reviewFilter;
-              let shouldInclude = true;
-
-              switch (operator) {
-                case "gt":
-                  shouldInclude = item.reviewCount > value;
-                  break;
-                case "gte":
-                  shouldInclude = item.reviewCount >= value;
-                  break;
-                case "lt":
-                  shouldInclude = item.reviewCount < value;
-                  break;
-                case "lte":
-                  shouldInclude = item.reviewCount <= value;
-                  break;
-              }
-
-              if (!shouldInclude) return false;
-            }
-
-            return true;
-          });
-      },
-      ratingFilter,
-      reviewFilter
-    );
-
-    // Log filtering results
-    const totalListingsFound = await safeEvaluate(page, () => {
-      return document.querySelectorAll(".Nv2PK").length;
-    });
-
-    logger.info("FILTER_RESULTS", "Pre-filtering results", {
-      location: `${city}, ${state}, ${countryName}`,
-      totalBusinessesFound: totalListingsFound,
-      matchingFilter: listingsData.length,
-      filteredOut: totalListingsFound - listingsData.length,
-      ratingFilter,
-      reviewFilter,
-      filterEfficiency: `${(
-        (listingsData.length / Math.max(totalListingsFound, 1)) *
-        100
-      ).toFixed(1)}%`,
-    });
-
-    if (listingsData.length === 0) {
-      logger.info("NO_MATCHES_FOUND", "No businesses match the rating filter", {
-        location: `${city}, ${state}, ${countryName}`,
-        totalBusinessesFound,
-        ratingFilter,
-      });
-      return [];
-    }
-
-    // Extract just the URLs for processing
-    const listingUrls = listingsData.map((item) => item.url);
-
-    // Calculate how many listings to process
-    const listingsToProcess = Math.min(listingUrls.length, maxRecords);
-    // await job.progress({
-    //   listingsTotal: listingUrls.length,
-    //   listingsToProcess,
-    //   location: `${city}, ${state}, ${countryName}`,
-    // });
-
-    const BATCH_SIZE = 1;
-    for (let i = 0; i < listingsToProcess; i += BATCH_SIZE) {
-      // Get current batch (usually 1 URL)
-      const batch = listingUrls.slice(i, i + BATCH_SIZE);
-
-      const batchResults = await Promise.all(
-        batch.map(async (url) => {
-          let detailPage;
-          try {
-            detailPage = await browser.newPage();
-
-            const result = await Promise.race([
-              (async () => {
-                await detailPage.goto(url, {
-                  waitUntil: "domcontentloaded",
-                  timeout: 20000,
-                });
-
-                const locationString = [city, state, countryName]
-                  .filter(Boolean)
-                  .join(", ");
-                // No rating/review filter needed here - already pre-filtered at URL extraction
-                const businessData = await extractBusinessDetails(
-                  detailPage,
-                  browser,
-                  keyword,
-                  locationString,
-                  null, // Pre-filtered, so no need to filter again
-                  null, // Pre-filtered, so no need to filter again
-                  isExtractEmail
-                );
-                // return { url, ...businessData };
-
-                if (!businessData) {
-                  return null;
-                }
-
-                if (reviewTimeRange) {
-                  const filteredReviews = await extractFilteredReviews(
-                    detailPage,
-                    reviewTimeRange
-                  );
-                  businessData.filtered_reviews = filteredReviews;
-                  businessData.filtered_review_count = filteredReviews.length;
-                }
-
-                return businessData ? { ...businessData, url } : null;
-              })(),
-              new Promise((_, reject) =>
-                setTimeout(
-                  () =>
-                    reject(new Error("Listing processing timed out after 60s")),
-                  60000
-                )
-              ),
-            ]);
-
-            return result;
-          } catch (error) {
-            logger.error("LISTING_ERROR", "Error processing listing", {
-              url,
-              error: error.message,
-            });
-            return null;
-          } finally {
-            if (detailPage) {
-              try {
-                await detailPage.close();
-              } catch (closeError) {
-                logger.warn("PAGE_CLOSE_ERROR", "Failed to close detail page", {
-                  error: closeError.message,
-                });
-              }
-            }
-          }
-        })
-      );
-
-      const successfulExtractions = batchResults.filter(Boolean);
-      const newRecords = successfulExtractions.length;
-      results.push(...successfulExtractions);
-
-      if (job && newRecords > 0) {
-        const cumulativeCount = cumulativeResults + results.length;
-        const percentage = calculatePercentage(
-          cumulativeCount,
-          totalMaxRecords
-        );
-        await job.progress({
-          percentage,
-          processedListings: i + 1,
-          totalListings: listingsToProcess,
-          recordsCollected: cumulativeCount, // ✅ Total across all cities
-          maxRecords: totalMaxRecords, // ✅ Original target
-          currentLocation: `${city}, ${state}, ${countryName}`,
-          preFilterStats: ratingFilter
-            ? {
-                totalFound: totalListingsFound,
-                matchingFilter: listingsData.length,
-                preFilterEfficiency: `${(
-                  (listingsData.length / Math.max(totalListingsFound, 1)) *
-                  100
-                ).toFixed(1)}%`,
-              }
-            : undefined,
-        });
-      }
-      // Early exit if we've reached maxRecords
-      if (results.length >= maxRecords) {
-        break;
-      }
-    }
-
-    if (job) {
-      const cumulativeCount = cumulativeResults + results.length;
-      const finalPercentage =
-        cumulativeCount >= totalMaxRecords
-          ? 100
-          : calculatePercentage(cumulativeCount, totalMaxRecords);
-
-      await job.progress({
-        percentage: finalPercentage,
-        status: "processing",
-        recordsCollected: cumulativeCount, // ✅ Total across all cities
-        maxRecords: totalMaxRecords, // ✅ Original target
-        finalStats:
-          ratingFilter || reviewFilter
-            ? {
-                totalBusinessesFound: totalListingsFound,
-                preFilteredToProcess: listingsData.length,
-                finalResultsExtracted: results.length,
-                preFilterEfficiency: `${(
-                  (listingsData.length / Math.max(totalListingsFound, 1)) *
-                  100
-                ).toFixed(1)}%`,
-                extractionEfficiency: `${(
-                  (results.length / Math.max(listingsData.length, 1)) *
-                  100
-                ).toFixed(1)}%`,
-                ratingFilter,
-                reviewFilter,
-              }
-            : undefined,
-      });
-    }
-
-    // Log final statistics for filters
-    if (ratingFilter || reviewFilter) {
-      logger.info("FILTER_STATISTICS", "Filter results", {
-        location: `${city}, ${state}, ${countryName}`,
-        ratingFilter,
-        reviewFilter,
-        totalBusinessesFound: totalListingsFound,
-        preFilteredToProcess: listingsData.length,
-        finalResultsExtracted: results.length,
-        preFilterEfficiency: `${(
-          (listingsData.length / Math.max(totalListingsFound, 1)) *
-          100
-        ).toFixed(1)}%`,
-        extractionEfficiency: `${(
-          (results.length / Math.max(listingsData.length, 1)) *
-          100
-        ).toFixed(1)}%`,
-      });
-    }
-
-    return results.slice(0, maxRecords);
-  } finally {
-    await browser.close();
-  }
-}
-
-async function extractBusinessDetails(
-  page,
-  browser,
-  searchTerm,
-  searchLocation,
-  ratingFilter = null,
-  reviewFilter = null,
-  isExtractEmail = false
-) {
-  let businessData;
-  try {
-    businessData = await Promise.race([
-      page.evaluate(
-        (searchTerm, searchLocation, ratingFilter, reviewFilter) => {
-          const getText = (selector) =>
-            document.querySelector(selector)?.textContent?.trim() || null;
-
-          const getHref = (selector) =>
-            document.querySelector(selector)?.href || null;
-
-          // Extract coordinates from URL parameters
-          const urlParams = new URLSearchParams(window.location.search);
-          const coords = urlParams.get("!3d")?.split("!4d") || [];
-
-          // Extract categories
-          const categories = Array.from(
-            document.querySelectorAll('[class*="DkEaL"]')
-          )
-            .map((el) => el.textContent.trim())
-            .filter(Boolean);
-
-          // Extract rating details
-          const ratingElement = document.querySelector('.ceNzKf[role="img"]');
-          const ratingText = ratingElement?.getAttribute("aria-label") || "";
-
-          // Parse rating value
-          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
-          const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
-
-          // Apply rating filter if specified
-          if (ratingFilter && rating) {
-            const { operator, value } = ratingFilter;
-            let shouldSkip = false;
-
-            switch (operator) {
-              case "gt":
-                shouldSkip = rating <= value;
-                break;
-              case "gte":
-                shouldSkip = rating < value;
-                break;
-              case "lt":
-                shouldSkip = rating >= value;
-                break;
-              case "lte":
-                shouldSkip = rating > value;
-                break;
-            }
-
-            if (shouldSkip) {
-              return null; // Skip this business
-            }
-          }
-
-          // Extract and apply review count filter if specified
-          const reviewCountText = getText('[aria-label*="reviews"]') || "";
-          const reviewCountMatch = reviewCountText.match(/(\d+)\s+[Rr]eviews?/);
-          const reviewCount = reviewCountMatch
-            ? parseInt(reviewCountMatch[1])
-            : 0;
-
-          if (reviewFilter && reviewCount !== null) {
-            const { operator, value } = reviewFilter;
-            let shouldSkip = false;
-
-            switch (operator) {
-              case "gt":
-                shouldSkip = reviewCount <= value;
-                break;
-              case "gte":
-                shouldSkip = reviewCount < value;
-                break;
-              case "lt":
-                shouldSkip = reviewCount >= value;
-                break;
-              case "lte":
-                shouldSkip = reviewCount > value;
-                break;
-            }
-
-            if (shouldSkip) {
-              return null; // Skip this business
-            }
-          }
-
-          const phoneElement = document.querySelector(
-            'a[aria-label="Call phone number"]'
-          );
-          const phoneNumber = phoneElement
-            ? phoneElement.href.replace("tel:", "")
-            : null;
-
-          const addressButton = document.querySelector(
-            'button[aria-label^="Address:"]'
-          );
-          const address = addressButton
-            ? addressButton
-                .getAttribute("aria-label")
-                .replace("Address: ", "")
-                .trim()
-            : null;
-
-          return {
-            name: getText(".DUwDvf.lfPIob"),
-            phone: phoneNumber,
-            website: getHref('[aria-label*="Website"]'),
-            address: address,
-            latitude: coords[0] || null,
-            longitude: coords[1] || null,
-            rating: ratingText.replace(/\D+$/g, "") || null,
-            rating_count:
-              getText('[aria-label*="reviews"]')?.match(/\d+/)?.[0] || "0",
-            category: categories.join(", "),
-            search_term: searchTerm,
-            search_type: "Google Maps",
-            search_location: searchLocation,
-          };
-        },
-        searchTerm,
-        searchLocation,
-        ratingFilter,
-        reviewFilter
-      ),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Business data extraction timed out")),
-          15000
-        )
-      ),
-    ]);
-
-    // Extract email if website exists and email extraction is enabled
-    if (isExtractEmail && businessData.website) {
-      let emailPage;
-      try {
-        emailPage = await browser.newPage();
-        await emailPage.setDefaultNavigationTimeout(10000);
-
-        const emailResult = await Promise.race([
-          (async () => {
-            await emailPage.goto(businessData.website, {
-              waitUntil: "domcontentloaded",
-              timeout: 10000,
-            });
-
-            const email = await emailPage.evaluate(() => {
-              const emailRegex =
-                /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
-              return document.body.textContent.match(emailRegex)?.[0] || null;
-            });
-
-            return email;
-          })(),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Email extraction timed out")),
-              10000
-            )
-          ),
-        ]);
-
-        // Verify email if one was found
-        if (emailResult) {
-          try {
-            const verificationResult = await verifyEmail(emailResult, {
-              heloHost: process.env.HELO_HOST,
-              mailFrom: process.env.MAIL_FROM,
-              connectionTimeoutMs: 7000,
-              commandTimeoutMs: 7000,
-            });
-
-            // Only set email if verification result is 'deliverable'
-            businessData.email =
-              verificationResult.result === "deliverable" ? emailResult : null;
-          } catch (verificationError) {
-            // If verification fails, set email to null
-            businessData.email = null;
-            logger.warn(
-              "EMAIL_VERIFICATION_ERROR",
-              "Email verification failed",
-              {
-                email: emailResult,
-                error: verificationError.message,
-              }
-            );
-          }
-        } else {
-          businessData.email = null;
-        }
-      } catch (error) {
-        businessData.email = null;
-      } finally {
-        if (emailPage) {
-          try {
-            await emailPage.close();
-          } catch (closeError) {}
-        }
-      }
-    } else {
-      businessData.email = null;
-    }
-  } catch (error) {
-    return null;
-  }
-
-  return businessData;
 }
