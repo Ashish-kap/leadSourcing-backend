@@ -305,7 +305,6 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
         await user.save({ validateBeforeSave: false });
       }
     }
-
     createSendToken(user, 200, res);
   } catch (error) {
     console.error("Google token verification error:", error);

@@ -8,6 +8,7 @@ import { ExpressAdapter } from "@bull-board/express";
 import scraperQueue from "./services/queue.js";
 import userRoute from "./Routes/userRoutes.js";
 import jobStatusRoute from "./Routes/jobStatus.js";
+import dodoPaymentsRouter from "./Routes/dodoPayments.js";
 import AppError from "./utils/appError.js";
 import globalErrController from "./api/controllers/errController.js";
 import expressMongoSanitize from "express-mongo-sanitize";
@@ -62,6 +63,7 @@ app.use("/admin", serverAdapter.getRouter());
 // Routes
 app.use("/api", limiter);
 app.use("/api/v1/users", userRoute);
+app.use("/api/v1/dodo-payments", dodoPaymentsRouter);
 app.use("/api/v1", scraperRouter);
 app.use("/api/v1/job-status", jobStatusRoute);
 
