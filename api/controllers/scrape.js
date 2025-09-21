@@ -15,6 +15,7 @@ const scrapeData = async (req, res) => {
       reviewFilter = null,
       reviewTimeRange = null,
       isExtractEmail = false,
+      isValidate = false,
     } = req.body;
 
     // Get user from auth middleware (assuming you have auth middleware)
@@ -142,6 +143,22 @@ const scrapeData = async (req, res) => {
       });
     }
 
+    // Validate isValidate parameter
+    if (isValidate !== null && typeof isValidate !== "boolean") {
+      return res.status(400).json({
+        error: "isValidate must be a boolean value (true or false)",
+      });
+    }
+
+    // Logical validation: isValidate can only be true if isExtractEmail is true
+    if (isValidate === true && isExtractEmail !== true) {
+      return res.status(400).json({
+        error: "isValidate can only be true when isExtractEmail is also true",
+        message:
+          "Email validation requires email extraction to be enabled first",
+      });
+    }
+
     // Check user and apply plan-based restrictions
     const user = await User.findById(userId);
     const estimatedCredits = Math.ceil((maxRecords / 10) * 10);
@@ -203,6 +220,7 @@ const scrapeData = async (req, res) => {
       reviewFilter: reviewFilter,
       reviewTimeRange: reviewTimeRange ? parseInt(reviewTimeRange) : null,
       isExtractEmail: isExtractEmail,
+      isValidate: isValidate,
     };
 
     // Create job record in database

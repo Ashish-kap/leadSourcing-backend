@@ -1,11 +1,12 @@
 import catchAsync from "./../../utils/catchAsync.js";
 import AppError from "./../../utils/appError.js";
 import getDodoClient from "./../../services/dodoPaymentsClient.js";
+import { ensureDodoCustomerForUser } from "./../../services/dodoPayments.service.js";
 
 export const createSubscription = catchAsync(async (req, res, next) => {
   const payload = { ...req.body };
 
-  const missingFields = ["billing", "customer", "product_id", "return_url"].filter(
+  const missingFields = ["billing", "product_id", "return_url"].filter(
     (field) => payload[field] === undefined || payload[field] === null
   );
 
@@ -28,6 +29,23 @@ export const createSubscription = catchAsync(async (req, res, next) => {
   } catch (error) {
     return next(new AppError(error.message, 500));
   }
+
+  let userWithCustomer;
+  try {
+    userWithCustomer = await ensureDodoCustomerForUser(req.user);
+  } catch (error) {
+    return next(
+      new AppError(error.message || "Failed to create Dodo customer", 500)
+    );
+  }
+
+  if (!userWithCustomer?.dodoCustomerId) {
+    return next(new AppError("Unable to determine Dodo customer for user", 500));
+  }
+
+  payload.customer = {
+    customer_id: userWithCustomer.dodoCustomerId,
+  };
 
   const subscription = await client.subscriptions.create(payload);
 

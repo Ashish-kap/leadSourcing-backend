@@ -9,6 +9,7 @@ import scraperQueue from "./services/queue.js";
 import userRoute from "./Routes/userRoutes.js";
 import jobStatusRoute from "./Routes/jobStatus.js";
 import dodoPaymentsRouter from "./Routes/dodoPayments.js";
+import webhookRouter from "./Routes/webhook.js";
 import AppError from "./utils/appError.js";
 import globalErrController from "./api/controllers/errController.js";
 import expressMongoSanitize from "express-mongo-sanitize";
@@ -42,6 +43,9 @@ app.use(passport.initialize());
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+
+// Webhook route without rate limiting (must be before rate limiter)
+app.use("/api/v1", webhookRouter);
 
 //limit request from same API
 const limiter = rateLimit({

@@ -19,7 +19,8 @@ export async function extractBusinessDetails(
   searchLocation,
   ratingFilter = null,
   reviewFilter = null,
-  isExtractEmail = false
+  isExtractEmail = false,
+  isValidate = false
 ) {
   // const T_OVERALL_START = performance.now();
 
@@ -186,6 +187,7 @@ export async function extractBusinessDetails(
             phone,
             website,
             email: null,
+            email_status: null,
             address,
             // coords set outside (more reliable), we’ll fill them after evaluate
             latitude: null,
@@ -284,111 +286,106 @@ export async function extractBusinessDetails(
           });
         }
 
-        // Verify
-        const verifyOpts = {
-          heloHost: process.env.HELO_HOST,
-          mailFrom: process.env.MAIL_FROM,
-          connectionTimeoutMs: Number(
-            process.env.SMTP_CONNECT_TIMEOUT_MS || 10000
-          ),
-          commandTimeoutMs: Number(
-            process.env.SMTP_COMMAND_TIMEOUT_MS || 15000
-          ),
-        };
+        // Verify emails only if isValidate is true
+        if (isValidate) {
+          const verifyOpts = {
+            heloHost: process.env.HELO_HOST,
+            mailFrom: process.env.MAIL_FROM,
+            connectionTimeoutMs: Number(
+              process.env.SMTP_CONNECT_TIMEOUT_MS || 10000
+            ),
+            commandTimeoutMs: Number(
+              process.env.SMTP_COMMAND_TIMEOUT_MS || 15000
+            ),
+          };
 
-        const ACCEPT_POLICY = "deliverable"; // strict
-        const concurrency = 3;
-        const q = [...uniqueEmails];
-        const accepted = [];
-        const risky = [];
-        const results = [];
+          const concurrency = 3;
+          const q = [...uniqueEmails];
+          const results = [];
 
-        const acceptByPolicy = (res) => {
-          // allow only true "accepted" (non catch-all) mailboxes
-          return (
-            !!res && res.result === "deliverable" && res.reason === "accepted"
-          );
-        };
-
-        const isRiskyEmail = (res) => {
-          // include emails with risky results (catch-all domains, temporary failures)
-          return !!res && res.result === "risky";
-        };
-
-        // const T_VERIFY_WALL_START = performance.now();
-        async function worker() {
-          while (q.length) {
-            const email = q.shift();
-            // const t0 = performance.now();
-            try {
-              const res = await verifyEmail(email, verifyOpts);
-              // const ms = Math.round(performance.now() - t0);
-              results.push({
-                email,
-                result: res?.result,
-                reason: res?.reason,
-                code: res?.smtp?.[0]?.code || null,
-                // ms,
-              });
-              if (acceptByPolicy(res)) accepted.push(email);
-              if (isRiskyEmail(res)) risky.push(email);
-            } catch (err) {
-              // const ms = Math.round(performance.now() - t0);
-              results.push({
-                email,
-                result: "error",
-                reason: err?.message || "error",
-                // ms,
-              });
+          // const T_VERIFY_WALL_START = performance.now();
+          async function worker() {
+            while (q.length) {
+              const email = q.shift();
+              // const t0 = performance.now();
+              try {
+                const res = await verifyEmail(email, verifyOpts);
+                // const ms = Math.round(performance.now() - t0);
+                results.push({
+                  email,
+                  result: res?.result || "unknown",
+                  reason: res?.reason || "no reason provided",
+                  code: res?.smtp?.[0]?.code || null,
+                  // ms,
+                });
+              } catch (err) {
+                // const ms = Math.round(performance.now() - t0);
+                results.push({
+                  email,
+                  result: "error",
+                  reason: err?.message || "verification error",
+                  code: null,
+                  // ms,
+                });
+              }
             }
           }
-        }
 
-        await Promise.all(
-          Array.from({ length: Math.min(concurrency, q.length) }, worker)
-        );
-
-        // const verifyWallMs = Math.round(
-        //   performance.now() - T_VERIFY_WALL_START
-        // );
-        // const verifySumMs = results.reduce((acc, r) => acc + (r.ms || 0), 0);
-
-        // Decide whether to fallback
-        const FALLBACK_ON_SMTP_FAILURE =
-          String(
-            process.env.EMAIL_FALLBACK_ON_SMTP_FAILURE || "false"
-          ).toLowerCase() === "true";
-
-        const smtpLikelyBlocked =
-          accepted.length === 0 &&
-          uniqueEmails.length > 0 &&
-          results.length === uniqueEmails.length &&
-          results.every(
-            (r) =>
-              r.result === "error" ||
-              (r.result !== "deliverable" &&
-                /timeout|connect|refused|unreachable|temporary-failure/i.test(
-                  r.reason || ""
-                ))
+          await Promise.all(
+            Array.from({ length: Math.min(concurrency, q.length) }, worker)
           );
 
-        if (
-          accepted.length === 0 &&
-          smtpLikelyBlocked &&
-          FALLBACK_ON_SMTP_FAILURE
-        ) {
-          businessData.email = []; // do not add unverified when blocked
-          businessData.risky_email = []; // do not add risky emails when blocked
-          businessData.email_verification = {
-            mode: "fallback",
-            details: results,
-          };
+          // const verifyWallMs = Math.round(
+          //   performance.now() - T_VERIFY_WALL_START
+          // );
+          // const verifySumMs = results.reduce((acc, r) => acc + (r.ms || 0), 0);
+
+          // Check if SMTP is likely blocked for fallback logic
+          const FALLBACK_ON_SMTP_FAILURE =
+            String(
+              process.env.EMAIL_FALLBACK_ON_SMTP_FAILURE || "false"
+            ).toLowerCase() === "true";
+
+          const smtpLikelyBlocked =
+            uniqueEmails.length > 0 &&
+            results.length === uniqueEmails.length &&
+            results.every(
+              (r) =>
+                r.result === "error" ||
+                (r.result !== "deliverable" &&
+                  /timeout|connect|refused|unreachable|temporary-failure/i.test(
+                    r.reason || ""
+                  ))
+            );
+
+          if (smtpLikelyBlocked && FALLBACK_ON_SMTP_FAILURE) {
+            // SMTP blocked - return empty arrays
+            businessData.email = [];
+            businessData.email_status = [];
+            businessData.email_verification = {
+              mode: "fallback",
+              details: results,
+            };
+          } else {
+            // Store all emails and their statuses
+            businessData.email = uniqueEmails;
+            // Create status array that corresponds to email array by index
+            businessData.email_status = uniqueEmails.map((email) => {
+              const result = results.find((r) => r.email === email);
+              return result ? result.result : "unknown";
+            });
+            businessData.email_verification = {
+              mode: "verified",
+              details: results,
+            };
+          }
         } else {
-          businessData.email = accepted; // deliverable-only
-          businessData.risky_email = risky; // risky emails (catch-all, temporary failures)
+          // Email extraction but no validation - return all unique emails as unverified
+          businessData.email = uniqueEmails;
+          businessData.email_status = uniqueEmails.map(() => "unverified");
           businessData.email_verification = {
-            mode: ACCEPT_POLICY,
-            details: results,
+            mode: "unverified",
+            details: [],
           };
         }
 
@@ -410,11 +407,11 @@ export async function extractBusinessDetails(
           err?.message || err
         );
         businessData.email = [];
-        businessData.risky_email = [];
+        businessData.email_status = [];
       }
     } else {
       businessData.email = [];
-      businessData.risky_email = [];
+      businessData.email_status = [];
     }
   } catch (_) {
     return null;

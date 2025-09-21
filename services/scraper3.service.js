@@ -203,6 +203,7 @@ export async function runScraper(
     reviewFilter = null,
     reviewTimeRange = null,
     isExtractEmail = false,
+    isValidate = false,
 
     // Population / ordering options
     minPopulation = 5000,
@@ -541,7 +542,8 @@ export async function runScraper(
             locationString,
             null,
             null,
-            meta.isExtractEmail
+            meta.isExtractEmail,
+            meta.isValidate
           );
 
           if (!businessData) return null;
@@ -667,6 +669,7 @@ export async function runScraper(
           state: stateName,
           countryName,
           isExtractEmail,
+          isValidate,
           reviewTimeRange,
         };
 
