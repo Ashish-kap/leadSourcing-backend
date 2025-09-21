@@ -4,6 +4,7 @@ import User from "./../../models/userModel.js";
 import Job from "./../../models/jobModel.js";
 import catchAsync from "./../../utils/catchAsync.js";
 import AppError from "./../../utils/appError.js";
+import APIFeatures from "./../../utils/apiFeatures.js";
 import * as factory from "./handlerFactory.js";
 
 const multerStorage = multer.memoryStorage();
@@ -44,6 +45,26 @@ const filterObj = (obj, ...allowedFields) => {
   return newObj;
 };
 
+// Create a safe user response that excludes sensitive data
+const createSafeUserResponse = (user) => {
+  const userObj = user.toObject();
+
+  // Remove sensitive Dodo Payments data
+  delete userObj.dodoBusinessId;
+  delete userObj.dodoCustomerId;
+  delete userObj.dodoCustomerCreatedAt;
+
+  // Remove other sensitive fields
+  delete userObj.password;
+  delete userObj.passwordConfirm;
+  delete userObj.passwordChangeAt;
+  delete userObj.passwordForgotToken;
+  delete userObj.passwordExpireToken;
+  delete userObj.__v;
+
+  return userObj;
+};
+
 export const getMe = (req, res, next) => {
   req.params.id = req.user.id;
   next();
@@ -60,10 +81,13 @@ export const getMeWithStats = catchAsync(async (req, res, next) => {
   // Get user job extraction statistics
   const jobStats = await Job.getUserStats(req.user.id);
 
+  // Create safe user response without sensitive data
+  const safeUser = createSafeUserResponse(user);
+
   res.status(200).json({
     status: "success",
     data: {
-      user,
+      user: safeUser,
       extractionStats: jobStats,
     },
   });
@@ -93,7 +117,7 @@ export const updateMe = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      user: updatedUser,
+      user: createSafeUserResponse(updatedUser),
     },
   });
 });
@@ -114,8 +138,43 @@ export const createUser = (req, res) => {
   });
 };
 
-export const getUser = factory.getOne(User);
-export const getAllUsers = factory.getAll(User);
+// Safe version of getUser that excludes sensitive data
+export const getUser = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    return next(new AppError("No user found with that ID", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      data: createSafeUserResponse(user),
+    },
+  });
+});
+
+// Safe version of getAllUsers that excludes sensitive data
+export const getAllUsers = catchAsync(async (req, res, next) => {
+  const features = new APIFeatures(User.find(), req.query)
+    .filter()
+    .sort()
+    .limitFields()
+    .paginate();
+
+  const users = await features.query;
+
+  // Create safe responses for all users
+  const safeUsers = users.map((user) => createSafeUserResponse(user));
+
+  res.status(200).json({
+    status: "success",
+    results: safeUsers.length,
+    data: {
+      data: safeUsers,
+    },
+  });
+});
 
 // Do NOT update passwords with this!
 export const updateUser = factory.updateOne(User);

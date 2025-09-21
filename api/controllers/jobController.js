@@ -291,15 +291,19 @@ export const downloadJobResultCSV = async (req, res) => {
       // Remove email_verification field from the data
       delete processedRow.email_verification;
 
-      // Convert email array to comma-separated string
+      // Convert email array to comma-separated string AFTER processing email_status
       if (processedRow.email && Array.isArray(processedRow.email)) {
         processedRow.email =
           processedRow.email.length > 0 ? processedRow.email.join(", ") : "";
       }
-      if (processedRow.risky_email && Array.isArray(processedRow.risky_email)) {
-        processedRow.risky_email =
-          processedRow.risky_email.length > 0
-            ? processedRow.risky_email.join(", ")
+
+      if (
+        processedRow.email_status &&
+        Array.isArray(processedRow.email_status)
+      ) {
+        processedRow.email_status =
+          processedRow.email_status.length > 0
+            ? processedRow.email_status.join(", ")
             : "";
       }
 
