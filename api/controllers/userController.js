@@ -104,11 +104,32 @@ export const updateMe = catchAsync(async (req, res, next) => {
     );
   }
 
-  // 2) Filtered out unwanted fields names that are not allowed to be updated
+  // 2) Create error if user tries to update plan
+  if (req.body.plan) {
+    return next(
+      new AppError(
+        "Plan updates are not allowed through this route. Plan changes are managed automatically through your subscription.",
+        400
+      )
+    );
+  }
+
+  // 3) Create error if user tries to update role
+  if (req.body.role) {
+    return next(
+      new AppError(
+        "Role updates are not allowed through this route. Role changes must be made by an administrator.",
+        400
+      )
+    );
+  }
+
+  // 4) Filtered out unwanted fields names that are not allowed to be updated
+  // Users cannot update their plan or role - these are managed by admins/webhooks
   const filteredBody = filterObj(req.body, "name", "email");
   if (req.file) filteredBody.photo = req.file.filename;
 
-  // 3) Update user document
+  // 5) Update user document
   const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
     new: true,
     runValidators: true,
@@ -176,6 +197,36 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   });
 });
 
-// Do NOT update passwords with this!
-export const updateUser = factory.updateOne(User);
+// Custom updateUser function that prevents plan updates
+export const updateUser = catchAsync(async (req, res, next) => {
+  // Prevent plan updates through admin routes
+  if (req.body.plan) {
+    return next(
+      new AppError(
+        "Plan updates are not allowed through this route. Plan changes are managed automatically through subscriptions.",
+        400
+      )
+    );
+  }
+
+  // Note: Admins can update roles, but plans are still protected
+
+  // Use the factory method for other updates
+  const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!updatedUser) {
+    return next(new AppError("No user found with that ID", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      data: createSafeUserResponse(updatedUser),
+    },
+  });
+});
+
 export const deleteUser = factory.deleteOne(User);

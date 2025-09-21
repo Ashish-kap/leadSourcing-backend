@@ -10,6 +10,7 @@ import userRoute from "./Routes/userRoutes.js";
 import jobStatusRoute from "./Routes/jobStatus.js";
 import dodoPaymentsRouter from "./Routes/dodoPayments.js";
 import webhookRouter from "./Routes/webhook.js";
+import feedbackRouter from "./Routes/feedbackRoutes.js";
 import AppError from "./utils/appError.js";
 import globalErrController from "./api/controllers/errController.js";
 import expressMongoSanitize from "express-mongo-sanitize";
@@ -70,6 +71,7 @@ app.use("/api/v1/users", userRoute);
 app.use("/api/v1/dodo-payments", dodoPaymentsRouter);
 app.use("/api/v1", scraperRouter);
 app.use("/api/v1/job-status", jobStatusRoute);
+app.use("/api/v1/feedback", feedbackRouter);
 
 // app.all("*", (req, res, next) => {
 //   next(new AppError(`cant find ${req.originalUrl} on this server`, 404));

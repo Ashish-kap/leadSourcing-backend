@@ -86,12 +86,20 @@ const jobSchema = new mongoose.Schema(
     // Job status and progress
     status: {
       type: String,
-      enum: ["waiting", "active", "completed", "failed", "data_not_found", "delayed", "paused"],
+      enum: [
+        "waiting",
+        "active",
+        "completed",
+        "failed",
+        "data_not_found",
+        "delayed",
+        "paused",
+      ],
       default: "active",
       index: true,
     },
 
-    progress: { 
+    progress: {
       percentage: {
         type: Number,
         default: 0,
@@ -172,6 +180,22 @@ jobSchema.index({ userId: 1, createdAt: -1 });
 jobSchema.index({ status: 1, createdAt: -1 });
 jobSchema.index({ userId: 1, status: 1 });
 
+// TTL Index for automatic cleanup based on user plan
+// This is the most efficient approach - MongoDB handles cleanup automatically
+jobSchema.index(
+  {
+    createdAt: 1,
+    userId: 1,
+  },
+  {
+    expireAfterSeconds: 0, // We'll set this dynamically
+    partialFilterExpression: {
+      // Only apply TTL to completed/failed jobs
+      status: { $in: ["completed", "failed"] },
+    },
+  }
+);
+
 // Virtual for duration calculation (in milliseconds)
 jobSchema.virtual("duration").get(function () {
   if (this.startedAt && this.completedAt) {
@@ -218,6 +242,96 @@ jobSchema.methods.updateStatus = async function (status, additionalData = {}) {
 
   Object.assign(this, additionalData);
   return await this.save();
+};
+
+// Static method to clean up old jobs using batch processing
+jobSchema.statics.cleanupOldJobs = async function (batchSize = 100) {
+  const User = mongoose.model("User");
+
+  const cleanupResults = {
+    freePlanDeleted: 0,
+    otherPlanDeleted: 0,
+    totalBatches: 0,
+    errors: [],
+  };
+
+  try {
+    // Calculate cutoff dates
+    const freePlanCutoff = new Date();
+    freePlanCutoff.setHours(freePlanCutoff.getHours() - 24);
+
+    const otherPlanCutoff = new Date();
+    otherPlanCutoff.setDate(otherPlanCutoff.getDate() - 30);
+
+    // Process free plan users in batches
+    let freePlanSkip = 0;
+    let hasMoreFreeUsers = true;
+
+    while (hasMoreFreeUsers) {
+      const freeUsers = await User.find({ plan: "free" }, "_id plan")
+        .skip(freePlanSkip)
+        .limit(batchSize);
+
+      if (freeUsers.length === 0) {
+        hasMoreFreeUsers = false;
+        break;
+      }
+
+      const freeUserIds = freeUsers.map((user) => user._id);
+
+      const freeResult = await this.deleteMany({
+        userId: { $in: freeUserIds },
+        createdAt: { $lt: freePlanCutoff },
+      });
+
+      cleanupResults.freePlanDeleted += freeResult.deletedCount;
+      cleanupResults.totalBatches++;
+      freePlanSkip += batchSize;
+
+      // If we got less than batchSize, we're done
+      if (freeUsers.length < batchSize) {
+        hasMoreFreeUsers = false;
+      }
+    }
+
+    // Process other plan users in batches
+    let otherPlanSkip = 0;
+    let hasMoreOtherUsers = true;
+
+    while (hasMoreOtherUsers) {
+      const otherUsers = await User.find({ plan: { $ne: "free" } }, "_id plan")
+        .skip(otherPlanSkip)
+        .limit(batchSize);
+
+      if (otherUsers.length === 0) {
+        hasMoreOtherUsers = false;
+        break;
+      }
+
+      const otherUserIds = otherUsers.map((user) => user._id);
+
+      const otherResult = await this.deleteMany({
+        userId: { $in: otherUserIds },
+        createdAt: { $lt: otherPlanCutoff },
+      });
+
+      cleanupResults.otherPlanDeleted += otherResult.deletedCount;
+      cleanupResults.totalBatches++;
+      otherPlanSkip += batchSize;
+
+      // If we got less than batchSize, we're done
+      if (otherUsers.length < batchSize) {
+        hasMoreOtherUsers = false;
+      }
+    }
+  } catch (error) {
+    cleanupResults.errors.push({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+
+  return cleanupResults;
 };
 
 // Static method to get user extraction statistics
