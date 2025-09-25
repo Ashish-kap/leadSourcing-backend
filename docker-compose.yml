@@ -42,7 +42,7 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - TOKEN=2SxiECl9q7mfgqW368f0c7e8264cc54dca4d87a30dc46cfa2
+      - TOKEN=72soy5TgTCncP1HkdVyd06DVdLEVwVFceVYqIuiVj1EpIUiR
       - CONCURRENT=10
       - TIMEOUT=-1
     restart: unless-stopped
@@ -54,8 +54,8 @@ services:
       - "3000:3000"
     environment:
       - REDIS_HOST=redis
-      - BROWSERLESS_TOKEN=2SxiECl9q7mfgqW368f0c7e8264cc54dca4d87a30dc46cfa2
-      - BROWSER_WS_ENDPOINT_PRIVATE=ws://browserless.railway.internal:3001?token=4JpbhegDEjFwWSt4ENtj8fXJWZCfUR52SbKTyEg5z4EQwE1d
+      - BROWSERLESS_TOKEN=72soy5TgTCncP1HkdVyd06DVdLEVwVFceVYqIuiVj1EpIUiR
+      - BROWSER_WS_ENDPOINT_PRIVATE=ws://browserless.railway.internal:3001?token=72soy5TgTCncP1HkdVyd06DVdLEVwVFceVYqIuiVj1EpIUiR
       - BROWSER_WS_ENDPOINT_LOCAL=ws://localhost:3000?token=2SxiECl9q7mfgqW368f0c7e8264cc54dca4d87a30dc46cfa2
     depends_on:
       redis:
