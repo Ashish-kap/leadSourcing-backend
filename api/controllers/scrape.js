@@ -200,7 +200,10 @@ const scrapeData = async (req, res) => {
       user.credits.remaining < estimatedCredits
     ) {
       return res.status(402).json({
-        error: "Insufficient credits",
+        // error: "Insufficient credits",
+        error: "Plan upgrade required",
+        message:
+          "Looks like you're doing serious data extraction! Upgrade to Business plan for unlimited extractions and take your lead sourcing to the next level.",
         required: estimatedCredits,
         available: user.credits.remaining,
       });
