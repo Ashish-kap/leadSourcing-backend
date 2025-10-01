@@ -216,7 +216,7 @@ const userSchema = new mongoose.Schema(
     credits: {
       total: {
         type: Number,
-        default: 1000,
+        default: 2000,
       },
       used: {
         type: Number,
@@ -224,7 +224,7 @@ const userSchema = new mongoose.Schema(
       },
       remaining: {
         type: Number,
-        default: 1000,
+        default: 2000,
       },
     },
 
@@ -258,7 +258,8 @@ userSchema.methods.hasUnlimitedAccess = function () {
 // Method to check if user has unlimited extraction (no credit limits)
 userSchema.methods.hasUnlimitedExtraction = function () {
   return (
-    this.plan === "business" ||  this.plan === "free"
+    // this.plan === "business" ||  this.plan === "free"
+    this.plan === "business"
   );
 };
 
