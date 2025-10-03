@@ -54,6 +54,22 @@ const createSafeUserResponse = (user) => {
   delete userObj.dodoCustomerId;
   delete userObj.dodoCustomerCreatedAt;
 
+  // Remove sensitive subscription data - only keep non-sensitive fields
+  if (userObj.subscription) {
+    const safeSubscription = {
+      status: userObj.subscription.status,
+      subscriptionId: userObj.subscription.subscriptionId,
+      nextBillingDate: userObj.subscription.nextBillingDate,
+      previousBillingDate: userObj.subscription.previousBillingDate,
+      // paymentFrequencyCount: userObj.subscription.paymentFrequencyCount,
+      paymentFrequencyInterval: userObj.subscription.paymentFrequencyInterval,
+      // subscriptionPeriodCount: userObj.subscription.subscriptionPeriodCount,
+      // subscriptionPeriodInterval: userObj.subscription.subscriptionPeriodInterval,
+      // payloadType: userObj.subscription.payloadType,
+    };
+    userObj.subscription = safeSubscription;
+  }
+
   // Remove other sensitive fields
   delete userObj.password;
   delete userObj.passwordConfirm;
