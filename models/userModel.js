@@ -212,6 +212,56 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
+    // Subscription details from webhook
+    subscription: {
+      subscriptionId: {
+        type: String,
+        sparse: true,
+      },
+      status: {
+        type: String,
+        enum: [
+          "pending",
+          "active",
+          "on_hold",
+          "cancelled",
+          "failed",
+          "expired",
+        ],
+        default: null,
+      },
+      nextBillingDate: {
+        type: Date,
+        default: null,
+      },
+      previousBillingDate: {
+        type: Date,
+        default: null,
+      },
+      paymentFrequencyCount: {
+        type: Number,
+        default: null,
+      },
+      paymentFrequencyInterval: {
+        type: String,
+        enum: ["Day", "Week", "Month", "Year"],
+        default: null,
+      },
+      subscriptionPeriodCount: {
+        type: Number,
+        default: null,
+      },
+      subscriptionPeriodInterval: {
+        type: String,
+        enum: ["Day", "Week", "Month", "Year"],
+        default: null,
+      },
+      payloadType: {
+        type: String,
+        default: null,
+      },
+    },
+
     // User credits and limits
     credits: {
       total: {

@@ -50,7 +50,7 @@ router.post("/webhook", async (req, res) => {
     //     : "Missing",
     //   "webhook-timestamp": webhookHeaders["webhook-timestamp"],
     // });
-    // console.log("Body received:", JSON.stringify(body, null, 2));
+    console.log("Body received:", JSON.stringify(body, null, 2));
     // console.log(
     //   "Webhook secret configured:",
     //   process.env.DODO_PAYMENTS_WEBHOOK_SECRET ? "Yes" : "No"
@@ -64,9 +64,9 @@ router.post("/webhook", async (req, res) => {
     let verificationResult = null;
     try {
       verificationResult = webhook.verify(raw, webhookHeaders);
-      //   console.log("Signature verification result:", verificationResult);
+      console.log("Signature verification result:", verificationResult);
     } catch (verifyError) {
-      //   console.log("Signature verification error:", verifyError.message);
+      console.log("Signature verification error:", verifyError.message);
       logger.error("WEBHOOK_VERIFICATION_FAILED", {
         headers: webhookHeaders,
         body: body,
@@ -98,8 +98,17 @@ router.post("/webhook", async (req, res) => {
       case "subscription.active":
         await handleSubscriptionActive(body);
         break;
+      case "subscription.pending":
+        await handleSubscriptionPending(body);
+        break;
+      case "subscription.on_hold":
+        await handleSubscriptionOnHold(body);
+        break;
       case "subscription.cancelled":
         await handleSubscriptionCancelled(body);
+        break;
+      case "subscription.failed":
+        await handleSubscriptionFailed(body);
         break;
       case "subscription.expired":
         await handleSubscriptionExpired(body);
@@ -133,6 +142,8 @@ async function handleSubscriptionActive(webhookData) {
     const subscriptionId = webhookData.data?.subscription_id;
     const productId = webhookData.data?.product_id;
     const status = webhookData.data?.status;
+
+    logger.info("webhookData active", webhookData);
 
     logger.info("SUBSCRIPTION_ACTIVE", {
       business_id: businessId,
@@ -188,7 +199,37 @@ async function handleSubscriptionActive(webhookData) {
       user.dodoBusinessId = businessId;
     }
 
-    // Save user with updated plan
+    // Update subscription details from webhook data
+    const subscriptionData = webhookData.data;
+    if (subscriptionData) {
+      user.subscription = {
+        subscriptionId:
+          subscriptionData.subscription_id || user.subscription?.subscriptionId,
+        status: subscriptionData.status || user.subscription?.status,
+        nextBillingDate: subscriptionData.next_billing_date
+          ? new Date(subscriptionData.next_billing_date)
+          : user.subscription?.nextBillingDate,
+        previousBillingDate: subscriptionData.previous_billing_date
+          ? new Date(subscriptionData.previous_billing_date)
+          : user.subscription?.previousBillingDate,
+        paymentFrequencyCount:
+          subscriptionData.payment_frequency_count ||
+          user.subscription?.paymentFrequencyCount,
+        paymentFrequencyInterval:
+          subscriptionData.payment_frequency_interval ||
+          user.subscription?.paymentFrequencyInterval,
+        subscriptionPeriodCount:
+          subscriptionData.subscription_period_count ||
+          user.subscription?.subscriptionPeriodCount,
+        subscriptionPeriodInterval:
+          subscriptionData.subscription_period_interval ||
+          user.subscription?.subscriptionPeriodInterval,
+        payloadType:
+          subscriptionData.payload_type || user.subscription?.payloadType,
+      };
+    }
+
+    // Save user with updated plan and subscription details
     await user.save({ validateBeforeSave: false });
 
     logger.info("USER_PLAN_UPDATED", {
@@ -198,6 +239,7 @@ async function handleSubscriptionActive(webhookData) {
       productId: productId,
       newPlan: newPlan,
       subscriptionId: subscriptionId,
+      subscriptionDetails: user.subscription,
     });
 
     console.log(
@@ -221,6 +263,8 @@ async function handleSubscriptionCancelled(webhookData) {
     const businessId = webhookData.business_id;
     const subscriptionId = webhookData.data?.subscription_id;
     const cancellationReason = webhookData.data?.cancellation_reason;
+
+    logger.info("webhookData cancelled", webhookData);
 
     logger.info("SUBSCRIPTION_CANCELLED", {
       business_id: businessId,
@@ -254,6 +298,11 @@ async function handleSubscriptionCancelled(webhookData) {
     // Downgrade user plan to free
     user.plan = "free";
 
+    // Update subscription status to cancelled
+    if (user.subscription) {
+      user.subscription.status = "cancelled";
+    }
+
     // Save user with updated plan
     await user.save({ validateBeforeSave: false });
 
@@ -281,6 +330,183 @@ async function handleSubscriptionCancelled(webhookData) {
   }
 }
 
+// Handle subscription.pending event
+async function handleSubscriptionPending(webhookData) {
+  try {
+    const customerId = webhookData.data?.customer?.customer_id;
+    const businessId = webhookData.business_id;
+    const subscriptionId = webhookData.data?.subscription_id;
+
+    logger.info("SUBSCRIPTION_PENDING", {
+      business_id: businessId,
+      subscription_id: subscriptionId,
+      customer_id: customerId,
+    });
+
+    if (!customerId) {
+      logger.error("SUBSCRIPTION_PENDING_MISSING_CUSTOMER_ID", {
+        webhookData: webhookData,
+      });
+      throw new Error("Customer ID not found in webhook data");
+    }
+
+    // Find user by customer ID
+    const user = await User.findOne({ dodoCustomerId: customerId });
+
+    if (!user) {
+      logger.error("SUBSCRIPTION_PENDING_USER_NOT_FOUND", {
+        customerId: customerId,
+        businessId: businessId,
+      });
+      throw new Error(`User not found for customer ID: ${customerId}`);
+    }
+
+    // Update subscription status to pending
+    if (user.subscription) {
+      user.subscription.status = "pending";
+    }
+
+    // Save user with updated subscription status
+    await user.save({ validateBeforeSave: false });
+
+    logger.info("USER_SUBSCRIPTION_PENDING", {
+      userId: user._id,
+      customerId: customerId,
+      businessId: businessId,
+      subscriptionId: subscriptionId,
+    });
+
+    console.log(
+      `⏳ User ${user._id} subscription status updated to pending: ${subscriptionId}`
+    );
+  } catch (error) {
+    logger.error("SUBSCRIPTION_PENDING_ERROR", {
+      error: error.message,
+      business_id: webhookData.business_id,
+      customer_id: webhookData.data?.customer?.customer_id,
+    });
+    throw error;
+  }
+}
+
+// Handle subscription.on_hold event
+async function handleSubscriptionOnHold(webhookData) {
+  try {
+    const customerId = webhookData.data?.customer?.customer_id;
+    const businessId = webhookData.business_id;
+    const subscriptionId = webhookData.data?.subscription_id;
+
+    logger.info("SUBSCRIPTION_ON_HOLD", {
+      business_id: businessId,
+      subscription_id: subscriptionId,
+      customer_id: customerId,
+    });
+
+    if (!customerId) {
+      logger.error("SUBSCRIPTION_ON_HOLD_MISSING_CUSTOMER_ID", {
+        webhookData: webhookData,
+      });
+      throw new Error("Customer ID not found in webhook data");
+    }
+
+    // Find user by customer ID
+    const user = await User.findOne({ dodoCustomerId: customerId });
+
+    if (!user) {
+      logger.error("SUBSCRIPTION_ON_HOLD_USER_NOT_FOUND", {
+        customerId: customerId,
+        businessId: businessId,
+      });
+      throw new Error(`User not found for customer ID: ${customerId}`);
+    }
+
+    // Update subscription status to on_hold
+    if (user.subscription) {
+      user.subscription.status = "on_hold";
+    }
+
+    // Save user with updated subscription status
+    await user.save({ validateBeforeSave: false });
+
+    logger.info("USER_SUBSCRIPTION_ON_HOLD", {
+      userId: user._id,
+      customerId: customerId,
+      businessId: businessId,
+      subscriptionId: subscriptionId,
+    });
+
+    console.log(
+      `⏸️ User ${user._id} subscription status updated to on_hold: ${subscriptionId}`
+    );
+  } catch (error) {
+    logger.error("SUBSCRIPTION_ON_HOLD_ERROR", {
+      error: error.message,
+      business_id: webhookData.business_id,
+      customer_id: webhookData.data?.customer?.customer_id,
+    });
+    throw error;
+  }
+}
+
+// Handle subscription.failed event
+async function handleSubscriptionFailed(webhookData) {
+  try {
+    const customerId = webhookData.data?.customer?.customer_id;
+    const businessId = webhookData.business_id;
+    const subscriptionId = webhookData.data?.subscription_id;
+
+    logger.info("SUBSCRIPTION_FAILED", {
+      business_id: businessId,
+      subscription_id: subscriptionId,
+      customer_id: customerId,
+    });
+
+    if (!customerId) {
+      logger.error("SUBSCRIPTION_FAILED_MISSING_CUSTOMER_ID", {
+        webhookData: webhookData,
+      });
+      throw new Error("Customer ID not found in webhook data");
+    }
+
+    // Find user by customer ID
+    const user = await User.findOne({ dodoCustomerId: customerId });
+
+    if (!user) {
+      logger.error("SUBSCRIPTION_FAILED_USER_NOT_FOUND", {
+        customerId: customerId,
+        businessId: businessId,
+      });
+      throw new Error(`User not found for customer ID: ${customerId}`);
+    }
+
+    // Update subscription status to failed
+    if (user.subscription) {
+      user.subscription.status = "failed";
+    }
+
+    // Save user with updated subscription status
+    await user.save({ validateBeforeSave: false });
+
+    logger.info("USER_SUBSCRIPTION_FAILED", {
+      userId: user._id,
+      customerId: customerId,
+      businessId: businessId,
+      subscriptionId: subscriptionId,
+    });
+
+    console.log(
+      `❌ User ${user._id} subscription status updated to failed: ${subscriptionId}`
+    );
+  } catch (error) {
+    logger.error("SUBSCRIPTION_FAILED_ERROR", {
+      error: error.message,
+      business_id: webhookData.business_id,
+      customer_id: webhookData.data?.customer?.customer_id,
+    });
+    throw error;
+  }
+}
+
 // Handle subscription.expired event
 async function handleSubscriptionExpired(webhookData) {
   try {
@@ -288,6 +514,8 @@ async function handleSubscriptionExpired(webhookData) {
     const businessId = webhookData.business_id;
     const subscriptionId = webhookData.data?.subscription_id;
     const expiredAt = webhookData.data?.expired_at;
+
+    logger.info("webhookData expired", webhookData);
 
     logger.info("SUBSCRIPTION_EXPIRED", {
       business_id: businessId,
@@ -320,6 +548,11 @@ async function handleSubscriptionExpired(webhookData) {
 
     // Downgrade user plan to free
     user.plan = "free";
+
+    // Update subscription status to expired
+    if (user.subscription) {
+      user.subscription.status = "expired";
+    }
 
     // Save user with updated plan
     await user.save({ validateBeforeSave: false });
@@ -359,6 +592,8 @@ async function handlePaymentSucceeded(webhookData) {
       customer_id: webhookData.data?.customer_id,
     });
 
+    logger.info("webhookData succeeded", webhookData);
+
     // TODO: Implement your business logic here
     // Examples:
     // - Update payment records in database
@@ -379,6 +614,7 @@ async function handlePaymentSucceeded(webhookData) {
 // Handle payment.failed event
 async function handlePaymentFailed(webhookData) {
   try {
+    logger.info("webhookData failed", webhookData);
     logger.info("PAYMENT_FAILED", {
       business_id: webhookData.business_id,
       payment_id: webhookData.data?.id,
