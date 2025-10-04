@@ -12,8 +12,8 @@ import puppeteerLocal from "puppeteer";
  */
 export class BrowserPool {
   constructor({
-    maxPages = 12,
-    navigationTimeoutMs = 30000,
+    maxPages = 10,
+    navigationTimeoutMs = 25000,
     blockResources = true,
     userAgent = null,
   } = {}) {
@@ -37,9 +37,12 @@ export class BrowserPool {
         ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
         : "";
 
+    const protocolTimeout = Number(process.env.PROTOCOL_TIMEOUT || 90000);
+
     if (endpoint) {
       this.browser = await puppeteerCore.connect({
         browserWSEndpoint: endpoint,
+        protocolTimeout: protocolTimeout,
       });
     } else {
       this.browser = await puppeteerLocal.launch({
@@ -52,8 +55,9 @@ export class BrowserPool {
           "--no-zygote",
           "--disable-accelerated-2d-canvas",
           "--disable-web-security",
+          "--single-process", // Use less memory
         ],
-        protocolTimeout: 120000,
+        protocolTimeout: protocolTimeout,
       });
     }
   }

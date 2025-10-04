@@ -233,21 +233,37 @@ export async function extractBusinessDetails(
     ) {
       try {
         // const T_SCRAPE_START = performance.now();
-        const { emails: rawEmails } = await scrapeEmails({
+        const emailTimeout = Number(process.env.EMAIL_TIMEOUT_MS || 10000);
+
+        // Add timeout wrapper to prevent hanging
+        const emailPromise = scrapeEmails({
           browser,
           startUrl: businessData.website,
           options: {
             depth: 1,
-            max: 6,
-            timeout: 8000,
-            delay: 300,
+            max: 5, // Reduced from 6 for speed
+            timeout: 8000, // Reduced from 8000
+            delay: 200, // Reduced from 300
             wait: "dom",
-            budget: 10000,
-            perPageLinks: 12,
+            budget: 8000, // Reduced from 10000
+            perPageLinks: 8, // Reduced from 12
             firstOnly: false,
             restrictDomain: false, // allow gmail/outlook etc.
             noDeobfuscate: true,
           },
+        });
+
+        const { emails: rawEmails } = await Promise.race([
+          emailPromise,
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Email scraping timeout")),
+              emailTimeout
+            )
+          ),
+        ]).catch((err) => {
+          console.warn("email extraction/verification failed:", err.message);
+          return { emails: [] };
         });
         // businessData.timings.scrape_ms = Math.round(
         //   performance.now() - T_SCRAPE_START
