@@ -12,7 +12,7 @@ import puppeteerLocal from "puppeteer";
  */
 export class BrowserPool {
   constructor({
-    maxPages = 10,
+    maxPages = 12,
     navigationTimeoutMs = 30000,
     blockResources = true,
     userAgent = null,
