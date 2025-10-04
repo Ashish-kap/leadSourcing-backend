@@ -9,27 +9,25 @@ import { BrowserPool } from "./utils/browserPool.js";
 
 const defaultPopulationResolver = createPopulationResolverAllTheCities();
 
-// ---- Tunables (or use env) ----
-const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 3);
-const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 8);
-const POOL_MAX_PAGES = Number(
-  process.env.POOL_MAX_PAGES || CITY_CONCURRENCY + DETAIL_CONCURRENCY + 1
-);
+// ---- Tunables (or use env) - Optimized for speed & cost ----
+const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 2);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 6);
+const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 10);
 const SEARCH_NAV_TIMEOUT_MS = Number(
-  process.env.SEARCH_NAV_TIMEOUT_MS || 60000
+  process.env.SEARCH_NAV_TIMEOUT_MS || 45000
 );
 const DETAIL_NAV_TIMEOUT_MS = Number(
-  process.env.DETAIL_NAV_TIMEOUT_MS || 30000
+  process.env.DETAIL_NAV_TIMEOUT_MS || 25000
 );
 
 const BROWSER_SESSION_MAX_MS = Number(
   process.env.BROWSER_SESSION_MAX_MS || 55000
 );
 const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
-  process.env.BROWSER_SESSION_DRAIN_TIMEOUT_MS || 10000
+  process.env.BROWSER_SESSION_DRAIN_TIMEOUT_MS || 8000
 );
 const BROWSER_SESSION_RETRY_LIMIT = Number(
-  process.env.BROWSER_SESSION_RETRY_LIMIT || 3
+  process.env.BROWSER_SESSION_RETRY_LIMIT || 2
 );
 
 function shuffleArray(array) {
@@ -93,7 +91,7 @@ function createLimiter(concurrency) {
 /**
  * Scrolls the results panel only until at least `minCount` cards are present (or steps exhausted).
  */
-async function scrollResultsPanelToCount(page, minCount, maxSteps = 24) {
+async function scrollResultsPanelToCount(page, minCount, maxSteps = 15) {
   try {
     await page.waitForSelector(".Nv2PK", { timeout: 8000 });
   } catch (_) {
@@ -524,11 +522,22 @@ export async function runScraper(
       try {
         return await withPage(`detail:${url}`, async (page) => {
           if (shouldStop) return null;
-          // Faster nav: domcontentloaded + short timeout
-          await page.goto(url, {
-            waitUntil: "domcontentloaded",
-            timeout: DETAIL_NAV_TIMEOUT_MS,
-          });
+
+          // Faster nav with retry logic
+          try {
+            await page.goto(url, {
+              waitUntil: "domcontentloaded",
+              timeout: DETAIL_NAV_TIMEOUT_MS,
+            });
+          } catch (navError) {
+            // If navigation fails, try once more with longer timeout
+            logger.warn("NAVIGATION_RETRY", `Retrying navigation for ${url}`);
+            await page.goto(url, {
+              waitUntil: "networkidle2",
+              timeout: DETAIL_NAV_TIMEOUT_MS + 10000,
+            });
+          }
+
           // In case stop was requested during navigation, exit before parsing
           if (shouldStop) return null;
 
