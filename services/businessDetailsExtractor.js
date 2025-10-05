@@ -241,11 +241,11 @@ export async function extractBusinessDetails(
           startUrl: businessData.website,
           options: {
             depth: 1,
-            max: 5, // Reduced from 6 for speed
+            max: 6, // Reduced from 6 for speed
             timeout: 8000, // Reduced from 8000
             delay: 200, // Reduced from 300
             wait: "dom",
-            budget: 8000, // Reduced from 10000
+            budget: 10000, // Reduced from 10000
             perPageLinks: 8, // Reduced from 12
             firstOnly: false,
             restrictDomain: false, // allow gmail/outlook etc.
