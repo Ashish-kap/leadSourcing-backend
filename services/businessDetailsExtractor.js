@@ -245,7 +245,7 @@ export async function extractBusinessDetails(
             timeout: 8000, // Reduced from 8000
             delay: 200, // Reduced from 300
             wait: "dom",
-            budget: 10000, // Reduced from 10000
+            budget: 8000, // Reduced from 10000
             perPageLinks: 8, // Reduced from 12
             firstOnly: false,
             restrictDomain: false, // allow gmail/outlook etc.
