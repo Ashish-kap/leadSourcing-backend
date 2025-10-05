@@ -241,7 +241,7 @@ export async function extractBusinessDetails(
           startUrl: businessData.website,
           options: {
             depth: 1,
-            max: 5, // Reduced from 6 for speed
+            max: 6, // Reduced from 6 for speed
             timeout: 8000, // Reduced from 8000
             delay: 200, // Reduced from 300
             wait: "dom",

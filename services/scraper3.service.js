@@ -350,6 +350,7 @@ export async function runScraper(
   // ---------------- bookkeeping ----------------
   const results = [];
   const processedLocations = new Set();
+  const seenBusinessUrls = new Set(); // Track business URLs to prevent duplicates
   const recordLimit = maxRecords || Infinity;
   // Cooperative cancellation flag used to stop scheduling and tear down fast
   let shouldStop = false;
@@ -399,6 +400,16 @@ export async function runScraper(
       requestStop();
       return;
     }
+    // Check for duplicate business URLs to prevent same business from multiple cities
+    if (r.url && seenBusinessUrls.has(r.url)) {
+      logger.info("DUPLICATE_BUSINESS", "Skipping duplicate business", {
+        name: r.name,
+        url: r.url,
+        location: r.search_location,
+      });
+      return;
+    }
+    if (r.url) seenBusinessUrls.add(r.url);
     results.push(r);
     if (results.length >= recordLimit) requestStop();
   };
