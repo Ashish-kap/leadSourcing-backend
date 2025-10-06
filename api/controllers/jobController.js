@@ -1,8 +1,10 @@
-import scraperQueue from "../../services/queue.js";
+import queueService from "../../services/queue.js";
 import Job from "./../../models/jobModel.js";
 import User from "./../../models/userModel.js";
 import { Parser } from "json2csv";
 import socketService from "../../services/socket.service.js";
+
+const { getQueueForUser, businessQueue, freeProQueue } = queueService;
 
 const getUserJobs = async (req, res) => {
   try {
@@ -184,7 +186,7 @@ const deleteJob = async (req, res) => {
     const { jobId } = req.params;
     const userId = req.user.id;
 
-    const job = await Job.findOne({ jobId, userId });
+    const job = await Job.findOne({ jobId, userId }).populate("userId", "plan");
 
     if (!job) {
       return res.status(404).json({
@@ -196,7 +198,7 @@ const deleteJob = async (req, res) => {
     // Kill the job if it's active/running in the queue
     if (["pending", "active", "waiting"].includes(job.status)) {
       try {
-        // Update database to reset progress before killing
+        // Update database to mark as failed (this triggers cancellation detection)
         await Job.findOneAndUpdate(
           { jobId, userId },
           {
@@ -210,24 +212,38 @@ const deleteJob = async (req, res) => {
           }
         );
 
-        const queueJob = await scraperQueue.getJob(jobId);
+        // Get the appropriate queue based on user plan
+        const userPlan = job.userId.plan;
+        const selectedQueue = getQueueForUser(userPlan);
+
+        const queueJob = await selectedQueue.getJob(jobId);
         if (queueJob) {
-          // Check if job is active and kill it
+          // Check if job is active and move to failed
           if (await queueJob.isActive()) {
             await queueJob.moveToFailed(
               new Error("Job cancelled by user deletion"),
               true
             );
-            console.log(`Killed active job ${jobId} before deletion`);
+            console.log(
+              `Moved active job ${jobId} to failed state in ${userPlan} queue`
+            );
+          } else {
+            // If not active, try to remove it
+            try {
+              await queueJob.remove();
+              console.log(
+                `Removed waiting job ${jobId} from ${userPlan} queue`
+              );
+            } catch (removeError) {
+              // Job might be transitioning states, that's okay
+              console.log(`Job ${jobId} removal skipped (state transition)`);
+            }
           }
-          // Remove job from queue completely
-          await queueJob.remove();
-          console.log(`Removed job ${jobId} from queue`);
         }
       } catch (queueError) {
         console.error(
-          `Error killing/removing job ${jobId} from queue:`,
-          queueError
+          `Error cancelling job ${jobId} from queue:`,
+          queueError.message
         );
         // Continue with database deletion even if queue cleanup fails
       }
@@ -263,15 +279,36 @@ const deleteJob = async (req, res) => {
 };
 
 const killJob = async (req, res) => {
-  const job = await scraperQueue.getJob(req.params.jobId);
-  if (job && job.isActive()) {
-    await job.moveToFailed(
-      new Error("Manually killed via admin endpoint"),
-      true
-    );
-    res.json({ status: "killed", id: job.id });
-  } else {
-    res.status(404).json({ error: "Not found or not active" });
+  try {
+    const { jobId } = req.params;
+
+    // Try both queues to find the job
+    let job = await businessQueue.getJob(jobId);
+    let queueName = "business";
+
+    if (!job) {
+      job = await freeProQueue.getJob(jobId);
+      queueName = "free/pro";
+    }
+
+    if (job && (await job.isActive())) {
+      await job.moveToFailed(
+        new Error("Manually killed via admin endpoint"),
+        true
+      );
+      res.json({
+        status: "killed",
+        id: job.id,
+        queue: queueName,
+      });
+    } else {
+      res.status(404).json({ error: "Not found or not active" });
+    }
+  } catch (error) {
+    console.error("Error killing job:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error", message: error.message });
   }
 };
 
