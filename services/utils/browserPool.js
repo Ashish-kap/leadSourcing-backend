@@ -55,7 +55,9 @@ export class BrowserPool {
           "--no-zygote",
           "--disable-accelerated-2d-canvas",
           "--disable-web-security",
-          "--single-process", // Use less memory
+          "--disable-blink-features=AutomationControlled",
+          "--disable-site-isolation-trials", // Prevent frame detachment issues
+          "--disable-features=IsolateOrigins,site-per-process", // Critical for frame stability
         ],
         protocolTimeout: protocolTimeout,
       });

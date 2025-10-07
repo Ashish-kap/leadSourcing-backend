@@ -154,7 +154,7 @@ export function calculateTotalPossibleZones(bounds, gridSpacingKm) {
  * @returns {number} Recommended grid spacing in km
  */
 export function getOptimalGridSpacing(bounds, population = null) {
-  if (!bounds) return 3; // default
+  if (!bounds) return 5; // default increased from 3 to 5
 
   const { north, south, east, west } = bounds;
 
@@ -168,18 +168,19 @@ export function getOptimalGridSpacing(bounds, population = null) {
     latDiff * 111 * lngDiff * 111 * Math.cos((avgLat * Math.PI) / 180);
 
   // Adjust spacing based on city size
+  // INCREASED SPACING to reduce overlap (Google Maps shows businesses in ~5-10km radius)
   if (areaKm2 < 50) {
-    // Small city (< 50 km²) - fine grid
-    return 1.5;
+    // Small city (< 50 km²) - medium grid
+    return 3;
   } else if (areaKm2 < 200) {
-    // Medium city (50-200 km²) - medium grid
-    return 2.5;
+    // Medium city (50-200 km²) - wider grid
+    return 5;
   } else if (areaKm2 < 1000) {
-    // Large city (200-1000 km²) - wider grid
-    return 4;
+    // Large city (200-1000 km²) - wide grid
+    return 7;
   } else {
     // Very large city (> 1000 km²) - very wide grid
-    return 6;
+    return 10;
   }
 }
 
