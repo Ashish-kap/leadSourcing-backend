@@ -32,8 +32,8 @@ if (process.env.REDIS_HOST) {
 }
 
 // Queue configuration - Direct worker allocation (no percentages)
-const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 2; // Default: 2 workers for business
-const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 1; // Default: 1 worker for free/pro
+const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 3; // Default: 2 workers for business
+const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 7; // Default: 1 worker for free/pro
 const TOTAL_WORKERS = BUSINESS_WORKERS + FREE_PRO_WORKERS;
 
 logger.info(
