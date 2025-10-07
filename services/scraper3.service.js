@@ -6,6 +6,10 @@ import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
 import { extractBusinessDetails } from "./businessDetailsExtractor.js";
 import { createPopulationResolverAllTheCities } from "./utils/populationResolver.allTheCities.js";
 import { BrowserPool } from "./utils/browserPool.js";
+import {
+  createCityZones,
+  generateZoneBatch,
+} from "./utils/cityZoneGenerator.js";
 
 const defaultPopulationResolver = createPopulationResolverAllTheCities();
 
@@ -29,6 +33,10 @@ const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
 const BROWSER_SESSION_RETRY_LIMIT = Number(
   process.env.BROWSER_SESSION_RETRY_LIMIT || 2
 );
+
+// Deep scrape batched zone configuration
+const ZONE_BATCH_SIZE = Number(process.env.ZONE_BATCH_SIZE || 25);
+const MAX_TOTAL_ZONES = Number(process.env.MAX_TOTAL_ZONES || 200);
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -643,35 +651,60 @@ export async function runScraper(
   };
 
   // -------- Tier A: city discovery --------
-  async function scrapeCity({ cityName, stateCode, stateName }) {
+  async function scrapeCity({
+    cityName,
+    stateCode,
+    stateName,
+    coords = null,
+    zoneLabel = null,
+  }) {
     if (shouldStop) return;
 
-    const key = locationKey(countryCode, stateCode, cityName);
-    if (processedLocations.has(key)) {
-      logger.info("LOCATION_SKIP", "Skipping already processed location", {
+    // Create unique key for this zone (includes coordinates if present)
+    const zoneKey = coords
+      ? `${locationKey(countryCode, stateCode, cityName)}-${coords.lat}-${
+          coords.lng
+        }`
+      : locationKey(countryCode, stateCode, cityName);
+
+    if (processedLocations.has(zoneKey)) {
+      logger.info("LOCATION_SKIP", "Skipping already processed zone", {
         city: cityName,
         state: stateName,
         country: countryName,
+        zone: zoneLabel || "center",
       });
       return;
     }
-    processedLocations.add(key);
+    processedLocations.add(zoneKey);
 
     const searchUrlBase = `https://www.google.com/maps/search/`;
-    const formattedLocation = [cityName, stateName, countryName]
-      .filter(Boolean)
-      .join(" ")
-      .replace(/,/g, "")
-      .replace(/\s+/g, "+");
-    const query = `${encodeURIComponent(keyword)}+in+${formattedLocation}`;
-    // Stabilize locale a bit (optional)
-    const searchUrl = `${searchUrlBase}${query}?hl=en`;
+    let searchUrl;
 
-    logger.info("CITY_SCRAPE_START", "Scraping city (discovery only)", {
+    // If coordinates provided, use coordinate-based search
+    if (coords) {
+      // Format: keyword/@latitude,longitude,zoom
+      const query = encodeURIComponent(keyword);
+      const coordString = `@${coords.lat},${coords.lng},14z`; // 14z is good zoom level for local area
+      searchUrl = `${searchUrlBase}${query}/${coordString}?hl=en`;
+    } else {
+      // Standard location-based search
+      const formattedLocation = [cityName, stateName, countryName]
+        .filter(Boolean)
+        .join(" ")
+        .replace(/,/g, "")
+        .replace(/\s+/g, "+");
+      const query = `${encodeURIComponent(keyword)}+in+${formattedLocation}`;
+      searchUrl = `${searchUrlBase}${query}?hl=en`;
+    }
+
+    logger.info("CITY_SCRAPE_START", "Scraping city zone (discovery only)", {
       url: searchUrl,
       city: cityName,
       state: stateName,
       country: countryName,
+      zone: zoneLabel || "center",
+      coords: coords || "N/A",
     });
 
     try {
@@ -736,11 +769,33 @@ export async function runScraper(
         }
       });
     } catch (error) {
-      logger.error("CITY_SCRAPE_ERROR", "Error scraping city", {
-        city: cityName,
-        state: stateName,
-        error: error.message,
-      });
+      // Detached frame errors are expected when stopping early or on session rotation
+      const isDetachedFrame =
+        error.message && error.message.includes("detached Frame");
+      const isTargetClosed =
+        error.message &&
+        (error.message.includes("Target closed") ||
+          error.message.includes("Session closed"));
+
+      if (isDetachedFrame || isTargetClosed) {
+        logger.info(
+          "CITY_SCRAPE_STOPPED",
+          "Zone scrape stopped (expected during shutdown)",
+          {
+            city: cityName,
+            state: stateName,
+            zone: zoneLabel || "center",
+            reason: isDetachedFrame ? "detached_frame" : "target_closed",
+          }
+        );
+      } else {
+        logger.error("CITY_SCRAPE_ERROR", "Error scraping city", {
+          city: cityName,
+          state: stateName,
+          zone: zoneLabel || "center",
+          error: error.message,
+        });
+      }
     }
   }
 
@@ -769,22 +824,175 @@ export async function runScraper(
   };
 
   try {
-    // Scenario 1: exact city + state
+    // Scenario 3: exact city + state (WITH BATCHED MULTI-ZONE DEEP SCRAPE)
     if (city && stateCode) {
-      logger.info("MODE_FULL_LOCATION", "Using exact location", {
-        city,
-        state: stateCode,
-        country: countryName,
-      });
+      logger.info(
+        "MODE_FULL_LOCATION",
+        "Using exact location with batched multi-zone search",
+        {
+          city,
+          state: stateCode,
+          country: countryName,
+        }
+      );
       const state = State.getStateByCodeAndCountry(stateCode, countryCode);
       if (!state)
         throw new Error(
           `Invalid state code: ${stateCode} for country: ${countryCode}`
         );
 
-      await limitCity(() =>
-        scrapeCity({ cityName: city, stateCode, stateName: state.name })
+      // Get zone configuration for batched generation
+      const zoneConfig = await createCityZones(
+        city,
+        stateCode,
+        countryCode,
+        null, // population (could be fetched if needed)
+        true, // Always enable deep scrape for city searches
+        ZONE_BATCH_SIZE, // Zones per batch
+        MAX_TOTAL_ZONES // Maximum total zones across all batches
       );
+
+      logger.info(
+        "CITY_ZONES_READY",
+        "Starting batched multi-zone city scrape",
+        {
+          city,
+          totalPossibleZones: zoneConfig.totalPossibleZones,
+          batchSize: zoneConfig.batchSize,
+          maxTotalZones: zoneConfig.maxTotalZones,
+          estimatedBatches: Math.ceil(
+            Math.min(zoneConfig.totalPossibleZones, zoneConfig.maxTotalZones) /
+              zoneConfig.batchSize
+          ),
+        }
+      );
+
+      // First, scrape city center
+      await limitCity(() =>
+        scrapeCity({
+          cityName: city,
+          stateCode,
+          stateName: state.name,
+          coords: null,
+          zoneLabel: "city-center",
+        })
+      );
+
+      // Calculate total possible batches
+      const totalBatches = Math.ceil(
+        Math.min(zoneConfig.totalPossibleZones, zoneConfig.maxTotalZones) /
+          zoneConfig.batchSize
+      );
+
+      // Start from a RANDOM batch for variety (different results each time)
+      const randomStartBatch = Math.floor(
+        Math.random() * Math.max(1, totalBatches)
+      );
+
+      logger.info(
+        "ZONE_BATCH_RANDOM_START",
+        "Starting from random batch for variety",
+        {
+          city,
+          randomStartBatch,
+          totalBatches,
+        }
+      );
+
+      // Then process zones in batches (with wrap-around)
+      let batchNumber = randomStartBatch;
+      let batchesProcessed = 0;
+      let totalZonesProcessed = 1; // Already processed center
+      const processedBatches = new Set(); // Track which batches we've done
+
+      while (
+        !shouldStop &&
+        results.length < recordLimit &&
+        batchesProcessed < totalBatches
+      ) {
+        // Skip if we've already processed this batch (wrap-around protection)
+        if (processedBatches.has(batchNumber)) {
+          batchNumber = (batchNumber + 1) % totalBatches;
+          continue;
+        }
+
+        // Generate next batch of zones
+        const batch = generateZoneBatch(zoneConfig, batchNumber);
+
+        if (batch.length === 0) {
+          // No more zones in this batch, try next
+          batchNumber = (batchNumber + 1) % totalBatches;
+          processedBatches.add(batchNumber);
+          continue;
+        }
+
+        // Shuffle zones within batch for additional randomness
+        shuffleArray(batch);
+
+        // Mark this batch as processed
+        processedBatches.add(batchNumber);
+
+        logger.info("ZONE_BATCH_PROCESSING", "Processing shuffled zone batch", {
+          city,
+          batchNumber,
+          batchSize: batch.length,
+          recordsCollected: results.length,
+          recordsNeeded: recordLimit - results.length,
+          isShuffled: true,
+        });
+
+        // Process all zones in this batch
+        const batchPromises = [];
+        for (const zone of batch) {
+          if (shouldStop || results.length >= recordLimit) break;
+
+          batchPromises.push(
+            limitCity(() =>
+              scrapeCity({
+                cityName: zone.cityName || city,
+                stateCode: zone.stateCode || stateCode,
+                stateName: state.name,
+                coords: zone.coords,
+                zoneLabel: zone.label,
+              })
+            )
+          );
+        }
+
+        // Wait for this batch to complete
+        await Promise.allSettled(batchPromises);
+
+        totalZonesProcessed += batch.length;
+        batchesProcessed++;
+
+        // Move to next batch (with wrap-around)
+        batchNumber = (batchNumber + 1) % totalBatches;
+
+        // Check if we have enough results
+        if (results.length >= recordLimit) {
+          logger.info("ZONE_BATCH_TARGET_REACHED", "Target records reached", {
+            city,
+            batchesProcessed,
+            totalZonesProcessed,
+            recordsCollected: results.length,
+            targetRecords: recordLimit,
+            randomStartBatch,
+          });
+          break;
+        }
+      }
+
+      logger.info("CITY_SCRAPE_COMPLETE", "City scraping completed", {
+        city,
+        batchesProcessed,
+        totalZonesProcessed,
+        recordsCollected: results.length,
+        targetRecords: recordLimit,
+        randomStartBatch,
+        processedBatchNumbers: Array.from(processedBatches).sort(
+          (a, b) => a - b
+        ),
+      });
     }
     // Scenario 2: state only
     else if (stateCode) {
