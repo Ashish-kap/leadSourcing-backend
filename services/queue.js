@@ -31,202 +31,264 @@ if (process.env.REDIS_HOST) {
   };
 }
 
-const scraperQueue = new Queue("scraper", {
+// Queue configuration - Direct worker allocation (no percentages)
+const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 3; // Default: 2 workers for business
+const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 7; // Default: 1 worker for free/pro
+const TOTAL_WORKERS = BUSINESS_WORKERS + FREE_PRO_WORKERS;
+
+logger.info(
+  "QUEUE_INIT",
+  `Initializing queues with ${TOTAL_WORKERS} total workers: ${BUSINESS_WORKERS} business, ${FREE_PRO_WORKERS} free/pro`
+);
+
+// Shared queue settings
+const queueSettings = {
   redis: redisObj,
   settings: {
     stalledInterval: 60000,
-    maxStalledCount: 2, // Allow more retries
-    guardInterval: 3000, // More frequent checks
-    retryProcessDelay: 3000, // Faster retry
+    maxStalledCount: 2,
+    guardInterval: 3000,
+    retryProcessDelay: 3000,
   },
   defaultJobOptions: {
-    removeOnComplete: 10, // Keep only last 10 completed jobs
-    removeOnFail: 10, // Keep only last 10 failed jobs
+    removeOnComplete: 10,
+    removeOnFail: 10,
     backoff: {
       type: "exponential",
       delay: 2000,
     },
   },
-});
+};
 
-// Event handlers for job lifecycle
-scraperQueue.on("error", (err) => {
-  logger.error("REDIS_ERROR", "Redis connection error", err);
-});
+// Create separate queues for different user tiers
+const businessQueue = new Queue("scraper-business", queueSettings);
+const freeProQueue = new Queue("scraper-free-pro", queueSettings);
 
-scraperQueue.on("connected", () => {
-  logger.info("REDIS_CONNECTED", "Successfully connected to Redis");
-});
-
-scraperQueue.on("active", async (job) => {
-  logger.info("JOB_ACTIVE", `Job ${job.id} started processing`);
-
-  // Update database record
-  try {
-    const updatedJob = await Job.findOneAndUpdate(
-      { jobId: job.data.jobId },
-      {
-        status: "active",
-        startedAt: new Date(),
-      },
-      { new: true }
-    );
-
-    // Emit socket event to user
-    if (updatedJob) {
-      socketService.emitJobUpdate(updatedJob.userId.toString(), "job_started", {
-        jobId: updatedJob.jobId,
-        status: "active",
-        startedAt: updatedJob.startedAt,
-        progress: updatedJob.progress,
-      });
+// Helper function to attach event handlers to a queue
+const attachEventHandlers = (queue, queueName) => {
+  queue.on("error", (err) => {
+    // Ignore "missing lock" errors - these are expected when jobs are cancelled
+    if (err?.message?.includes("Missing lock for job")) {
+      logger.warn(
+        "JOB_LOCK_EXPECTED",
+        `${queueName}: Job lock error (expected for cancelled jobs)`,
+        { message: err.message }
+      );
+      return;
     }
-  } catch (error) {
-    logger.error(
-      "JOB_UPDATE_ERROR",
-      `Error updating job ${job.id} to active`,
-      error
+    logger.error("REDIS_ERROR", `${queueName}: Redis connection error`, err);
+  });
+
+  queue.on("connected", () => {
+    logger.info(
+      "REDIS_CONNECTED",
+      `${queueName}: Successfully connected to Redis`
     );
-  }
-});
+  });
 
-scraperQueue.on("progress", async (job, progress) => {
-  logger.info("JOB_PROGRESS", `Job ${job.id} progress`, progress);
+  queue.on("active", async (job) => {
+    logger.info("JOB_ACTIVE", `${queueName}: Job ${job.id} started processing`);
 
-  // Update database with progress
-  try {
-    const updateData = {
-      "progress.percentage":
-        typeof progress === "number" ? progress : progress.percentage || 0,
-    };
-
-    if (typeof progress === "object") {
-      updateData["progress.details"] = progress;
-    }
-
-    const updatedJob = await Job.findOneAndUpdate(
-      { jobId: job.data.jobId },
-      updateData,
-      { new: true }
-    );
-
-    // Emit socket event to user for progress update
-    if (updatedJob) {
-      socketService.emitJobProgress(
-        updatedJob.userId.toString(),
-        updatedJob.jobId,
+    try {
+      const updatedJob = await Job.findOneAndUpdate(
+        { jobId: job.data.jobId },
         {
-          percentage: updateData["progress.percentage"],
-          details: progress.details || progress,
-        }
+          status: "active",
+          startedAt: new Date(),
+        },
+        { new: true }
+      );
+
+      if (updatedJob) {
+        socketService.emitJobUpdate(
+          updatedJob.userId.toString(),
+          "job_started",
+          {
+            jobId: updatedJob.jobId,
+            status: "active",
+            startedAt: updatedJob.startedAt,
+            progress: updatedJob.progress,
+          }
+        );
+      }
+    } catch (error) {
+      logger.error(
+        "JOB_UPDATE_ERROR",
+        `${queueName}: Error updating job ${job.id} to active`,
+        error
       );
     }
-  } catch (error) {
-    logger.error(
-      "JOB_PROGRESS_ERROR",
-      `Error updating job ${job.id} progress`,
-      error
-    );
-  }
-});
+  });
 
-scraperQueue.on("completed", async (job, result) => {
-  logger.info("JOB_COMPLETED", `Job ${job.id} completed`);
-
-  // Check if results are empty
-  const totalExtractions = result?.length || 0;
-  const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
-
-  logger.info(
-    "JOB_FINISHED",
-    `Job ${job.id} finished with ${totalExtractions} records, status: ${jobStatus}`
-  );
-
-  // Update database record
-  try {
-    const updatedJob = await Job.findOneAndUpdate(
-      { jobId: job.data.jobId },
-      {
-        status: jobStatus,
-        completedAt: new Date(),
-        result: result,
-        "progress.percentage": 100,
-        "metrics.totalExtractions": totalExtractions,
-      },
-      { new: true }
+  queue.on("progress", async (job, progress) => {
+    logger.info(
+      "JOB_PROGRESS",
+      `${queueName}: Job ${job.id} progress`,
+      progress
     );
 
-    // Emit socket event to user for job completion
-    if (updatedJob) {
-      const eventType =
-        jobStatus === "completed" ? "job_completed" : "job_no_data_found";
+    try {
+      const updateData = {
+        "progress.percentage":
+          typeof progress === "number" ? progress : progress.percentage || 0,
+      };
 
-      socketService.emitJobUpdate(updatedJob.userId.toString(), eventType, {
-        jobId: updatedJob.jobId,
-        status: jobStatus,
-        completedAt: updatedJob.completedAt,
-        progress: { percentage: 100 },
-        totalExtractions: totalExtractions,
-        message:
-          jobStatus === "data_not_found"
-            ? "No data found matching your search criteria. Try adjusting your filters or location."
-            : `Successfully extracted ${totalExtractions} records.`,
-      });
+      if (typeof progress === "object") {
+        updateData["progress.details"] = progress;
+      }
+
+      const updatedJob = await Job.findOneAndUpdate(
+        { jobId: job.data.jobId },
+        updateData,
+        { new: true }
+      );
+
+      if (updatedJob) {
+        socketService.emitJobProgress(
+          updatedJob.userId.toString(),
+          updatedJob.jobId,
+          {
+            percentage: updateData["progress.percentage"],
+            details: progress.details || progress,
+          }
+        );
+      }
+    } catch (error) {
+      logger.error(
+        "JOB_PROGRESS_ERROR",
+        `${queueName}: Error updating job ${job.id} progress`,
+        error
+      );
     }
-  } catch (error) {
-    logger.error(
-      "JOB_COMPLETION_ERROR",
-      `Error updating completed job ${job.id}`,
-      error
-    );
-  }
-});
+  });
 
-scraperQueue.on("failed", async (job, err) => {
-  logger.error("JOB_FAILED", `Job ${job.id} failed`, err);
+  queue.on("completed", async (job, result) => {
+    logger.info("JOB_COMPLETED", `${queueName}: Job ${job.id} completed`);
 
-  // Update database record
-  try {
-    const updatedJob = await Job.findOneAndUpdate(
-      { jobId: job.data.jobId },
-      {
-        status: "failed",
-        completedAt: new Date(),
-        "progress.percentage": 0,
-        "metrics.totalExtractions": 0,
-        error: {
-          message: err.message,
-          stack: err.stack,
-          timestamp: new Date(),
-        },
-      },
-      { new: true }
+    const totalExtractions = result?.length || 0;
+    const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
+
+    logger.info(
+      "JOB_FINISHED",
+      `${queueName}: Job ${job.id} finished with ${totalExtractions} records, status: ${jobStatus}`
     );
 
-    // Emit socket event to user for job failure
-    if (updatedJob) {
-      socketService.emitJobUpdate(updatedJob.userId.toString(), "job_failed", {
-        jobId: updatedJob.jobId,
-        status: "failed",
-        completedAt: updatedJob.completedAt,
-        progress: { percentage: 0 }, // ✅ Reset progress to 0 for failed jobs
-        error: {
-          message: err.message,
-          timestamp: new Date(),
+    try {
+      const updatedJob = await Job.findOneAndUpdate(
+        { jobId: job.data.jobId },
+        {
+          status: jobStatus,
+          completedAt: new Date(),
+          result: result,
+          "progress.percentage": 100,
+          "metrics.totalExtractions": totalExtractions,
         },
-      });
+        { new: true }
+      );
+
+      if (updatedJob) {
+        const eventType =
+          jobStatus === "completed" ? "job_completed" : "job_no_data_found";
+
+        socketService.emitJobUpdate(updatedJob.userId.toString(), eventType, {
+          jobId: updatedJob.jobId,
+          status: jobStatus,
+          completedAt: updatedJob.completedAt,
+          progress: { percentage: 100 },
+          totalExtractions: totalExtractions,
+          message:
+            jobStatus === "data_not_found"
+              ? "No data found matching your search criteria. Try adjusting your filters or location."
+              : `Successfully extracted ${totalExtractions} records.`,
+        });
+      }
+    } catch (error) {
+      logger.error(
+        "JOB_COMPLETION_ERROR",
+        `${queueName}: Error updating completed job ${job.id}`,
+        error
+      );
     }
-  } catch (error) {
-    logger.error(
-      "JOB_FAILURE_ERROR",
-      `Error updating failed job ${job.id}`,
-      error
-    );
+  });
+
+  queue.on("failed", async (job, err) => {
+    // Ignore "missing lock" errors - these happen when job was already moved to failed
+    if (err?.message?.includes("Missing lock for job")) {
+      logger.warn(
+        "JOB_ALREADY_FAILED",
+        `${queueName}: Job ${job.id} was already moved to failed state (likely cancelled)`,
+        { jobId: job.data?.jobId }
+      );
+      return;
+    }
+
+    logger.error("JOB_FAILED", `${queueName}: Job ${job.id} failed`, err);
+
+    try {
+      const updatedJob = await Job.findOneAndUpdate(
+        { jobId: job.data.jobId },
+        {
+          status: "failed",
+          completedAt: new Date(),
+          "progress.percentage": 0,
+          "metrics.totalExtractions": 0,
+          error: {
+            message: err.message,
+            stack: err.stack,
+            timestamp: new Date(),
+          },
+        },
+        { new: true }
+      );
+
+      if (updatedJob) {
+        socketService.emitJobUpdate(
+          updatedJob.userId.toString(),
+          "job_failed",
+          {
+            jobId: updatedJob.jobId,
+            status: "failed",
+            completedAt: updatedJob.completedAt,
+            progress: { percentage: 0 },
+            error: {
+              message: err.message,
+              timestamp: new Date(),
+            },
+          }
+        );
+      }
+    } catch (error) {
+      logger.error(
+        "JOB_FAILURE_ERROR",
+        `${queueName}: Error updating failed job ${job.id}`,
+        error
+      );
+    }
+  });
+};
+
+// Attach event handlers to both queues
+attachEventHandlers(businessQueue, "BusinessQueue");
+attachEventHandlers(freeProQueue, "FreeProQueue");
+
+// Process jobs with dedicated workers for each queue
+businessQueue.process(BUSINESS_WORKERS, scrapeJob);
+freeProQueue.process(FREE_PRO_WORKERS, scrapeJob);
+
+// Export both queues and a helper function to get the right queue
+export { businessQueue, freeProQueue };
+
+// Helper function to select the appropriate queue based on user plan
+export const getQueueForUser = (userPlan) => {
+  if (userPlan === "business") {
+    return businessQueue;
   }
-});
+  return freeProQueue; // free and pro users share the same queue
+};
 
-// Process with configurable concurrent workers - reduced for Railway environment
-const CONCURRENT_WORKERS = parseInt(process.env.CONCURRENT_WORKERS) || 10;
-scraperQueue.process(CONCURRENT_WORKERS, scrapeJob);
-
-export default scraperQueue;
+// Export default as businessQueue for backwards compatibility (or you can export an object)
+export default {
+  businessQueue,
+  freeProQueue,
+  getQueueForUser,
+};

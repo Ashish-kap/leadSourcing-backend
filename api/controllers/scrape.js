@@ -1,7 +1,9 @@
-import scraperQueue from "../../services/queue.js";
+import queueService from "../../services/queue.js";
 import Job from "./../../models/jobModel.js";
 import User from "./../../models/userModel.js";
 import { v4 as uuidv4 } from "uuid";
+
+const { getQueueForUser, businessQueue, freeProQueue } = queueService;
 
 const scrapeData = async (req, res) => {
   try {
@@ -242,13 +244,22 @@ const scrapeData = async (req, res) => {
     // Deduct credits from user
     await user.deductCredits(estimatedCredits);
 
-    // Add job to queue with jobId
-    const queueJob = await scraperQueue.add(
+    // Select appropriate queue based on user plan
+    const selectedQueue = getQueueForUser(user.plan);
+    const queueName = user.plan === "business" ? "Business" : "Free/Pro";
+
+    console.log(
+      `Adding job ${jobId} to ${queueName} queue for user plan: ${user.plan}`
+    );
+
+    // Add job to the appropriate queue
+    const queueJob = await selectedQueue.add(
       {
         ...jobParams,
         jobId,
         userId,
         dbJobId: jobRecord._id,
+        userPlan: user.plan, // Track which plan for analytics
         timeout: 30 * 60 * 1000,
       },
       {
@@ -286,14 +297,16 @@ const getJobStatus = async (req, res) => {
     const jobRecord = await Job.findOne({
       jobId,
       userId,
-    }).populate("userId", "name emailID");
+    }).populate("userId", "name emailID plan");
 
     if (!jobRecord) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    // Get job from queue for real-time progress
-    const queueJob = await scraperQueue.getJob(jobId);
+    // Get job from the appropriate queue based on user plan
+    const userPlan = jobRecord.userId.plan;
+    const selectedQueue = getQueueForUser(userPlan);
+    const queueJob = await selectedQueue.getJob(jobId);
 
     let queueProgress = 0;
     let queueStatus = jobRecord.status;

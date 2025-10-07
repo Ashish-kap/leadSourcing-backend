@@ -366,6 +366,35 @@ export async function runScraper(
     shouldStop = true;
   };
 
+  // Import Job model for cancellation checking
+  const { default: JobModel } = await import("../models/jobModel.js");
+
+  // Periodic cancellation check - monitors database for job deletion/cancellation
+  const cancellationCheckInterval = setInterval(async () => {
+    try {
+      if (job && job.data && job.data.jobId) {
+        const dbJob = await JobModel.findOne({ jobId: job.data.jobId });
+        // If job is deleted or marked as failed, stop the scraping
+        if (!dbJob || dbJob.status === "failed") {
+          logger.warn(
+            "JOB_CANCELLED",
+            `Job ${job.data.jobId} was cancelled - stopping scraper`
+          );
+          requestStop();
+          clearInterval(cancellationCheckInterval);
+        }
+      }
+    } catch (error) {
+      logger.error(
+        "CANCELLATION_CHECK_ERROR",
+        "Error checking job cancellation",
+        {
+          error: error.message,
+        }
+      );
+    }
+  }, 2000); // Check every 2 seconds
+
   const withPage = async (context, fn) => {
     let attempt = 0;
     let lastError;
@@ -519,16 +548,25 @@ export async function runScraper(
 
   const updateProgress = async (extra = {}) => {
     if (!job) return;
+    if (shouldStop) return; // Don't emit progress if job is cancelled
     const percentage =
       results.length >= recordLimit
         ? 100
         : calculatePercentage(results.length, recordLimit);
-    await job.progress({
-      percentage,
-      recordsCollected: results.length,
-      maxRecords: recordLimit,
-      ...extra,
-    });
+    try {
+      await job.progress({
+        percentage,
+        recordsCollected: results.length,
+        maxRecords: recordLimit,
+        ...extra,
+      });
+    } catch (progressError) {
+      // Job might be cancelled/deleted - silently ignore
+      logger.warn("PROGRESS_UPDATE_ERROR", "Failed to update progress", {
+        jobId: job.data?.jobId,
+        message: progressError.message,
+      });
+    }
   };
 
   // -------- Tier B: detail worker --------
@@ -997,25 +1035,45 @@ export async function runScraper(
       for (const t of detailTasks) t.catch(() => {});
     }
   } finally {
+    // Clear the cancellation check interval
+    clearInterval(cancellationCheckInterval);
+
     // Close browser resources; if shouldStop was requested this will abort in-flight work
     if (refreshingPromise) {
       await refreshingPromise;
     }
     await browserPool.close();
 
-    // Finalize progress after cleanup
-    const finalPercentage =
-      results.length >= recordLimit
-        ? 100
-        : calculatePercentage(results.length, recordLimit);
+    // Finalize progress after cleanup (only if job wasn't cancelled)
+    if (job && !shouldStop) {
+      const finalPercentage =
+        results.length >= recordLimit
+          ? 100
+          : calculatePercentage(results.length, recordLimit);
 
-    if (job) {
-      await job.progress({
-        percentage: finalPercentage,
-        status: "completed",
-        recordsCollected: results.length,
-        maxRecords: recordLimit,
-      });
+      try {
+        await job.progress({
+          percentage: finalPercentage,
+          status: "completed",
+          recordsCollected: results.length,
+          maxRecords: recordLimit,
+        });
+      } catch (progressError) {
+        // Job might be cancelled/deleted - silently ignore
+        logger.warn("FINAL_PROGRESS_SKIP", "Skipped final progress update", {
+          jobId: job.data?.jobId,
+          reason: progressError.message,
+        });
+      }
+    } else if (shouldStop) {
+      logger.info(
+        "JOB_CANCELLED_CLEANUP",
+        "Job cancelled - skipping final progress update",
+        {
+          jobId: job?.data?.jobId,
+          recordsCollected: results.length,
+        }
+      );
     }
   }
 
