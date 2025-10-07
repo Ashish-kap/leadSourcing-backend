@@ -9,6 +9,13 @@ export default async function (job) {
 
     // Update database job status
     const dbJob = await Job.findOne({ jobId: job.data.jobId });
+
+    // Check if job was cancelled before we even started
+    if (!dbJob || dbJob.status === "failed") {
+      console.log(`Job ${job.data.jobId} was cancelled before starting`);
+      throw new Error("Job was cancelled before execution");
+    }
+
     if (dbJob) {
       await dbJob.updateStatus("active");
     }
@@ -19,7 +26,10 @@ export default async function (job) {
     // Final progress update emitted inside runScraper after cleanup
 
     // Update database job status based on results
-    if (dbJob) {
+    const finalDbJob = await Job.findOne({ jobId: job.data.jobId });
+
+    // Only update if job still exists and wasn't cancelled
+    if (finalDbJob && finalDbJob.status !== "failed") {
       // Get user to check plan for credit calculation
       const user = await User.findById(job.data.userId);
       const actualCreditsUsed =
@@ -31,7 +41,7 @@ export default async function (job) {
       const totalExtractions = result?.length || 0;
       const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
 
-      await dbJob.updateStatus(jobStatus, {
+      await finalDbJob.updateStatus(jobStatus, {
         result: result,
         metrics: {
           totalExtractions: totalExtractions,
@@ -40,15 +50,28 @@ export default async function (job) {
           planType: user?.plan || "unknown",
         },
       });
+    } else if (!finalDbJob) {
+      console.log(`Job ${job.data.jobId} was deleted before completion update`);
+    } else {
+      console.log(
+        `Job ${job.data.jobId} was cancelled, skipping completion update`
+      );
     }
 
     return result;
   } catch (error) {
-    await job.progress(100, { error: error.message });
+    // Gracefully handle progress update errors (job might be cancelled)
+    try {
+      await job.progress(100, { error: error.message });
+    } catch (progressError) {
+      console.log(
+        `Could not update progress for job ${job.data.jobId}: ${progressError.message}`
+      );
+    }
 
-    // Update database with error
+    // Update database with error only if job still exists and not already failed
     const dbJob = await Job.findOne({ jobId: job.data.jobId });
-    if (dbJob) {
+    if (dbJob && dbJob.status !== "failed") {
       await dbJob.updateStatus("failed", {
         error: {
           message: error.message,

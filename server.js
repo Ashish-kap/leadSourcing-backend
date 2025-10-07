@@ -5,7 +5,9 @@ import scraperRouter from "./Routes/scraper.js";
 import { createBullBoard } from "@bull-board/api";
 import { BullAdapter } from "@bull-board/api/bullAdapter.js";
 import { ExpressAdapter } from "@bull-board/express";
-import scraperQueue from "./services/queue.js";
+import queueService from "./services/queue.js";
+
+const { businessQueue, freeProQueue } = queueService;
 import userRoute from "./Routes/userRoutes.js";
 import jobStatusRoute from "./Routes/jobStatus.js";
 import dodoPaymentsRouter from "./Routes/dodoPayments.js";
@@ -55,10 +57,13 @@ const limiter = rateLimit({
   message: "too many request from this ip, please try again in an hour",
 });
 
-// Bull Dashboard
+// Bull Dashboard - Monitor both queues
 const serverAdapter = new ExpressAdapter();
 createBullBoard({
-  queues: [new BullAdapter(scraperQueue)],
+  queues: [
+    new BullAdapter(businessQueue, { name: "Business Plan Queue" }),
+    new BullAdapter(freeProQueue, { name: "Free/Pro Plan Queue" }),
+  ],
   serverAdapter,
 });
 
