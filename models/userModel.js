@@ -1,134 +1,3 @@
-// import mongoose from "mongoose";
-// import crypto from "crypto";
-// import validator from "validator";
-// import bcrypt from "bcryptjs";
-
-// const userSchema = new mongoose.Schema({
-//   emailID: {
-//     type: String,
-//     required: [true, "Please type your Email ID"],
-//     unique: true,
-//     lowercase: true,
-//     validate: [validator.isEmail, "please provide a valid email"],
-//   },
-
-//   name: {
-//     type: String,
-//     required: [true, "Please type your name"],
-//   },
-
-//   role: {
-//     type: String,
-//     enum: ["user", "tour-guide", "lead-guide", "admin"],
-//     default: "user",
-//   },
-//   password: {
-//     type: String,
-//     required: [true, "Please type your password"],
-//     minlength: 8,
-//     select: false,
-//   },
-
-//   passwordConfirm: {
-//     type: String,
-//     required: [true, "Please type your password again to confirm"],
-//     // this only work on CREATE AND SAVE()
-
-//     validate: {
-//       validator: function (el) {
-//         return el === this.password;
-//       },
-
-//       message: "password is not same.",
-//     },
-//   },
-
-//   photo: {
-//     type: String,
-//   },
-
-//   passwordChangeAt: Date,
-
-//   passwordForgotToken: String,
-
-//   passwordExpireToken: Date,
-
-//   active: {
-//     type: Boolean,
-
-//     default: true,
-//   },
-// });
-
-// userSchema.pre("save", async function (next) {
-//   // only run this function if password was actually modified
-
-//   if (!this.isModified("password")) return next();
-
-//   //hash the password with cost of 12
-
-//   this.password = await bcrypt.hash(this.password, 12);
-
-//   //delete the passwordconfirm
-
-//   this.passwordConfirm = undefined;
-
-//   next();
-// });
-
-// userSchema.pre("save", async function (next) {
-//   if (!this.isModified("password") || this.isNew) return next();
-
-//   this.passwordChangeAt = Date.now() - 1000;
-
-//   next();
-// });
-
-// userSchema.pre(/^find/, async function (next) {
-//   // this is points to the current query
-
-//   this.find({ active: { $ne: false } });
-// });
-
-// userSchema.methods.correctPassword = async function (
-//   canditatePassword,
-//   userPassword
-// ) {
-//   return await bcrypt.compare(canditatePassword, userPassword);
-// };
-
-// userSchema.methods.changePasswordAfter = async function (JWTTimestamp) {
-//   if (this.passwordChangeAt) {
-//     const changeTimeStamp = parseInt(this.passwordChangeAt.getTime() / 1000);
-
-//     console.log(changeTimeStamp, JWTTimestamp);
-
-//     return JWTTimestamp < changeTimeStamp;
-//   }
-
-//   // false means user didnt change password
-
-//   return false;
-// };
-
-// userSchema.methods.createPasswordForgottenToken = function () {
-//   const forgotToken = crypto.randomBytes(32).toString("hex");
-//   this.passwordForgotToken = crypto
-//     .createHash("sha256")
-//     .update(forgotToken)
-//     .digest("hex");
-
-//   this.passwordExpireToken = Date.now() + 1000 * 60 * 1000;
-
-//   console.log({ forgotToken }, this.passwordForgotToken);
-
-//   return forgotToken;
-// };
-
-// const User = mongoose.model("User", userSchema);
-
-// export default User;
-
 import mongoose from "mongoose";
 import crypto from "crypto";
 import validator from "validator";
@@ -266,7 +135,7 @@ const userSchema = new mongoose.Schema(
     credits: {
       total: {
         type: Number,
-        default: 2000,
+        default: 500,
       },
       used: {
         type: Number,
@@ -274,7 +143,7 @@ const userSchema = new mongoose.Schema(
       },
       remaining: {
         type: Number,
-        default: 2000,
+        default: 500,
       },
     },
 
@@ -302,14 +171,14 @@ userSchema.virtual("creditPercentage").get(function () {
 
 // Method to check if user has unlimited access (no restrictions at all)
 userSchema.methods.hasUnlimitedAccess = function () {
-  return this.plan === "business";
+  return this.plan === "business" || this.plan === "pro";
 };
 
 // Method to check if user has unlimited extraction (no credit limits)
 userSchema.methods.hasUnlimitedExtraction = function () {
   return (
     // this.plan === "business" ||  this.plan === "free"
-    this.plan === "business"
+    this.plan === "business" || this.plan === "pro"
   );
 };
 
