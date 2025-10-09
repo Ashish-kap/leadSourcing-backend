@@ -3,6 +3,7 @@ dotenv.config();
 import Queue from "bull";
 import scrapeJob from "../jobs/scrapeJob.js";
 import Job from "../models/jobModel.js";
+import User from "../models/userModel.js";
 import socketService from "./socket.service.js";
 import logger from "./logger.js";
 
@@ -174,6 +175,37 @@ const attachEventHandlers = (queue, queueName) => {
     );
 
     try {
+      // Calculate actual credits used and refund if necessary
+      const maxRecordsRequested = job.data.maxRecords || 0;
+      const estimatedCredits = Math.ceil((maxRecordsRequested / 10) * 10);
+      const actualCreditsUsed = Math.ceil((totalExtractions / 10) * 10);
+      const creditsToRefund = Math.max(0, estimatedCredits - actualCreditsUsed);
+
+      logger.info(
+        "CREDIT_CALCULATION",
+        `${queueName}: Job ${job.id} - Requested: ${maxRecordsRequested}, Got: ${totalExtractions}, Estimated: ${estimatedCredits}, Actual: ${actualCreditsUsed}, Refund: ${creditsToRefund}`
+      );
+
+      // Refund credits if user got fewer records than requested
+      if (creditsToRefund > 0) {
+        try {
+          const user = await User.findById(job.data.userId);
+          if (user) {
+            await user.refundCredits(creditsToRefund);
+            logger.info(
+              "CREDIT_REFUND",
+              `${queueName}: Refunded ${creditsToRefund} credits to user ${job.data.userId} for job ${job.id}`
+            );
+          }
+        } catch (refundError) {
+          logger.error(
+            "CREDIT_REFUND_ERROR",
+            `${queueName}: Error refunding credits for job ${job.id}`,
+            refundError
+          );
+        }
+      }
+
       const updatedJob = await Job.findOneAndUpdate(
         { jobId: job.data.jobId },
         {
@@ -182,6 +214,8 @@ const attachEventHandlers = (queue, queueName) => {
           result: result,
           "progress.percentage": 100,
           "metrics.totalExtractions": totalExtractions,
+          "metrics.creditsUsed": actualCreditsUsed,
+          "metrics.creditsRefunded": creditsToRefund,
         },
         { new: true }
       );
@@ -196,6 +230,7 @@ const attachEventHandlers = (queue, queueName) => {
           completedAt: updatedJob.completedAt,
           progress: { percentage: 100 },
           totalExtractions: totalExtractions,
+          creditsRefunded: creditsToRefund,
           message:
             jobStatus === "data_not_found"
               ? "No data found matching your search criteria. Try adjusting your filters or location."
