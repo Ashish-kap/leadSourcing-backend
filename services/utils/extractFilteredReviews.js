@@ -1,14 +1,39 @@
+import logger from "../logger.js";
+
 export async function extractFilteredReviews(page, reviewTimeRange = null) {
   if (reviewTimeRange == null) {
     return []; // No review filtering requested
   }
 
   try {
-    // Wait for reviews container to load
-    await page.waitForSelector(".m6QErb.Pf6ghf", { timeout: 10000 });
+    // Check if page is closed before proceeding
+    if (page.isClosed()) {
+      logger.error("EXTRACT_REVIEWS", "Page is already closed");
+      return [];
+    }
+
+    // Wait for reviews container to load with increased timeout
+    await page
+      .waitForSelector(".m6QErb.Pf6ghf", { timeout: 10000 })
+      .catch(() => {
+        logger.warn("EXTRACT_REVIEWS", "Reviews container not found");
+        return null;
+      });
+
+    // Check again if page is still open after waiting
+    if (page.isClosed()) {
+      logger.error("EXTRACT_REVIEWS", "Page closed during wait");
+      return [];
+    }
 
     // Scroll through review sections to load content
     await autoScrollReviews(page);
+
+    // Check once more before evaluation
+    if (page.isClosed()) {
+      logger.error("EXTRACT_REVIEWS", "Page closed during scroll");
+      return [];
+    }
 
     const reviews = await page.evaluate((timeRangeYears) => {
       const reviewElements = Array.from(
@@ -76,28 +101,68 @@ export async function extractFilteredReviews(page, reviewTimeRange = null) {
 
     return reviews;
   } catch (error) {
-    console.error("Error extracting filtered reviews:", error);
+    // Handle specific puppeteer errors
+    if (error.message && error.message.includes("detached Frame")) {
+      logger.error(
+        "EXTRACT_REVIEWS",
+        "Frame detached - page likely navigated or closed"
+      );
+      return [];
+    }
+    if (error.message && error.message.includes("Target closed")) {
+      logger.error("EXTRACT_REVIEWS", "Page was closed during operation");
+      return [];
+    }
+    logger.error("EXTRACT_REVIEWS", "Error extracting filtered reviews", error);
     return [];
   }
 }
 
 // Helper function to scroll through reviews
 async function autoScrollReviews(page) {
-  await page.evaluate(async () => {
-    await new Promise((resolve) => {
-      const reviewSection = document.querySelector(".m6QErb.Pf6ghf");
-      if (!reviewSection) return resolve();
+  try {
+    // Check if page is closed before proceeding
+    if (page.isClosed()) {
+      return;
+    }
 
-      let lastHeight = 0;
-      const scrollInterval = setInterval(() => {
-        reviewSection.scrollTop += 1000;
+    await page.evaluate(async () => {
+      await new Promise((resolve) => {
+        const reviewSection = document.querySelector(".m6QErb.Pf6ghf");
+        if (!reviewSection) return resolve();
 
-        if (reviewSection.scrollTop === lastHeight) {
-          clearInterval(scrollInterval);
-          resolve();
-        }
-        lastHeight = reviewSection.scrollTop;
-      }, 500);
+        let lastHeight = 0;
+        let scrollAttempts = 0;
+        const maxScrollAttempts = 20; // Prevent infinite loops
+
+        const scrollInterval = setInterval(() => {
+          reviewSection.scrollTop += 1000;
+          scrollAttempts++;
+
+          if (
+            reviewSection.scrollTop === lastHeight ||
+            scrollAttempts >= maxScrollAttempts
+          ) {
+            clearInterval(scrollInterval);
+            resolve();
+          }
+          lastHeight = reviewSection.scrollTop;
+        }, 500);
+      });
     });
-  });
+  } catch (error) {
+    // Silently fail if frame is detached during scrolling
+    if (
+      error.message &&
+      (error.message.includes("detached Frame") ||
+        error.message.includes("Target closed"))
+    ) {
+      logger.info(
+        "AUTO_SCROLL_REVIEWS",
+        "Page closed during scroll, continuing..."
+      );
+      return;
+    }
+    logger.error("AUTO_SCROLL_REVIEWS", "Error during auto scroll", error);
+  }
 }
