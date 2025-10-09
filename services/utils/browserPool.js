@@ -70,6 +70,14 @@ export class BrowserPool {
 
   async _newPage() {
     const page = await this.browser.newPage();
+
+    // Set smaller viewport to reduce memory
+    await page.setViewport({
+      width: 1024,
+      height: 768,
+      deviceScaleFactor: 1,
+    });
+
     await page.setDefaultNavigationTimeout(this.navigationTimeoutMs);
     await page.setUserAgent(this.userAgent);
 
@@ -78,16 +86,35 @@ export class BrowserPool {
         await page.setRequestInterception(true);
         page.on("request", (req) => {
           const type = req.resourceType();
+          const url = req.url();
+
+          // Block images, fonts, media
           if (type === "image" || type === "font" || type === "media") {
             return req.abort();
           }
-          // Stylesheets are usually safe to block for Maps; keep enabled if you see layout issues.
+
+          // Block stylesheets
           if (
             process.env.BLOCK_STYLESHEETS === "true" &&
             type === "stylesheet"
           ) {
             return req.abort();
           }
+
+          // Block analytics, ads, tracking scripts
+          if (
+            url.includes("analytics") ||
+            url.includes("gtag") ||
+            url.includes("googletagmanager") ||
+            url.includes("doubleclick") ||
+            url.includes("facebook.com") ||
+            url.includes("twitter.com") ||
+            url.includes("hotjar") ||
+            type === "websocket"
+          ) {
+            return req.abort();
+          }
+
           req.continue();
         });
       } catch (_) {
