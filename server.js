@@ -43,8 +43,6 @@ import "./config/passport.js"; // Initialize passport configuration
 const app = express();
 const httpServer = createServer(app);
 
-// Trust proxy - required for express-rate-limit to work correctly behind proxies
-
 app.use(express.json({ limit: "500kb" }));
 
 // Middleware
