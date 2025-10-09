@@ -138,6 +138,18 @@ const jobSchema = new mongoose.Schema(
         type: Number,
         default: 0,
       },
+      estimatedCredits: {
+        type: Number,
+        default: 0,
+      },
+      creditsRefunded: {
+        type: Number,
+        default: 0,
+      },
+      planType: {
+        type: String,
+        default: null,
+      },
     },
 
     // Timestamps

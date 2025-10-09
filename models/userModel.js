@@ -176,20 +176,17 @@ userSchema.methods.hasUnlimitedAccess = function () {
 
 // Method to check if user has unlimited extraction (no credit limits)
 userSchema.methods.hasUnlimitedExtraction = function () {
-  return (
-    // this.plan === "business" ||  this.plan === "free"
-    this.plan === "business" || this.plan === "pro"
-  );
+  return this.plan === "business"; // Only business plan has unlimited credits
 };
 
 // Method to deduct credits - FIXED VERSION with plan-based bypass
 userSchema.methods.deductCredits = async function (amount) {
-  // Skip credit deduction for users with unlimited extraction (business, free)
+  // Skip credit deduction for users with unlimited extraction (business only)
   if (this.hasUnlimitedExtraction()) {
     return this; // Return user instance without deduction
   }
 
-  // Only pro users have credit limitations
+  // Free and Pro users have credit limitations
   if (this.credits.remaining < amount) {
     throw new Error("Insufficient credits");
   }
@@ -205,6 +202,24 @@ userSchema.methods.deductCredits = async function (amount) {
 userSchema.methods.addCredits = async function (amount) {
   this.credits.total += amount;
   this.credits.remaining += amount;
+
+  // Use validateBeforeSave: false to skip validation
+  return await this.save({ validateBeforeSave: false });
+};
+
+// Method to refund credits (used when job returns fewer results than expected)
+userSchema.methods.refundCredits = async function (amount) {
+  // Skip refund for users with unlimited extraction (business only)
+  if (this.hasUnlimitedExtraction()) {
+    return this; // Return user instance without refund
+  }
+
+  // Refund for Free and Pro users who have credit limitations
+  this.credits.used = Math.max(0, this.credits.used - amount);
+  this.credits.remaining = Math.min(
+    this.credits.total,
+    this.credits.remaining + amount
+  );
 
   // Use validateBeforeSave: false to skip validation
   return await this.save({ validateBeforeSave: false });
