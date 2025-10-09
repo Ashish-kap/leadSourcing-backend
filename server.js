@@ -44,7 +44,6 @@ const app = express();
 const httpServer = createServer(app);
 
 // Trust proxy - required for express-rate-limit to work correctly behind proxies
-app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "500kb" }));
 
