@@ -7,6 +7,20 @@ import { BullAdapter } from "@bull-board/api/bullAdapter.js";
 import { ExpressAdapter } from "@bull-board/express";
 import queueService from "./services/queue.js";
 
+// Suppress punycode deprecation warning (comes from third-party dependencies)
+// This warning is from older versions of whatwg-url/tr46 used by dependencies
+// and will be resolved when dependencies are updated
+process.removeAllListeners("warning");
+process.on("warning", (warning) => {
+  if (
+    warning.name === "DeprecationWarning" &&
+    warning.message.includes("punycode")
+  ) {
+    return; // Suppress punycode deprecation warnings
+  }
+  console.warn(warning.name, warning.message);
+});
+
 const { businessQueue, freeProQueue } = queueService;
 import userRoute from "./Routes/userRoutes.js";
 import jobStatusRoute from "./Routes/jobStatus.js";
@@ -28,6 +42,10 @@ import passport from "passport";
 import "./config/passport.js"; // Initialize passport configuration
 const app = express();
 const httpServer = createServer(app);
+
+// Trust proxy - required for express-rate-limit to work correctly behind proxies
+app.set("trust proxy", 1);
+
 app.use(express.json({ limit: "500kb" }));
 
 // Middleware
@@ -90,13 +108,9 @@ const DB = process.env.DATABASE.replace(
   process.env.DATABASE_PASSWORD
 );
 
-mongoose
-  .connect(DB, {
-    useNewUrlParser: true,
-  })
-  .then((con) => {
-    logger.info("DB_CONNECTED", "Database connection successful");
-  });
+mongoose.connect(DB).then((con) => {
+  logger.info("DB_CONNECTED", "Database connection successful");
+});
 
 // Initialize Socket.IO
 socketService.init(httpServer);
