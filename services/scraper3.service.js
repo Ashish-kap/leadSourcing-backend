@@ -19,9 +19,9 @@ const defaultPopulationResolver = createPopulationResolverAllTheCities();
 // const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 10);
 
 // Reduced defaults to minimize memory usage (3-4GB instead of 7-8GB)
-const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 2);
-const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 4);
-const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 8);
+const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 1);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 3);
+const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 4);
 const SEARCH_NAV_TIMEOUT_MS = Number(
   process.env.SEARCH_NAV_TIMEOUT_MS || 45000
 );
