@@ -40,8 +40,51 @@ export class BrowserPool {
     const protocolTimeout = Number(process.env.PROTOCOL_TIMEOUT || 90000);
 
     if (endpoint) {
+      // Memory-optimized Chrome launch args for Browserless
+      const launchArgs = [
+        // Original memory-saving flags
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--disable-site-isolation-trials",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-zygote",
+        "--disk-cache-size=0",
+        "--media-cache-size=0",
+        "--window-size=1024,768",
+        "--disable-extensions",
+        "--mute-audio",
+        // Additional memory-saving flags
+        "--disable-background-networking",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-breakpad",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-hang-monitor",
+        "--disable-ipc-flooding-protection",
+        "--disable-prompt-on-repost",
+        "--disable-renderer-backgrounding",
+        "--disable-sync",
+        "--metrics-recording-only",
+        "--no-first-run",
+        "--password-store=basic",
+        "--use-mock-keychain",
+      ];
+
+      // Build launch params as JSON for Browserless
+      const launchParams = {
+        args: launchArgs,
+      };
+
+      // Append launch params to WebSocket endpoint
+      const separator = endpoint.includes("?") ? "&" : "?";
+      const endpointWithArgs = `${endpoint}${separator}launch=${encodeURIComponent(
+        JSON.stringify(launchParams)
+      )}`;
+
       this.browser = await puppeteerCore.connect({
-        browserWSEndpoint: endpoint,
+        // browserWSEndpoint: endpoint,
+        browserWSEndpoint: endpointWithArgs,
         protocolTimeout: protocolTimeout,
       });
     } else {
@@ -154,8 +197,27 @@ export class BrowserPool {
     });
   }
 
-  release(page) {
+  async release(page) {
     if (this.closed || !page || page.isClosed()) return;
+
+    // Clean page memory before reuse (prevents memory bloat)
+    try {
+      // Clear browser cache, cookies, and local storage
+      const client = await page.target().createCDPSession();
+      await Promise.all([
+        client.send("Network.clearBrowserCache").catch(() => {}),
+        client.send("Network.clearBrowserCookies").catch(() => {}),
+      ]);
+      await client.detach();
+
+      // Navigate to blank page to clear DOM
+      await page
+        .goto("about:blank", { waitUntil: "domcontentloaded", timeout: 3000 })
+        .catch(() => {});
+    } catch (err) {
+      // If cleanup fails, just continue (rare, but safe to ignore)
+    }
+
     if (this.pending.length > 0) {
       const waiter = this.pending.shift();
       waiter.resolve(page);
