@@ -43,6 +43,9 @@ import "./config/passport.js"; // Initialize passport configuration
 const app = express();
 const httpServer = createServer(app);
 
+// Trust proxy - Required for Railway/production (enables X-Forwarded-For header)
+app.set("trust proxy", 1);
+
 app.use(express.json({ limit: "500kb" }));
 
 // Middleware
