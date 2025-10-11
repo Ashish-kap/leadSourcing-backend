@@ -119,6 +119,18 @@ export class BrowserPool {
             url.includes("facebook.com") ||
             url.includes("twitter.com") ||
             url.includes("hotjar") ||
+            url.includes("segment.") ||
+            url.includes("mixpanel") ||
+            url.includes("intercom") ||
+            url.includes("livechat") ||
+            url.includes("tawk.to") ||
+            url.includes("zendesk") ||
+            url.includes("drift.com") ||
+            url.includes("recaptcha") ||
+            url.includes("google-analytics") ||
+            url.includes("/ads/") ||
+            url.includes("/adservice/") ||
+            url.includes("/pixel") ||
             type === "websocket"
           ) {
             return req.abort();
@@ -168,17 +180,32 @@ export class BrowserPool {
 
     // Clean page memory before reuse (prevents memory bloat)
     try {
-      // Clear browser cache, cookies, and local storage
       const client = await page.target().createCDPSession();
+
+      // Aggressive cleanup (all parallel for speed)
       await Promise.all([
+        // Clear caches and cookies
         client.send("Network.clearBrowserCache").catch(() => {}),
         client.send("Network.clearBrowserCookies").catch(() => {}),
+        // Clear storage (localStorage, sessionStorage, indexedDB)
+        client
+          .send("Storage.clearDataForOrigin", {
+            origin: "*",
+            storageTypes: "local_storage,session_storage,indexeddb,websql",
+          })
+          .catch(() => {}),
+        // Clear service workers
+        client.send("ServiceWorker.stopAllWorkers").catch(() => {}),
       ]);
+
       await client.detach();
 
-      // Navigate to blank page to clear DOM
+      // Navigate to blank page to clear DOM and history
       await page
-        .goto("about:blank", { waitUntil: "domcontentloaded", timeout: 3000 })
+        .goto("about:blank", {
+          waitUntil: "domcontentloaded",
+          timeout: 2000,
+        })
         .catch(() => {});
     } catch (err) {
       // If cleanup fails, just continue (rare, but safe to ignore)
