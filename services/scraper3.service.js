@@ -228,7 +228,7 @@ export async function runScraper(
   // Memory tracking helper
   const logMemory = (label) => {
     const usage = process.memoryUsage();
-    logger.info("MEMORY_USAGE", label, {
+    console.log(`[MEMORY_USAGE] ${label}`, {
       rss: `${(usage.rss / 1024 / 1024).toFixed(0)} MB`,
       heapUsed: `${(usage.heapUsed / 1024 / 1024).toFixed(0)} MB`,
       external: `${(usage.external / 1024 / 1024).toFixed(0)} MB`,
@@ -237,7 +237,7 @@ export async function runScraper(
 
   // Log initial memory and config
   logMemory("SCRAPER_START");
-  logger.info("SCRAPER_CONFIG", "Current configuration", {
+  console.log("[SCRAPER_CONFIG] Current configuration:", {
     CITY_CONCURRENCY,
     DETAIL_CONCURRENCY,
     POOL_MAX_PAGES,
