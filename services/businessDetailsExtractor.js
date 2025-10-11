@@ -233,7 +233,7 @@ export async function extractBusinessDetails(
     ) {
       try {
         // const T_SCRAPE_START = performance.now();
-        const emailTimeout = Number(process.env.EMAIL_TIMEOUT_MS || 10000);
+        const emailTimeout = Number(process.env.EMAIL_TIMEOUT_MS || 8000);
 
         // Add timeout wrapper to prevent hanging
         const emailPromise = scrapeEmails({
@@ -262,7 +262,10 @@ export async function extractBusinessDetails(
             )
           ),
         ]).catch((err) => {
-          console.warn("email extraction/verification failed:", err.message);
+          // Only log in verbose mode (expected failures for businesses without contact pages)
+          if (process.env.LOG_EMAIL_FAILURES === "true") {
+            console.warn("email extraction/verification failed:", err.message);
+          }
           return { emails: [] };
         });
         // businessData.timings.scrape_ms = Math.round(
