@@ -40,51 +40,17 @@ export class BrowserPool {
     const protocolTimeout = Number(process.env.PROTOCOL_TIMEOUT || 90000);
 
     if (endpoint) {
-      // Memory-optimized Chrome launch args for Browserless
-      const launchArgs = [
-        // Original memory-saving flags
-        "--disable-features=IsolateOrigins,site-per-process",
-        "--disable-site-isolation-trials",
-        "--disable-gpu",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-zygote",
-        "--disk-cache-size=0",
-        "--media-cache-size=0",
-        "--window-size=1024,768",
-        "--disable-extensions",
-        "--mute-audio",
-        // Additional memory-saving flags
-        "--disable-background-networking",
-        "--disable-background-timer-throttling",
-        "--disable-backgrounding-occluded-windows",
-        "--disable-breakpad",
-        "--disable-component-extensions-with-background-pages",
-        "--disable-hang-monitor",
-        "--disable-ipc-flooding-protection",
-        "--disable-prompt-on-repost",
-        "--disable-renderer-backgrounding",
-        "--disable-sync",
-        "--metrics-recording-only",
-        "--no-first-run",
-        "--password-store=basic",
-        "--use-mock-keychain",
-      ];
-
-      // Build launch params as JSON for Browserless
-      const launchParams = {
-        args: launchArgs,
-      };
-
-      // Append launch params to WebSocket endpoint
-      const separator = endpoint.includes("?") ? "&" : "?";
-      const endpointWithArgs = `${endpoint}${separator}launch=${encodeURIComponent(
-        JSON.stringify(launchParams)
-      )}`;
+      // Browserless applies memory-optimized flags via DEFAULT_LAUNCH_ARGS env var
+      console.log(
+        "[BROWSERLESS] Connecting to:",
+        endpoint.replace(/token=[^&]+/, "token=***")
+      );
+      console.log(
+        "[BROWSERLESS] Memory flags applied via Browserless DEFAULT_LAUNCH_ARGS env var"
+      );
 
       this.browser = await puppeteerCore.connect({
-        // browserWSEndpoint: endpoint,
-        browserWSEndpoint: endpointWithArgs,
+        browserWSEndpoint: endpoint,
         protocolTimeout: protocolTimeout,
       });
     } else {
