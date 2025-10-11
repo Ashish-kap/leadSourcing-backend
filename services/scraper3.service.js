@@ -225,6 +225,26 @@ export async function runScraper(
   },
   job
 ) {
+  // Memory tracking helper
+  const logMemory = (label) => {
+    const usage = process.memoryUsage();
+    logger.info("MEMORY_USAGE", label, {
+      rss: `${(usage.rss / 1024 / 1024).toFixed(0)} MB`,
+      heapUsed: `${(usage.heapUsed / 1024 / 1024).toFixed(0)} MB`,
+      external: `${(usage.external / 1024 / 1024).toFixed(0)} MB`,
+    });
+  };
+
+  // Log initial memory and config
+  logMemory("SCRAPER_START");
+  logger.info("SCRAPER_CONFIG", "Current configuration", {
+    CITY_CONCURRENCY,
+    DETAIL_CONCURRENCY,
+    POOL_MAX_PAGES,
+    BROWSER_SESSION_MAX_MS,
+    maxRecords,
+  });
+
   // ---------------- pooling + queues ----------------
   const createBrowserPool = async () => {
     const pool = new BrowserPool({
@@ -258,6 +278,8 @@ export async function runScraper(
   const PAGE_POOL_REF = Symbol("poolRef");
 
   let browserPool = await createBrowserPool();
+  logMemory("AFTER_BROWSER_POOL_INIT");
+
   let sessionStartedAt = Date.now();
   let refreshingPromise = null;
   let activePages = 0;
