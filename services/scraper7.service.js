@@ -410,7 +410,7 @@ export async function runScraper(
         });
         return null;
       } finally {
-        browserPool.release(page);
+        await browserPool.release(page);
       }
     });
     detailTasks.push(p);
@@ -515,7 +515,7 @@ export async function runScraper(
         error: error.message,
       });
     } finally {
-      browserPool.release(page);
+      await browserPool.release(page);
     }
   }
 

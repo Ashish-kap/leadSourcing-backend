@@ -337,18 +337,18 @@ export async function runScraper(
     throw new Error("Failed to acquire page after refreshing browser session");
   };
 
-  const releasePage = (page) => {
+  const releasePage = async (page) => {
     if (!page) return;
     const poolRef = page[PAGE_POOL_REF] || browserPool;
     if (activePages > 0) activePages -= 1;
     try {
       if (poolRef && typeof poolRef.release === "function") {
-        poolRef.release(page);
+        await poolRef.release(page);
       } else if (
         typeof page.close === "function" &&
         !(typeof page.isClosed === "function" && page.isClosed())
       ) {
-        page.close().catch(() => {});
+        await page.close().catch(() => {});
       }
     } catch (_) {
       // ignore release errors
@@ -430,7 +430,7 @@ export async function runScraper(
         }
         throw error;
       } finally {
-        releasePage(page);
+        await releasePage(page);
       }
     }
     throw lastError;
