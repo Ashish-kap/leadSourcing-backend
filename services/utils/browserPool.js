@@ -273,12 +273,24 @@ export class BrowserPool {
         const proc =
           typeof browser.process === "function" ? browser.process() : null;
         if (proc && typeof proc.kill === "function") {
+          console.log("[BROWSER] Force-killing Chrome process (SIGKILL)");
           proc.kill("SIGKILL");
         } else if (typeof browser.disconnect === "function") {
+          console.log("[BROWSER] Disconnecting from remote browser");
           browser.disconnect();
         }
       } catch (_) {
         // ignore
+      }
+    }
+
+    // Force garbage collection after browser close
+    if (global.gc) {
+      try {
+        global.gc();
+        console.log("[BROWSER] Forced GC after browser close");
+      } catch (_) {
+        // GC not available
       }
     }
   }
