@@ -46,11 +46,74 @@ export class BrowserPool {
         endpoint.replace(/token=[^&]+/, "token=***")
       );
       console.log(
-        "[BROWSERLESS] Memory flags applied via Browserless DEFAULT_LAUNCH_ARGS env var"
+        "[BROWSERLESS] Memory flags applied via launch parameter in connection URL"
       );
 
+      // Create memory-optimized launch args for Browserless
+      const memoryOptimizedArgs = {
+        headless: true,
+        args: [
+          // Essential security flags
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+
+          // Memory optimization flags
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--disable-accelerated-2d-canvas",
+          "--no-zygote",
+          "--disk-cache-size=0",
+          "--media-cache-size=0",
+          "--disable-extensions",
+          "--mute-audio",
+
+          // Site isolation (stability + memory)
+          "--disable-site-isolation-trials",
+          "--disable-features=IsolateOrigins,site-per-process",
+
+          // Additional memory optimizations
+          "--disable-background-networking",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-breakpad",
+          "--disable-component-extensions-with-background-pages",
+          "--disable-hang-monitor",
+          "--disable-ipc-flooding-protection",
+          "--disable-prompt-on-repost",
+          "--disable-renderer-backgrounding",
+          "--disable-sync",
+          "--metrics-recording-only",
+          "--no-first-run",
+          "--password-store=basic",
+          "--use-mock-keychain",
+          "--disable-canvas-aa",
+          "--disable-2d-canvas-clip-aa",
+          "--disable-gl-drawing-for-tests",
+          "--disable-threaded-animation",
+          "--disable-threaded-scrolling",
+          "--disable-checker-imaging",
+          "--disable-new-content-rendering-timeout",
+          "--disable-image-animation-resizing",
+          "--disable-webgl",
+          "--disable-software-rasterizer",
+          "--disable-partial-raster",
+          "--no-pings",
+          "--no-default-browser-check",
+          "--disable-web-security",
+          "--disable-blink-features=AutomationControlled",
+          "--window-size=1024,768",
+        ],
+      };
+
+      // Pass launch args to Browserless via URL parameter
+      const launchArgsParam = encodeURIComponent(
+        JSON.stringify(memoryOptimizedArgs)
+      );
+      const endpointWithArgs = `${endpoint}&launch=${launchArgsParam}`;
+
       this.browser = await puppeteerCore.connect({
-        browserWSEndpoint: endpoint,
+        // browserWSEndpoint: endpoint,
+        browserWSEndpoint: endpointWithArgs,
         protocolTimeout: protocolTimeout,
       });
     } else {
