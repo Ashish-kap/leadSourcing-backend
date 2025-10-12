@@ -235,6 +235,28 @@ export async function runScraper(
     });
   };
 
+  // Job timeout to prevent memory bloat from long-running jobs
+  // 7200000
+  const JOB_TIMEOUT_MS = Number(process.env.JOB_TIMEOUT_MS || 3600000); // Default: 2 hours
+  const jobStartTime = Date.now();
+
+  const checkJobTimeout = () => {
+    const elapsed = Date.now() - jobStartTime;
+    if (elapsed > JOB_TIMEOUT_MS) {
+      logger.warn(
+        "JOB_TIMEOUT",
+        "Job exceeded maximum duration, stopping gracefully",
+        {
+          elapsed: `${Math.round(elapsed / 1000 / 60)} minutes`,
+          maxDuration: `${Math.round(JOB_TIMEOUT_MS / 1000 / 60)} minutes`,
+          recordsCollected: results.length,
+        }
+      );
+      return true;
+    }
+    return false;
+  };
+
   // Log initial memory and config
   logMemory("SCRAPER_START");
   console.log("[SCRAPER_CONFIG] Current configuration:", {
@@ -243,6 +265,7 @@ export async function runScraper(
     POOL_MAX_PAGES,
     BROWSER_SESSION_MAX_MS,
     maxRecords,
+    jobTimeoutMinutes: Math.round(JOB_TIMEOUT_MS / 1000 / 60),
   });
 
   // ---------------- pooling + queues ----------------
@@ -396,9 +419,17 @@ export async function runScraper(
   // Import Job model for cancellation checking
   const { default: JobModel } = await import("../models/jobModel.js");
 
-  // Periodic cancellation check - monitors database for job deletion/cancellation
+  // Periodic cancellation check - monitors database for job deletion/cancellation AND timeout
   const cancellationCheckInterval = setInterval(async () => {
     try {
+      // Check job timeout
+      if (checkJobTimeout()) {
+        requestStop();
+        clearInterval(cancellationCheckInterval);
+        return;
+      }
+
+      // Check job cancellation in database
       if (job && job.data && job.data.jobId) {
         const dbJob = await JobModel.findOne({ jobId: job.data.jobId });
         // If job is deleted or marked as failed, stop the scraping
@@ -1104,5 +1135,23 @@ export async function runScraper(
     }
   }
 
-  return results.slice(0, recordLimit);
+  // Force garbage collection to release memory immediately
+  const finalResults = results.slice(0, recordLimit);
+
+  // Clear results array to help GC
+  results.length = 0;
+
+  // Force GC if available (needs --expose-gc flag)
+  if (global.gc) {
+    try {
+      global.gc();
+      console.log("[MEMORY] Forced garbage collection after job completion");
+    } catch (e) {
+      // GC not available
+    }
+  }
+
+  logMemory("JOB_COMPLETE");
+
+  return finalResults;
 }
