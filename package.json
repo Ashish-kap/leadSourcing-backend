@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "NODE_OPTIONS='--max-old-space-size=2048' node server.js"
+    "start": "NODE_OPTIONS='--max-old-space-size=6144 --expose-gc' node server.js"
   },
   "keywords": [],
   "author": "",
