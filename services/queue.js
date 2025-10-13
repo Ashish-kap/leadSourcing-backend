@@ -33,8 +33,8 @@ if (process.env.REDIS_HOST) {
 }
 
 // Queue configuration - Direct worker allocation (no percentages)
-const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 5;
-const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 5;
+const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 2;
+const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 2;
 const TOTAL_WORKERS = BUSINESS_WORKERS + FREE_PRO_WORKERS;
 
 logger.info(
