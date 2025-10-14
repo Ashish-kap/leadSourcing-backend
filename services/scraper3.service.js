@@ -237,7 +237,7 @@ export async function runScraper(
 
   // Job timeout to prevent memory bloat from long-running jobs
   // 7200000
-  const JOB_TIMEOUT_MS = Number(process.env.JOB_TIMEOUT_MS || 3600000); // Default: 2 hours
+  const JOB_TIMEOUT_MS = Number(process.env.JOB_TIMEOUT_MS || 7200000); // Default: 2 hours
   const jobStartTime = Date.now();
 
   const checkJobTimeout = () => {
