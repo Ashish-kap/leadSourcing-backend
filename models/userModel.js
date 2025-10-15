@@ -145,6 +145,16 @@ const userSchema = new mongoose.Schema(
         type: Number,
         default: 500,
       },
+      // Track when credits were last allocated for monthly reset
+      lastAllocated: {
+        type: Date,
+        default: Date.now,
+      },
+      // Track monthly allocation for free users
+      monthlyAllocated: {
+        type: Boolean,
+        default: false,
+      },
     },
 
     passwordChangeAt: Date,

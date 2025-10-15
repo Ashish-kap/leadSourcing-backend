@@ -36,7 +36,7 @@ const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
   process.env.BROWSER_SESSION_DRAIN_TIMEOUT_MS || 3000
 );
 const BROWSER_SESSION_RETRY_LIMIT = Number(
-  process.env.BROWSER_SESSION_RETRY_LIMIT || 2
+  process.env.BROWSER_SESSION_RETRY_LIMIT || 1
 );
 
 // Deep scrape batched zone configuration
@@ -60,15 +60,33 @@ const locationKey = (country, state, city) =>
 
 async function safeEvaluate(page, fn, ...args) {
   const timeout = 30000;
-  return Promise.race([
-    page.evaluate(fn, ...args),
-    new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`evaluate timed out after ${timeout}ms`)),
-        timeout
-      )
-    ),
-  ]);
+  try {
+    return await Promise.race([
+      page.evaluate(fn, ...args),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`evaluate timed out after ${timeout}ms`)),
+          timeout
+        )
+      ),
+    ]);
+  } catch (error) {
+    // Handle execution context errors gracefully
+    if (
+      error.message &&
+      error.message.includes("Execution context was destroyed")
+    ) {
+      logger.warn(
+        "SAFE_EVALUATE_CONTEXT_DESTROYED",
+        "Execution context was destroyed during evaluation",
+        {
+          error: error.message,
+        }
+      );
+      return null; // Return null instead of throwing
+    }
+    throw error;
+  }
 }
 
 // Simple in-file concurrency limiter (no deps)
@@ -294,7 +312,9 @@ export async function runScraper(
       message.includes("websocket is not open") ||
       message.includes("target closed") ||
       message.includes("session closed") ||
-      message.includes("browser disconnected")
+      message.includes("browser disconnected") ||
+      message.includes("execution context was destroyed") ||
+      message.includes("protocol error")
     );
   };
 
@@ -790,6 +810,20 @@ export async function runScraper(
           reviewFilter
         );
 
+        // Handle case where execution context was destroyed
+        if (!listingsData) {
+          logger.warn(
+            "CITY_SCRAPE_NO_DATA",
+            "No listings data returned (execution context may have been destroyed)",
+            {
+              city: cityName,
+              state: stateName,
+              zone: zoneLabel || "center",
+            }
+          );
+          return;
+        }
+
         // Logging + progress
         const totalListingsFound = await safeEvaluate(page, () => {
           return document.querySelectorAll(".Nv2PK").length;
@@ -827,15 +861,25 @@ export async function runScraper(
         }
       });
     } catch (error) {
-      // Detached frame errors are expected when stopping early or on session rotation
+      // Expected errors when stopping early or on session rotation
       const isDetachedFrame =
         error.message && error.message.includes("detached Frame");
       const isTargetClosed =
         error.message &&
         (error.message.includes("Target closed") ||
           error.message.includes("Session closed"));
+      const isExecutionContextDestroyed =
+        error.message &&
+        error.message.includes("Execution context was destroyed");
+      const isProtocolError =
+        error.message && error.message.includes("Protocol error");
 
-      if (isDetachedFrame || isTargetClosed) {
+      if (
+        isDetachedFrame ||
+        isTargetClosed ||
+        isExecutionContextDestroyed ||
+        isProtocolError
+      ) {
         logger.info(
           "CITY_SCRAPE_STOPPED",
           "Zone scrape stopped (expected during shutdown)",
@@ -843,7 +887,13 @@ export async function runScraper(
             city: cityName,
             state: stateName,
             zone: zoneLabel || "center",
-            reason: isDetachedFrame ? "detached_frame" : "target_closed",
+            reason: isDetachedFrame
+              ? "detached_frame"
+              : isTargetClosed
+              ? "target_closed"
+              : isExecutionContextDestroyed
+              ? "execution_context_destroyed"
+              : "protocol_error",
           }
         );
       } else {
