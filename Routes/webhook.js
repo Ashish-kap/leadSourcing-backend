@@ -2,6 +2,7 @@ import express from "express";
 import { Webhook } from "standardwebhooks";
 import logger from "../services/logger.js";
 import User from "../models/userModel.js";
+import creditsService from "../services/credits.service.js";
 
 const router = express.Router();
 
@@ -25,7 +26,7 @@ const webhook = new Webhook(getWebhookSecret());
 const PRODUCT_PLAN_MAPPING = {
   [process.env.DODO_PRODUCT_ID_PLAN_BUSINESS]: "business",
   // Add more product IDs and their corresponding plans here
-  // [process.env.DODO_PRODUCT_ID_PLAN_PRO]: "pro",
+  [process.env.DODO_PRODUCT_ID_PLAN_PRO]: "pro",
   // [process.env.DODO_PRODUCT_ID_PLAN_PREMIUM]: "premium",
 };
 
@@ -232,6 +233,28 @@ async function handleSubscriptionActive(webhookData) {
     // Save user with updated plan and subscription details
     await user.save({ validateBeforeSave: false });
 
+    // Allocate credits based on the new plan
+    try {
+      await creditsService.allocateCredits(user._id, "subscription_active");
+
+      logger.info("CREDITS_ALLOCATED_ON_SUBSCRIPTION_ACTIVE", {
+        userId: user._id,
+        customerId,
+        newPlan,
+        productId,
+        subscriptionId,
+      });
+    } catch (creditError) {
+      logger.error("CREDITS_ALLOCATION_ON_SUBSCRIPTION_ACTIVE_ERROR", {
+        userId: user._id,
+        customerId,
+        newPlan,
+        productId,
+        subscriptionId,
+        error: creditError.message,
+      });
+    }
+
     logger.info("USER_PLAN_UPDATED", {
       userId: user._id,
       customerId: customerId,
@@ -295,16 +318,12 @@ async function handleSubscriptionCancelled(webhookData) {
     const productId = webhookData.data?.product_id;
     const originalPlan = productId ? PRODUCT_PLAN_MAPPING[productId] : null;
 
-    // Downgrade user plan to free
-    user.plan = "free";
-
-    // Update subscription status to cancelled
-    if (user.subscription) {
-      user.subscription.status = "cancelled";
-    }
-
-    // Save user with updated plan
-    await user.save({ validateBeforeSave: false });
+    // Use credits service to handle subscription cancellation
+    await creditsService.handleSubscriptionStatusChange(
+      user._id,
+      "cancelled",
+      "subscription_cancelled"
+    );
 
     logger.info("USER_PLAN_DOWNGRADED", {
       userId: user._id,
@@ -479,13 +498,12 @@ async function handleSubscriptionFailed(webhookData) {
       throw new Error(`User not found for customer ID: ${customerId}`);
     }
 
-    // Update subscription status to failed
-    if (user.subscription) {
-      user.subscription.status = "failed";
-    }
-
-    // Save user with updated subscription status
-    await user.save({ validateBeforeSave: false });
+    // Use credits service to handle subscription failure
+    await creditsService.handleSubscriptionStatusChange(
+      user._id,
+      "failed",
+      "subscription_failed"
+    );
 
     logger.info("USER_SUBSCRIPTION_FAILED", {
       userId: user._id,
@@ -546,16 +564,12 @@ async function handleSubscriptionExpired(webhookData) {
     const productId = webhookData.data?.product_id;
     const originalPlan = productId ? PRODUCT_PLAN_MAPPING[productId] : null;
 
-    // Downgrade user plan to free
-    user.plan = "free";
-
-    // Update subscription status to expired
-    if (user.subscription) {
-      user.subscription.status = "expired";
-    }
-
-    // Save user with updated plan
-    await user.save({ validateBeforeSave: false });
+    // Use credits service to handle subscription expiration
+    await creditsService.handleSubscriptionStatusChange(
+      user._id,
+      "expired",
+      "subscription_expired"
+    );
 
     logger.info("USER_PLAN_EXPIRED", {
       userId: user._id,
@@ -594,12 +608,8 @@ async function handlePaymentSucceeded(webhookData) {
 
     logger.info("webhookData succeeded", webhookData);
 
-    // TODO: Implement your business logic here
-    // Examples:
-    // - Update payment records in database
-    // - Send payment confirmation email
-    // - Update subscription status
-    // - Process order fulfillment
+    // Payment succeeded - credits are allocated in subscription.active webhook
+    // No need to allocate credits here as it's handled in handleSubscriptionActive
 
     console.log("Payment succeeded for business:", webhookData.business_id);
   } catch (error) {

@@ -40,6 +40,8 @@ import mongoose from "mongoose";
 import socketService from "./services/socket.service.js";
 import passport from "passport";
 import "./config/passport.js"; // Initialize passport configuration
+import creditsJob from "./jobs/creditsJob.js";
+import creditsRouter from "./Routes/creditsRoutes.js";
 const app = express();
 const httpServer = createServer(app);
 
@@ -95,6 +97,7 @@ app.use("/api/v1/dodo-payments", dodoPaymentsRouter);
 app.use("/api/v1", scraperRouter);
 app.use("/api/v1/job-status", jobStatusRoute);
 app.use("/api/v1/feedback", feedbackRouter);
+app.use("/api/v1/credits", creditsRouter);
 
 // app.all("*", (req, res, next) => {
 //   next(new AppError(`cant find ${req.originalUrl} on this server`, 404));
@@ -114,6 +117,9 @@ mongoose.connect(DB).then((con) => {
 
 // Initialize Socket.IO
 socketService.init(httpServer);
+
+// Initialize Credits Job
+creditsJob.init();
 
 // Start Server
 const PORT = process.env.PORT || 3000;

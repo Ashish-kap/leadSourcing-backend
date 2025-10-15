@@ -315,7 +315,7 @@ export { businessQueue, freeProQueue };
 
 // Helper function to select the appropriate queue based on user plan
 export const getQueueForUser = (userPlan) => {
-  if (userPlan === "business") {
+  if (userPlan === "business" || userPlan === "pro") {
     return businessQueue;
   }
   return freeProQueue; // free and pro users share the same queue
