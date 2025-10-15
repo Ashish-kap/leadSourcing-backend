@@ -186,7 +186,7 @@ userSchema.methods.hasUnlimitedAccess = function () {
 
 // Method to check if user has unlimited extraction (no credit limits)
 userSchema.methods.hasUnlimitedExtraction = function () {
-  return this.plan === "business"; // Only business plan has unlimited credits
+  return false // Only business plan has unlimited credits
 };
 
 // Method to deduct credits - FIXED VERSION with plan-based bypass
