@@ -198,6 +198,28 @@ const deleteJob = async (req, res) => {
     // Kill the job if it's active/running in the queue
     if (["pending", "active", "waiting"].includes(job.status)) {
       try {
+        // Calculate credits to refund
+        const creditsToRefund = job.metrics?.creditsUsed || 0;
+        
+        // Refund credits to user if job was charged
+        if (creditsToRefund > 0) {
+          try {
+            const user = await User.findById(userId);
+            if (user) {
+              await user.refundCredits(creditsToRefund);
+              console.log(
+                `Refunded ${creditsToRefund} credits to user ${userId} for cancelled job ${jobId}`
+              );
+            }
+          } catch (refundError) {
+            console.error(
+              `Error refunding credits for job ${jobId}:`,
+              refundError.message
+            );
+            // Continue with job deletion even if refund fails
+          }
+        }
+
         // Update database to mark as failed (this triggers cancellation detection)
         await Job.findOneAndUpdate(
           { jobId, userId },
@@ -205,6 +227,7 @@ const deleteJob = async (req, res) => {
             status: "failed",
             "progress.percentage": 0,
             completedAt: new Date(),
+            "metrics.creditsRefunded": creditsToRefund,
             error: {
               message: "Job cancelled by user deletion",
               timestamp: new Date(),
@@ -251,6 +274,7 @@ const deleteJob = async (req, res) => {
 
     // Store job status for message and socket event
     const wasActive = ["pending", "active", "waiting"].includes(job.status);
+    const creditsRefunded = job.metrics?.creditsRefunded || 0;
 
     // Delete job from database
     await Job.findByIdAndDelete(job._id);
@@ -262,11 +286,22 @@ const deleteJob = async (req, res) => {
       wasActive: wasActive,
       progress: wasActive ? { percentage: 0 } : undefined, // ✅ Reset progress for cancelled jobs
       deletedAt: new Date(),
+      creditsRefunded: creditsRefunded,
     });
+
+    // Create response message
+    let message = `Job deleted successfully`;
+    if (wasActive) {
+      message += " (and cancelled)";
+    }
+    if (creditsRefunded > 0) {
+      message += ` - ${creditsRefunded} credits refunded`;
+    }
 
     res.json({
       success: true,
-      message: `Job deleted successfully ${wasActive ? "(and cancelled)" : ""}`,
+      message: message,
+      creditsRefunded: creditsRefunded,
     });
   } catch (error) {
     console.error("Error deleting job:", error);
@@ -292,6 +327,29 @@ const killJob = async (req, res) => {
     }
 
     if (job && (await job.isActive())) {
+      // Get job data to calculate credits to refund
+      const jobData = job.data;
+      const creditsToRefund = jobData.maxRecords ? Math.ceil((jobData.maxRecords / 10) * 10) : 0;
+      
+      // Refund credits to user if job was charged
+      if (creditsToRefund > 0 && jobData.userId) {
+        try {
+          const user = await User.findById(jobData.userId);
+          if (user) {
+            await user.refundCredits(creditsToRefund);
+            console.log(
+              `Refunded ${creditsToRefund} credits to user ${jobData.userId} for killed job ${jobId}`
+            );
+          }
+        } catch (refundError) {
+          console.error(
+            `Error refunding credits for killed job ${jobId}:`,
+            refundError.message
+          );
+          // Continue with job killing even if refund fails
+        }
+      }
+
       await job.moveToFailed(
         new Error("Manually killed via admin endpoint"),
         true
@@ -300,6 +358,7 @@ const killJob = async (req, res) => {
         status: "killed",
         id: job.id,
         queue: queueName,
+        creditsRefunded: creditsToRefund,
       });
     } else {
       res.status(404).json({ error: "Not found or not active" });
