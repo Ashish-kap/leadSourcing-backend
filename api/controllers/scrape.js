@@ -2,6 +2,7 @@ import queueService from "../../services/queue.js";
 import Job from "./../../models/jobModel.js";
 import User from "./../../models/userModel.js";
 import { v4 as uuidv4 } from "uuid";
+import { sanitizeKeyword, validateKeyword, sanitizeKeywordWithSeparators } from "../../utils/keywordSanitizer.js";
 
 const { getQueueForUser, businessQueue, freeProQueue } = queueService;
 
@@ -307,12 +308,55 @@ const scrapeData = async (req, res) => {
     console.log(req.user);
     const userId = req.user.id;
 
-    // Validate mandatory fields
+    // Validate and sanitize keyword
     if (!keyword) {
       return res.status(400).json({
         error: "keyword is required",
       });
     }
+
+    // Sanitize keyword while preserving separators
+    const keywordSanitization = sanitizeKeywordWithSeparators(keyword);
+    
+    if (!keywordSanitization.isValid) {
+      return res.status(400).json({
+        error: "Invalid keyword",
+        message: "Please provide a valid keyword with at least 2 characters",
+        details: keywordSanitization.warnings,
+        originalKeyword: keywordSanitization.original,
+        suggestions: [
+          "Use clear, descriptive terms",
+          "You can include multiple keywords separated by commas, semicolons, or pipes",
+          "Examples: 'restaurant', 'plumber, restaurant, cafe', 'dentist; doctor', 'spa | salon'"
+        ]
+      });
+    }
+
+    // Additional validation
+    const keywordValidation = validateKeyword(keywordSanitization.cleaned);
+    if (!keywordValidation.isValid) {
+      return res.status(400).json({
+        error: "Keyword validation failed",
+        issues: keywordValidation.issues,
+        suggestions: keywordValidation.suggestions,
+        cleanedKeyword: keywordSanitization.cleaned
+      });
+    }
+
+    // Log sanitization for monitoring
+    if (keywordSanitization.warnings.length > 0) {
+      console.warn("KEYWORD_SANITIZATION", "Keyword was cleaned", {
+        original: keywordSanitization.original,
+        cleaned: keywordSanitization.cleaned,
+        warnings: keywordSanitization.warnings,
+        hasSeparators: keywordSanitization.hasSeparators,
+        separatorCount: keywordSanitization.separatorCount,
+        userId: req.user.id
+      });
+    }
+
+    // Use the cleaned keyword
+    const cleanKeyword = keywordSanitization.cleaned;
 
     if (!countryCode) {
       return res.status(400).json({
@@ -498,7 +542,7 @@ const scrapeData = async (req, res) => {
 
     // Create job parameters
     const jobParams = {
-      keyword: keyword.trim(),
+      keyword: cleanKeyword, // Use the keyword as-is (supports multiple keywords)
       city: city ? city.trim() : null,
       stateCode: stateCode ? stateCode.trim() : null,
       countryCode: countryCode.trim().toUpperCase(),
