@@ -94,6 +94,7 @@ const jobSchema = new mongoose.Schema(
         "data_not_found",
         "delayed",
         "paused",
+        "stuck_timeout",
       ],
       default: "active",
       index: true,
@@ -109,6 +110,37 @@ const jobSchema = new mongoose.Schema(
       details: {
         type: mongoose.Schema.Types.Mixed,
         default: {},
+      },
+      lastRecordsUpdate: {
+        type: Date,
+        default: null,
+      },
+      lastPercentageUpdate: {
+        type: Date,
+        default: null,
+      },
+      stuckDetection: {
+        isStuck: {
+          type: Boolean,
+          default: false,
+        },
+        stuckReason: {
+          type: String,
+          enum: ["records", "percentage", null],
+          default: null,
+        },
+        stuckAt: {
+          type: Date,
+          default: null,
+        },
+        recordsStuckFor: {
+          type: Number,
+          default: 0,
+        },
+        percentageStuckFor: {
+          type: Number,
+          default: 0,
+        },
       },
     },
 

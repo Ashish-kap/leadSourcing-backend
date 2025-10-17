@@ -10,8 +10,12 @@ import {
   createCityZones,
   generateZoneBatch,
 } from "./utils/cityZoneGenerator.js";
+import { ProgressMonitor, getStuckJobConfig } from "./stuckJobDetector.js";
 
 const defaultPopulationResolver = createPopulationResolverAllTheCities();
+
+// Get stuck job detection configuration
+const { STUCK_RECORDS_TIMEOUT_MS, STUCK_PERCENTAGE_TIMEOUT_MS, STUCK_JOB_GRACE_PERIOD_MS } = getStuckJobConfig();
 
 // ---- Tunables (or use env) - Optimized for speed & cost ----
 // const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 2);
@@ -284,6 +288,11 @@ export async function runScraper(
     BROWSER_SESSION_MAX_MS,
     maxRecords,
     jobTimeoutMinutes: Math.round(JOB_TIMEOUT_MS / 1000 / 60),
+    stuckDetection: {
+      recordsTimeoutMinutes: Math.round(STUCK_RECORDS_TIMEOUT_MS / 1000 / 60),
+      percentageTimeoutMinutes: Math.round(STUCK_PERCENTAGE_TIMEOUT_MS / 1000 / 60),
+      gracePeriodSeconds: Math.round(STUCK_JOB_GRACE_PERIOD_MS / 1000),
+    },
   });
 
   // ---------------- pooling + queues ----------------
@@ -436,6 +445,9 @@ export async function runScraper(
     shouldStop = true;
   };
 
+  // Initialize progress monitor for stuck job detection
+  const progressMonitor = new ProgressMonitor(job?.data?.jobId || 'unknown');
+
   // Import Job model for cancellation checking
   const { default: JobModel } = await import("../models/jobModel.js");
 
@@ -444,6 +456,28 @@ export async function runScraper(
     try {
       // Check job timeout
       if (checkJobTimeout()) {
+        requestStop();
+        clearInterval(cancellationCheckInterval);
+        return;
+      }
+
+      // Check for stuck job conditions
+      const percentage = results.length >= recordLimit
+        ? 100
+        : calculatePercentage(results.length, recordLimit);
+      const stuckStatus = progressMonitor.updateProgress(results.length, percentage);
+      
+      if (stuckStatus.isStuck && !shouldStop) {
+        logger.warn(
+          "JOB_STUCK_DETECTED_INTERVAL",
+          `Job ${job?.data?.jobId} detected as stuck in interval check`,
+          {
+            reason: stuckStatus.reason,
+            recordsCollected: results.length,
+            percentage,
+            stuckFor: Math.round(stuckStatus.stuckFor / 1000),
+          }
+        );
         requestStop();
         clearInterval(cancellationCheckInterval);
         return;
@@ -471,7 +505,7 @@ export async function runScraper(
         }
       );
     }
-  }, 2000); // Check every 2 seconds
+  }, 30000); // Check every 30 seconds for stuck detection
 
   const withPage = async (context, fn) => {
     let attempt = 0;
@@ -631,11 +665,57 @@ export async function runScraper(
       results.length >= recordLimit
         ? 100
         : calculatePercentage(results.length, recordLimit);
+    
+    // Check for stuck job conditions
+    const stuckStatus = progressMonitor.updateProgress(results.length, percentage);
+    
+    // If job is stuck, trigger graceful termination
+    if (stuckStatus.isStuck && !shouldStop) {
+      logger.warn(
+        "JOB_STUCK_TERMINATION",
+        `Job ${job.data?.jobId} is stuck - initiating graceful termination`,
+        {
+          reason: stuckStatus.reason,
+          recordsCollected: results.length,
+          percentage,
+          stuckFor: Math.round(stuckStatus.stuckFor / 1000),
+        }
+      );
+      
+      // Set stop flag to begin graceful shutdown
+      requestStop();
+      
+      // Update job status in database to indicate stuck timeout
+      try {
+        const { default: JobModel } = await import("../models/jobModel.js");
+        const dbJob = await JobModel.findOne({ jobId: job.data.jobId });
+        if (dbJob && dbJob.status !== "failed") {
+          await dbJob.updateStatus("stuck_timeout", {
+            "progress.stuckDetection": {
+              isStuck: true,
+              stuckReason: stuckStatus.reason,
+              stuckAt: new Date(),
+              recordsStuckFor: stuckStatus.recordsStuckFor,
+              percentageStuckFor: stuckStatus.percentageStuckFor,
+            },
+            "progress.lastRecordsUpdate": new Date(progressMonitor.lastRecordsUpdate),
+            "progress.lastPercentageUpdate": new Date(progressMonitor.lastPercentageUpdate),
+          });
+        }
+      } catch (dbError) {
+        logger.error("STUCK_JOB_DB_UPDATE_ERROR", "Failed to update stuck job status", {
+          jobId: job.data?.jobId,
+          error: dbError.message,
+        });
+      }
+    }
+    
     try {
       await job.progress({
         percentage,
         recordsCollected: results.length,
         maxRecords: recordLimit,
+        stuckDetection: stuckStatus,
         ...extra,
       });
     } catch (progressError) {
@@ -1139,6 +1219,23 @@ export async function runScraper(
     if (!shouldStop) {
       await Promise.allSettled(detailTasks);
     } else {
+      // If job was stopped due to stuck detection, wait for grace period
+      const stuckStatus = progressMonitor.getStatus();
+      if (stuckStatus.isStuck) {
+        logger.info(
+          "STUCK_JOB_GRACE_PERIOD",
+          `Job ${job?.data?.jobId} in grace period before termination`,
+          {
+            reason: stuckStatus.reason,
+            gracePeriodMs: STUCK_JOB_GRACE_PERIOD_MS,
+            recordsCollected: results.length,
+          }
+        );
+        
+        // Wait for grace period to allow current operations to complete
+        await new Promise(resolve => setTimeout(resolve, STUCK_JOB_GRACE_PERIOD_MS));
+      }
+      
       // Prevent unhandled rejections for tasks we won't await
       for (const t of detailTasks) t.catch(() => {});
     }

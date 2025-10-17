@@ -37,9 +37,17 @@ export default async function (job) {
           ? 0
           : Math.ceil((result?.length || 0) / 10) * 10;
 
-      // Determine status based on results
+      // Determine status based on results and current job status
       const totalExtractions = result?.length || 0;
-      const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
+      let jobStatus;
+      
+      // If job was marked as stuck_timeout, keep that status
+      if (finalDbJob.status === "stuck_timeout") {
+        jobStatus = "stuck_timeout";
+        logger.info(`Job ${job.data.jobId} completed with stuck timeout status - returning partial results`);
+      } else {
+        jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
+      }
 
       await finalDbJob.updateStatus(jobStatus, {
         result: result,
