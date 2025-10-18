@@ -167,7 +167,12 @@ const attachEventHandlers = (queue, queueName) => {
     logger.info("JOB_COMPLETED", `${queueName}: Job ${job.id} completed`);
 
     const totalExtractions = result?.length || 0;
-    const jobStatus = totalExtractions > 0 ? "completed" : "data_not_found";
+    
+    // Check if job was stuck timeout to determine appropriate status
+    const dbJob = await Job.findOne({ jobId: job.data.jobId });
+    const jobStatus = dbJob?.status === "stuck_timeout" 
+      ? "stuck_timeout" 
+      : totalExtractions > 0 ? "completed" : "data_not_found";
 
     logger.info(
       "JOB_FINISHED",
@@ -221,8 +226,19 @@ const attachEventHandlers = (queue, queueName) => {
       );
 
       if (updatedJob) {
-        const eventType =
-          jobStatus === "completed" ? "job_completed" : "job_no_data_found";
+        let eventType;
+        let message;
+        
+        if (jobStatus === "stuck_timeout") {
+          eventType = "job_stuck_timeout";
+          message = `Job completed with partial results (${totalExtractions} records) due to timeout. The job was taking too long to progress and was terminated to prevent resource waste.`;
+        } else if (jobStatus === "completed") {
+          eventType = "job_completed";
+          message = `Successfully extracted ${totalExtractions} records.`;
+        } else {
+          eventType = "job_no_data_found";
+          message = "No data found matching your search criteria. Try adjusting your filters or location.";
+        }
 
         socketService.emitJobUpdate(updatedJob.userId.toString(), eventType, {
           jobId: updatedJob.jobId,
@@ -231,10 +247,7 @@ const attachEventHandlers = (queue, queueName) => {
           progress: { percentage: 100 },
           totalExtractions: totalExtractions,
           creditsRefunded: creditsToRefund,
-          message:
-            jobStatus === "data_not_found"
-              ? "No data found matching your search criteria. Try adjusting your filters or location."
-              : `Successfully extracted ${totalExtractions} records.`,
+          message: message,
         });
       }
     } catch (error) {
