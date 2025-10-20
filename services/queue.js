@@ -33,8 +33,8 @@ if (process.env.REDIS_HOST) {
 }
 
 // Queue configuration - Direct worker allocation (no percentages)
-const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 4;
-const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 2;
+const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 5;
+const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 3;
 const TOTAL_WORKERS = BUSINESS_WORKERS + FREE_PRO_WORKERS;
 
 logger.info(
@@ -273,6 +273,36 @@ const attachEventHandlers = (queue, queueName) => {
     logger.error("JOB_FAILED", `${queueName}: Job ${job.id} failed`, err);
 
     try {
+      // Calculate credits to refund for failed job
+      const maxRecordsRequested = job.data.maxRecords || 0;
+      const estimatedCredits = Math.ceil((maxRecordsRequested / 10) * 10);
+      const creditsToRefund = estimatedCredits; // Full refund for failed jobs
+
+      logger.info(
+        "CREDIT_REFUND_FAILED",
+        `${queueName}: Job ${job.id} failed - Refunding full ${creditsToRefund} credits to user ${job.data.userId}`
+      );
+
+      // Refund all credits for failed job
+      if (creditsToRefund > 0) {
+        try {
+          const user = await User.findById(job.data.userId);
+          if (user) {
+            await user.refundCredits(creditsToRefund);
+            logger.info(
+              "CREDIT_REFUND_SUCCESS",
+              `${queueName}: Successfully refunded ${creditsToRefund} credits to user ${job.data.userId} for failed job ${job.id}`
+            );
+          }
+        } catch (refundError) {
+          logger.error(
+            "CREDIT_REFUND_ERROR",
+            `${queueName}: Error refunding credits for failed job ${job.id}`,
+            refundError
+          );
+        }
+      }
+
       const updatedJob = await Job.findOneAndUpdate(
         { jobId: job.data.jobId },
         {
@@ -280,6 +310,8 @@ const attachEventHandlers = (queue, queueName) => {
           completedAt: new Date(),
           "progress.percentage": 0,
           "metrics.totalExtractions": 0,
+          "metrics.creditsUsed": 0,
+          "metrics.creditsRefunded": creditsToRefund,
           error: {
             message: err.message,
             stack: err.stack,
@@ -298,10 +330,12 @@ const attachEventHandlers = (queue, queueName) => {
             status: "failed",
             completedAt: updatedJob.completedAt,
             progress: { percentage: 0 },
+            creditsRefunded: creditsToRefund,
             error: {
               message: err.message,
               timestamp: new Date(),
             },
+            message: `Job failed due to an error. All ${creditsToRefund} credits have been refunded to your account.`,
           }
         );
       }
