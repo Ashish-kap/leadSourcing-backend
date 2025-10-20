@@ -288,7 +288,6 @@ const { getQueueForUser, businessQueue, freeProQueue } = queueService;
 //     });
 //   }
 // };
-
 const scrapeData = async (req, res) => {
   try {
     const {
@@ -302,6 +301,7 @@ const scrapeData = async (req, res) => {
       reviewTimeRange = null,
       isExtractEmail = false,
       isValidate = false,
+      extractNegativeReviews = false,
     } = req.body;
 
     // Get user from auth middleware (assuming you have auth middleware)
@@ -552,6 +552,7 @@ const scrapeData = async (req, res) => {
       reviewTimeRange: reviewTimeRange ? parseInt(reviewTimeRange) : null,
       isExtractEmail: isExtractEmail,
       isValidate: isValidate,
+      extractNegativeReviews: Boolean(extractNegativeReviews),
     };
 
     // Create job record in database

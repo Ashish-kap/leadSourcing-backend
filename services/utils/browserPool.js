@@ -118,7 +118,7 @@ export class BrowserPool {
       });
     } else {
       this.browser = await puppeteerLocal.launch({
-        headless: true,
+        headless: false,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",

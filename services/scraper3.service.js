@@ -23,9 +23,9 @@ const { STUCK_RECORDS_TIMEOUT_MS, STUCK_PERCENTAGE_TIMEOUT_MS, STUCK_JOB_GRACE_P
 // const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 10);
 
 // Reduced defaults to minimize memory usage (3-4GB instead of 7-8GB)
-const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 1);
-const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 3);
-const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 4);
+const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 2);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 8);
+const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 10);
 const SEARCH_NAV_TIMEOUT_MS = Number(
   process.env.SEARCH_NAV_TIMEOUT_MS || 45000
 );
@@ -237,6 +237,7 @@ export async function runScraper(
     reviewTimeRange = null,
     isExtractEmail = false,
     isValidate = false,
+    extractNegativeReviews = false,
 
     // Population / ordering options
     minPopulation = 5000,
@@ -773,12 +774,12 @@ export async function runScraper(
           if (!businessData) return null;
 
           // Optional review filtering on the same page
-          if (meta.reviewTimeRange) {
+          if (meta.reviewTimeRange || meta.extractNegativeReviews) {
             try {
-              const filteredReviews = await extractFilteredReviews(
-                page,
-                meta.reviewTimeRange
-              );
+              const filteredReviews = await extractFilteredReviews(page, {
+                reviewTimeRange: meta.reviewTimeRange,
+                ratingFilter: meta.extractNegativeReviews ? "negative" : null,
+              });
               businessData.filtered_reviews = filteredReviews;
               businessData.filtered_review_count = filteredReviews.length;
             } catch (err) {
@@ -934,6 +935,7 @@ export async function runScraper(
           isExtractEmail,
           isValidate,
           reviewTimeRange,
+          extractNegativeReviews,
         };
 
         for (let i = 0; i < toSchedule && !shouldStop; i++) {
