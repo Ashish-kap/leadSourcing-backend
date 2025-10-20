@@ -37,8 +37,8 @@
 # # Start application
 # CMD ["node", "server.js"]
 
-
-FROM node:21.7.3-slim
+# FROM node:21.7.3-slim
+FROM node:20-slim
 
 # Install Chromium and dependencies
 RUN apt-get update && \
