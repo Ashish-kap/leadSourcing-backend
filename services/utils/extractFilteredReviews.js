@@ -1,8 +1,29 @@
 import logger from "../logger.js";
 
-export async function extractFilteredReviews(page, reviewTimeRange = null) {
-  if (reviewTimeRange == null) {
-    return []; // No review filtering requested
+// Backward-compatible API: second arg may be a number (years) or an options object
+// Options shape: { reviewTimeRange?: number|null, ratingFilter?: 'negative' | { allowedRatings: number[] } }
+export async function extractFilteredReviews(
+  page,
+  reviewTimeRangeOrOptions = null
+) {
+  let reviewTimeRange = null;
+  let ratingFilter = null;
+
+  if (
+    reviewTimeRangeOrOptions &&
+    typeof reviewTimeRangeOrOptions === "object" &&
+    !Number.isFinite(reviewTimeRangeOrOptions)
+  ) {
+    reviewTimeRange =
+      reviewTimeRangeOrOptions.reviewTimeRange ?? null;
+    ratingFilter = reviewTimeRangeOrOptions.ratingFilter ?? null;
+  } else {
+    reviewTimeRange = reviewTimeRangeOrOptions;
+  }
+
+  // If no filters requested at all, skip work like before
+  if (reviewTimeRange == null && !ratingFilter) {
+    return [];
   }
 
   try {
@@ -26,6 +47,12 @@ export async function extractFilteredReviews(page, reviewTimeRange = null) {
       return [];
     }
 
+    // If extracting negative reviews, sort by lowest rating first
+    if (ratingFilter === "negative") {
+      logger.info("EXTRACT_REVIEWS", "Sorting reviews by lowest rating for negative review extraction");
+      await sortReviewsByLowestRating(page);
+    }
+
     // Scroll through review sections to load content
     await autoScrollReviews(page);
 
@@ -35,14 +62,33 @@ export async function extractFilteredReviews(page, reviewTimeRange = null) {
       return [];
     }
 
-    const reviews = await page.evaluate((timeRangeYears) => {
+    const reviews = await page.evaluate((timeRangeYears, ratingFilterArg) => {
       const reviewElements = Array.from(
         document.querySelectorAll("[data-review-id]")
       );
       const filteredReviews = [];
       const currentDate = new Date();
       const cutoffDate = new Date();
-      cutoffDate.setFullYear(currentDate.getFullYear() - timeRangeYears);
+      if (Number.isFinite(timeRangeYears)) {
+        cutoffDate.setFullYear(currentDate.getFullYear() - timeRangeYears);
+      }
+
+      // If filtering for negative reviews, first check if any negative reviews exist
+      if (ratingFilterArg === "negative") {
+        const hasNegativeReviews = reviewElements.some((reviewEl) => {
+          const ratingEl = reviewEl.querySelector('[role="img"][aria-label]');
+          const ratingMatch = ratingEl
+            ?.getAttribute("aria-label")
+            ?.match(/\d+/);
+          const rating = ratingMatch ? parseInt(ratingMatch[0]) : null;
+          return rating === 1 || rating === 2;
+        });
+
+        if (!hasNegativeReviews) {
+          console.log("No negative reviews found, skipping extraction");
+          return [];
+        }
+      }
 
       // Helper function to parse relative dates
       function parseRelativeDate(dateText) {
@@ -67,6 +113,9 @@ export async function extractFilteredReviews(page, reviewTimeRange = null) {
         return date;
       }
 
+      // Track seen reviews to prevent duplicates
+      const seenReviews = new Set();
+
       reviewElements.forEach((reviewEl) => {
         // Get date element using more specific selector
         const dateElement = reviewEl.querySelector(".rsqaWe");
@@ -75,7 +124,9 @@ export async function extractFilteredReviews(page, reviewTimeRange = null) {
         const dateText = dateElement.textContent.trim();
         const reviewDate = parseRelativeDate(dateText);
 
-        if (reviewDate >= cutoffDate) {
+        const withinTimeRange =
+          !Number.isFinite(timeRangeYears) || reviewDate >= cutoffDate;
+        if (withinTimeRange) {
           // Get review text - handles multi-line structure
           const textElement = reviewEl.querySelector(".wiI7pd");
           const reviewText = textElement?.textContent?.trim() || "";
@@ -87,17 +138,55 @@ export async function extractFilteredReviews(page, reviewTimeRange = null) {
             ?.match(/\d+/);
           const rating = ratingMatch ? parseInt(ratingMatch[0]) : null;
 
+          // Rating filter logic
+          let passesRatingFilter = true;
+          if (ratingFilterArg) {
+            if (ratingFilterArg === "negative") {
+              passesRatingFilter = rating === 1 || rating === 2;
+            } else if (
+              typeof ratingFilterArg === "object" &&
+              Array.isArray(ratingFilterArg.allowedRatings)
+            ) {
+              passesRatingFilter = ratingFilterArg.allowedRatings.includes(rating);
+            }
+          }
+          if (!passesRatingFilter) return;
+
+          // Extract reviewer name with robust fallbacks
+          // 1) Many review containers expose the reviewer name on the root via aria-label
+          // 2) Otherwise fall back to the visible name element within the header
+          let reviewerName = reviewEl.getAttribute("aria-label") || "";
+          if (!reviewerName) {
+            const nameEl = reviewEl.querySelector(".d4r55.fontTitleMedium");
+            reviewerName = nameEl?.textContent?.trim() || "";
+          }
+          // Sometimes Google shows generic text like "Review" — treat that as missing
+          if (/^review$/i.test(reviewerName)) {
+            reviewerName = "";
+          }
+
+          // Create a unique key for deduplication based on text, rating, and reviewer
+          const reviewKey = `${reviewText}|${rating}|${reviewerName}`;
+          
+          // Skip if we've already seen this exact review
+          if (seenReviews.has(reviewKey)) {
+            return;
+          }
+          
+          seenReviews.add(reviewKey);
+
           filteredReviews.push({
             text: reviewText,
             rating,
             date: reviewDate.toISOString(),
             relative_date: dateText,
+            reviewerName,
           });
         }
       });
 
       return filteredReviews;
-    }, reviewTimeRange);
+    }, reviewTimeRange, ratingFilter);
 
     return reviews;
   } catch (error) {
@@ -164,5 +253,62 @@ async function autoScrollReviews(page) {
       return;
     }
     logger.error("AUTO_SCROLL_REVIEWS", "Error during auto scroll", error);
+  }
+}
+
+// Helper function to sort reviews by lowest rating
+async function sortReviewsByLowestRating(page) {
+  try {
+    // Check if page is closed before proceeding
+    if (page.isClosed()) {
+      return;
+    }
+
+    await page.evaluate(async () => {
+      // Wait for sort button to be available
+      const sortButton = document.querySelector('button[aria-label="Sort reviews"]');
+      if (!sortButton) {
+        console.log("Sort button not found");
+        return;
+      }
+
+      console.log("Clicking sort button to open dropdown");
+      // Click the sort button
+      sortButton.click();
+      
+      // Wait a bit for the dropdown to appear
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Look for the "Lowest rating" option in the dropdown
+      // Based on the HTML structure, the "Lowest rating" option has data-index="3"
+      const lowestRatingOption = document.querySelector('[data-index="3"]') || 
+        Array.from(document.querySelectorAll('[role="menuitemradio"]')).find(el => 
+          el.textContent.includes("Lowest rating")
+        );
+
+      if (lowestRatingOption) {
+        lowestRatingOption.click();
+        console.log("Selected 'Lowest rating' sort option");
+        
+        // Wait for the page to update with sorted reviews
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
+        console.log("Lowest rating option not found in sort menu, continuing with current order");
+      }
+    });
+  } catch (error) {
+    // Silently fail if frame is detached during sorting
+    if (
+      error.message &&
+      (error.message.includes("detached Frame") ||
+        error.message.includes("Target closed"))
+    ) {
+      logger.info(
+        "SORT_REVIEWS",
+        "Page closed during sort, continuing..."
+      );
+      return;
+    }
+    logger.error("SORT_REVIEWS", "Error during sort reviews", error);
   }
 }
