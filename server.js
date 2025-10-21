@@ -50,61 +50,8 @@ app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "500kb" }));
 
-// CORS configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    console.log('CORS Debug - Origin:', origin);
-    console.log('CORS Debug - NODE_ENV:', process.env.NODE_ENV);
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'https://app.cazalead.com',
-      'https://www.cazalead.com',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
-    ];
-    
-    // In development, allow all localhost origins
-    if (process.env.NODE_ENV === 'development') {
-      allowedOrigins.push('http://localhost:*', 'http://127.0.0.1:*');
-    }
-    
-    if (allowedOrigins.includes(origin)) {
-      console.log('CORS Debug - Origin allowed:', origin);
-      callback(null, true);
-    } else {
-      console.log('CORS Debug - Origin blocked:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'Cache-Control',
-    'Pragma',
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Allow-Methods'
-  ],
-  exposedHeaders: ['Authorization'],
-  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
-};
-
 // Middleware
-app.use(cors(corsOptions));
-
-// Handle preflight requests explicitly
-app.options('*', cors(corsOptions));
-
+app.use(cors());
 app.use(express.json());
 // Serve static files
 app.use(express.static("public"));
