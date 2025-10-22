@@ -61,6 +61,7 @@ const createSafeUserResponse = (user) => {
       subscriptionId: userObj.subscription.subscriptionId,
       nextBillingDate: userObj.subscription.nextBillingDate,
       previousBillingDate: userObj.subscription.previousBillingDate,
+      cancel_at_next_billing_date: userObj.subscription.cancel_at_next_billing_date,
       // paymentFrequencyCount: userObj.subscription.paymentFrequencyCount,
       paymentFrequencyInterval: userObj.subscription.paymentFrequencyInterval,
       // subscriptionPeriodCount: userObj.subscription.subscriptionPeriodCount,

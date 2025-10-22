@@ -2,6 +2,7 @@ import catchAsync from "./../../utils/catchAsync.js";
 import AppError from "./../../utils/appError.js";
 import getDodoClient from "./../../services/dodoPaymentsClient.js";
 import { ensureDodoCustomerForUser } from "./../../services/dodoPayments.service.js";
+import User from "./../../models/userModel.js";
 
 export const createSubscription = catchAsync(async (req, res, next) => {
   const payload = { ...req.body };
@@ -75,16 +76,9 @@ export const cancelSubscription = catchAsync(async (req, res, next) => {
 
   // Build the update payload for cancellation
   const updatePayload = {
-    status: "cancelled",
+    // Don't set status to "cancelled" - let cancel_at_next_billing_date handle it
+    cancel_at_next_billing_date: true,
   };
-
-  // Add optional fields from request body if provided
-  if (req.body && req.body.cancel_at_next_billing_date !== undefined) {
-    updatePayload.cancel_at_next_billing_date =
-      req.body.cancel_at_next_billing_date;
-  } else {
-    updatePayload.cancel_at_next_billing_date = null;
-  }
 
   if (req.body && req.body.metadata) {
     updatePayload.metadata = req.body.metadata;
@@ -107,10 +101,25 @@ export const cancelSubscription = catchAsync(async (req, res, next) => {
   }
 
   try {
+    
     const updatedSubscription = await client.subscriptions.update(
       subscriptionId,
       updatePayload
     );
+
+    // Update user model with cancellation information
+    if (updatedSubscription.cancel_at_next_billing_date) {
+      await User.findByIdAndUpdate(
+        req.user.id,
+        {
+          $set: {
+            "subscription.cancel_at_next_billing_date": true,
+            "subscription.nextBillingDate": updatedSubscription.next_billing_date
+          }
+        },
+        { new: true }
+      );
+    }
 
     res.status(200).json({
       status: "success",

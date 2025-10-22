@@ -129,6 +129,10 @@ const userSchema = new mongoose.Schema(
         type: String,
         default: null,
       },
+      cancel_at_next_billing_date: {
+        type: Boolean,
+        default: false,
+      },
     },
 
     // User credits and limits
