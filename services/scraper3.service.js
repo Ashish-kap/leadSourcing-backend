@@ -125,7 +125,7 @@ function createLimiter(concurrency) {
 
 /**
  * Scrolls the results panel only until at least `minCount` cards are present (or steps exhausted).
- * Enhanced for better restaurant discovery in small cities.
+ * 
  */
 async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
   try {
@@ -187,7 +187,6 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
           }
         } else {
           stagnantCount = 0; // Reset if we got new results
-          console.log(`New results found: ${count} cards (was ${lastCount})`);
         }
         
         lastCount = count;
@@ -999,17 +998,49 @@ export async function runScraper(
         });
         
         // Try the enhanced scroll function first
-        await scrollResultsPanelToCount(page, targetCount);
+        try {
+          if (page.isClosed()) {
+            logger.warn("ENHANCED_SCROLL_SKIPPED", "Page is closed, skipping enhanced scroll", {
+              city: cityName,
+            });
+          } else {
+            await scrollResultsPanelToCount(page, targetCount);
+          }
+        } catch (scrollError) {
+          logger.warn("ENHANCED_SCROLL_FAILED", "Enhanced scroll failed", {
+            city: cityName,
+            error: scrollError.message,
+            targetCount,
+          });
+          // Continue with whatever results we have
+        }
         
         // Check results after scrolling
-        const cardsAfterScroll = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
-        logger.info("SCROLL_RESULTS", "Cards found after scrolling", {
-          city: cityName,
-          initialCards,
-          cardsAfterScroll,
-          targetCount,
-          improvement: cardsAfterScroll - initialCards,
-        });
+        let cardsAfterScroll = 0;
+        try {
+          if (!page.isClosed()) {
+            cardsAfterScroll = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
+            logger.info("SCROLL_RESULTS", "Cards found after scrolling", {
+              city: cityName,
+              initialCards,
+              cardsAfterScroll,
+              targetCount,
+              improvement: cardsAfterScroll - initialCards,
+            });
+          } else {
+            logger.warn("SCROLL_EVAL_SKIPPED", "Page is closed, skipping card evaluation", {
+              city: cityName,
+            });
+            cardsAfterScroll = initialCards;
+          }
+        } catch (evalError) {
+          logger.warn("SCROLL_EVAL_FAILED", "Could not evaluate cards after scroll", {
+            city: cityName,
+            error: evalError.message,
+          });
+          // Use initial cards count as fallback
+          cardsAfterScroll = initialCards;
+        }
         
         // If that didn't work well, try the autoScroll function as fallback
         if (cardsAfterScroll < targetCount * 0.5) { // If we got less than half the target
@@ -1019,17 +1050,52 @@ export async function runScraper(
             targetCount,
           });
           
-          // Import and use the autoScroll function
-          const autoScroll = (await import("./autoScroll.js")).default;
-          await autoScroll(page);
-          
-          // Check final results
-          const finalCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
-          logger.info("FALLBACK_SCROLL_RESULTS", "Cards after fallback scroll", {
-            city: cityName,
-            finalCards,
-            improvement: finalCards - cardsAfterScroll,
-          });
+          try {
+            // Check if page is still valid before attempting autoScroll
+            if (page.isClosed()) {
+              logger.warn("FALLBACK_SCROLL_SKIPPED", "Page is closed, skipping autoScroll", {
+                city: cityName,
+              });
+              return;
+            }
+            
+            // Import and use the autoScroll function with timeout protection
+            const autoScroll = (await import("./autoScroll.js")).default;
+            await Promise.race([
+              autoScroll(page),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("AutoScroll timeout")), 15000)
+              )
+            ]);
+            
+            // Check final results
+            try {
+              if (!page.isClosed()) {
+                const finalCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
+                logger.info("FALLBACK_SCROLL_RESULTS", "Cards after fallback scroll", {
+                  city: cityName,
+                  finalCards,
+                  improvement: finalCards - cardsAfterScroll,
+                });
+              } else {
+                logger.warn("FALLBACK_EVAL_SKIPPED", "Page is closed, skipping final evaluation", {
+                  city: cityName,
+                });
+              }
+            } catch (finalEvalError) {
+              logger.warn("FALLBACK_EVAL_FAILED", "Could not evaluate final cards", {
+                city: cityName,
+                error: finalEvalError.message,
+              });
+            }
+          } catch (fallbackError) {
+            logger.warn("FALLBACK_SCROLL_FAILED", "AutoScroll fallback failed", {
+              city: cityName,
+              error: fallbackError.message,
+              cardsAfterScroll,
+            });
+            // Continue with whatever results we have
+          }
         }
 
         const listingsData = await getListingsData(
