@@ -43,9 +43,9 @@ const BROWSER_SESSION_RETRY_LIMIT = Number(
   process.env.BROWSER_SESSION_RETRY_LIMIT || 1
 );
 
-// Deep scrape batched zone configuration
-const ZONE_BATCH_SIZE = Number(process.env.ZONE_BATCH_SIZE || 25);
-const MAX_TOTAL_ZONES = Number(process.env.MAX_TOTAL_ZONES || 200);
+// Deep scrape batched zone configuration - Enhanced for better coverage
+const ZONE_BATCH_SIZE = Number(process.env.ZONE_BATCH_SIZE || 30);
+const MAX_TOTAL_ZONES = Number(process.env.MAX_TOTAL_ZONES || 300);
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -125,8 +125,9 @@ function createLimiter(concurrency) {
 
 /**
  * Scrolls the results panel only until at least `minCount` cards are present (or steps exhausted).
+ * Enhanced for better restaurant discovery in small cities.
  */
-async function scrollResultsPanelToCount(page, minCount, maxSteps = 15) {
+async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
   try {
     await page.waitForSelector(".Nv2PK", { timeout: 8000 });
   } catch (_) {
@@ -135,26 +136,131 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 15) {
   await page.evaluate(
     async (minCount, maxSteps) => {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      
+      // Try multiple selectors for the scrollable container based on actual Google Maps structure
       const scroller =
-        document.querySelector('.m6QEr[aria-label][role="region"]') ||
-        document.querySelector(".m6QEr") ||
+        document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]') ||
+        document.querySelector('.m6QErb[role="feed"]') ||
+        document.querySelector('[role="feed"]') ||
+        document.querySelector('.m6QErb[aria-label*="Results"]') ||
+        document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd') ||
+        document.querySelector('.m6QErb') ||
+        document.querySelector('.m6QEr') ||
         document.body;
+      
+  
+      
       let steps = 0;
       let lastCount = 0;
+      let stagnantCount = 0;
+      
       while (steps < maxSteps) {
         const cards = document.querySelectorAll(".Nv2PK");
         const count = cards.length;
-        if (count >= minCount) break;
-        scroller.scrollBy(0, 1200);
-        await sleep(250);
-        steps++;
-        if (count === lastCount) {
-          scroller.scrollBy(0, -200);
-          await sleep(120);
-          scroller.scrollBy(0, 1400);
+        
+        if (count >= minCount) {
+          break;
         }
+        
+        // Enhanced scrolling with larger distances
+        scroller.scrollBy(0, 2000); // Increased from 1200
+        await sleep(500); // Increased from 250ms
+        steps++;
+        
+        // Check if we're getting new results
+        if (count === lastCount) {
+          stagnantCount++;
+          
+          // Try different scroll patterns to trigger loading
+          if (stagnantCount % 3 === 0) {
+            scroller.scrollBy(0, -500);
+            await sleep(200);
+            scroller.scrollBy(0, 2500);
+            await sleep(300);
+          } else if (stagnantCount % 2 === 0) {
+            // Try scrolling to bottom and back
+            scroller.scrollTo(0, scroller.scrollHeight);
+            await sleep(400);
+            scroller.scrollBy(0, -1000);
+            await sleep(200);
+            scroller.scrollBy(0, 2000);
+          }
+        } else {
+          stagnantCount = 0; // Reset if we got new results
+          console.log(`New results found: ${count} cards (was ${lastCount})`);
+        }
+        
         lastCount = count;
+        
+        // If we've been stagnant for too long, try a different approach
+        if (stagnantCount >= 5) {
+          // Scroll to very bottom to trigger "show more" or similar
+          scroller.scrollTo(0, scroller.scrollHeight);
+          await sleep(1000);
+          scroller.scrollBy(0, -2000);
+          await sleep(500);
+          scroller.scrollBy(0, 3000);
+          stagnantCount = 0;
+        }
+        
+        // Try to trigger "load more" by scrolling to absolute bottom
+        if (stagnantCount >= 4) {
+          // Scroll to absolute bottom of the feed
+          const feedElement = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]') ||
+                             document.querySelector('.m6QErb[role="feed"]');
+          if (feedElement) {
+            feedElement.scrollTop = feedElement.scrollHeight;
+            await sleep(1000);
+            // Try scrolling a bit more to trigger loading
+            feedElement.scrollBy(0, 1000);
+            await sleep(500);
+          }
+        }
+        
+        // Try alternative scroll methods if normal scrolling isn't working
+        if (stagnantCount >= 3) {
+          
+          // Method 1: Try scrolling the window
+          window.scrollBy(0, 2000);
+          await sleep(300);
+          
+          // Method 2: Try scrolling the document
+          document.documentElement.scrollBy(0, 2000);
+          await sleep(300);
+          
+          // Method 3: Try scrolling the main container
+          const mainContainer = document.querySelector('.m6QErb[role="feed"]') || 
+                               document.querySelector('[role="feed"]') ||
+                               document.querySelector('.m6QErb') ||
+                               document.querySelector('div[role="main"]');
+          if (mainContainer) {
+            mainContainer.scrollBy(0, 2000);
+            await sleep(300);
+          }
+          
+          // Method 4: Try scrolling the specific feed container from your HTML
+          const feedContainer = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]');
+          if (feedContainer) {
+            feedContainer.scrollBy(0, 2000);
+            await sleep(300);
+          }
+          
+          // Method 5: Try scrolling the exact container with all classes
+          const exactContainer = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd');
+          if (exactContainer && exactContainer !== feedContainer) {
+            exactContainer.scrollBy(0, 2000);
+            await sleep(300);
+          }
+          
+          // Method 6: Try scrolling the parent container
+          const parentContainer = document.querySelector('.m6QErb.WNBkOb.XiKgde[role="main"]');
+          if (parentContainer) {
+            parentContainer.scrollBy(0, 2000);
+            await sleep(300);
+          }
+        }
       }
+      
     },
     minCount,
     maxSteps
@@ -438,7 +544,7 @@ export async function runScraper(
   // ---------------- bookkeeping ----------------
   const results = [];
   const processedLocations = new Set();
-  const seenBusinessUrls = new Set(); // Track business URLs to prevent duplicates
+  const seenBusinessUrls = new Set(); // Track business URLs to prevent duplicates (checked at listing level)
   const recordLimit = maxRecords || Infinity;
   // Cooperative cancellation flag used to stop scheduling and tear down fast
   let shouldStop = false;
@@ -550,16 +656,8 @@ export async function runScraper(
       requestStop();
       return;
     }
-    // Check for duplicate business URLs to prevent same business from multiple cities
-    if (r.url && seenBusinessUrls.has(r.url)) {
-      logger.info("DUPLICATE_BUSINESS", "Skipping duplicate business", {
-        name: r.name,
-        url: r.url,
-        location: r.search_location,
-      });
-      return;
-    }
-    if (r.url) seenBusinessUrls.add(r.url);
+    // Duplicate checking is now handled at URL level during listing scraping
+    // No need to check here since we already filtered duplicates before scheduling
     results.push(r);
     if (results.length >= recordLimit) requestStop();
   };
@@ -880,10 +978,59 @@ export async function runScraper(
           return;
         }
 
-        // Early-stop scroll: aim for enough to more than cover failures.
-        const neededForCity = Math.min(remaining, 30);
-        const targetCount = Math.ceil(neededForCity * 1.5);
+        // Enhanced scroll: aim for more results to ensure good coverage
+        const neededForCity = Math.min(remaining, 50); // Increased from 30
+        const targetCount = Math.ceil(neededForCity * 2.0); // Increased multiplier from 1.5
+        
+        logger.info("ENHANCED_SCROLL_START", "Starting enhanced scrolling for better coverage", {
+          city: cityName,
+          neededForCity,
+          targetCount,
+          remaining,
+          currentResults: results.length,
+        });
+        
+        // Debug: Check initial card count
+        const initialCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
+        logger.info("SCROLL_DEBUG", "Initial card count before scrolling", {
+          city: cityName,
+          initialCards,
+          targetCount,
+        });
+        
+        // Try the enhanced scroll function first
         await scrollResultsPanelToCount(page, targetCount);
+        
+        // Check results after scrolling
+        const cardsAfterScroll = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
+        logger.info("SCROLL_RESULTS", "Cards found after scrolling", {
+          city: cityName,
+          initialCards,
+          cardsAfterScroll,
+          targetCount,
+          improvement: cardsAfterScroll - initialCards,
+        });
+        
+        // If that didn't work well, try the autoScroll function as fallback
+        if (cardsAfterScroll < targetCount * 0.5) { // If we got less than half the target
+          logger.info("FALLBACK_SCROLL", "Using autoScroll as fallback", {
+            city: cityName,
+            cardsAfterScroll,
+            targetCount,
+          });
+          
+          // Import and use the autoScroll function
+          const autoScroll = (await import("./autoScroll.js")).default;
+          await autoScroll(page);
+          
+          // Check final results
+          const finalCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
+          logger.info("FALLBACK_SCROLL_RESULTS", "Cards after fallback scroll", {
+            city: cityName,
+            finalCards,
+            improvement: finalCards - cardsAfterScroll,
+          });
+        }
 
         const listingsData = await getListingsData(
           page,
@@ -924,9 +1071,21 @@ export async function runScraper(
 
         if (listingsData.length === 0) return;
 
-        // Schedule details globally (Tier B)
-        const urls = listingsData.map((x) => x.url);
-        const toSchedule = Math.min(urls.length, remaining);
+        // Filter out duplicate URLs before scheduling details (Tier B)
+        const allUrls = listingsData.map((x) => x.url);
+        const uniqueUrls = allUrls.filter(url => {
+          if (seenBusinessUrls.has(url)) {
+            logger.info("DUPLICATE_URL_FILTERED", "Skipping duplicate URL at listing level", {
+              url,
+              city: cityName,
+            });
+            return false;
+          }
+          seenBusinessUrls.add(url);
+          return true;
+        });
+
+        const toSchedule = Math.min(uniqueUrls.length, remaining);
         const meta = {
           keyword,
           city: cityName,
@@ -938,8 +1097,16 @@ export async function runScraper(
           extractNegativeReviews,
         };
 
+        logger.info("URL_DEDUPLICATION", "Filtered duplicate URLs at listing level", {
+          city: cityName,
+          totalUrls: allUrls.length,
+          uniqueUrls: uniqueUrls.length,
+          duplicatesFiltered: allUrls.length - uniqueUrls.length,
+          toSchedule,
+        });
+
         for (let i = 0; i < toSchedule && !shouldStop; i++) {
-          scheduleDetail(urls[i], meta);
+          scheduleDetail(uniqueUrls[i], meta);
         }
       });
     } catch (error) {
