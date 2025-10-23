@@ -80,18 +80,20 @@ export async function getCityBoundingBox(cityName, stateCode, countryCode) {
 }
 
 /**
- * Generate a batch of grid points for a specific range
+ * Generate a batch of grid points for a specific range with overlap strategy
  * @param {Object} bounds - {north, south, east, west}
  * @param {number} gridSpacingKm - Distance between grid points in kilometers
  * @param {number} startIndex - Starting zone index
  * @param {number} endIndex - Ending zone index (exclusive)
+ * @param {boolean} enableOverlap - Whether to add overlapping zones for better coverage
  * @returns {Array} Array of {lat, lng, label} objects for this batch
  */
 export function generateCityGridBatch(
   bounds,
   gridSpacingKm,
   startIndex,
-  endIndex
+  endIndex,
+  enableOverlap = true
 ) {
   if (!bounds) return [];
 
@@ -109,12 +111,44 @@ export function generateCityGridBatch(
   outerLoop: for (let lat = south; lat <= north; lat += latSpacing) {
     for (let lng = west; lng <= east; lng += lngSpacing) {
       if (gridIndex >= startIndex && gridIndex < endIndex) {
+        // Primary zone
         points.push({
           lat: parseFloat(lat.toFixed(6)),
           lng: parseFloat(lng.toFixed(6)),
           label: `zone-${gridIndex}`,
           type: "grid",
         });
+
+        // Add overlapping zones for better coverage (only for small cities)
+        if (enableOverlap) {
+          const overlapDistance = gridSpacingKm * 0.3; // 30% overlap
+          const latOverlap = overlapDistance / 111;
+          const lngOverlap = overlapDistance / (111 * Math.cos((avgLat * Math.PI) / 180));
+
+          // Add 4 overlapping zones around the primary zone
+          const overlapOffsets = [
+            { lat: latOverlap, lng: 0 }, // North
+            { lat: -latOverlap, lng: 0 }, // South
+            { lat: 0, lng: lngOverlap }, // East
+            { lat: 0, lng: -lngOverlap }, // West
+          ];
+
+          overlapOffsets.forEach((offset, idx) => {
+            const overlapLat = lat + offset.lat;
+            const overlapLng = lng + offset.lng;
+            
+            // Only add if within bounds
+            if (overlapLat >= south && overlapLat <= north && 
+                overlapLng >= west && overlapLng <= east) {
+              points.push({
+                lat: parseFloat(overlapLat.toFixed(6)),
+                lng: parseFloat(overlapLng.toFixed(6)),
+                label: `zone-${gridIndex}-overlap-${idx + 1}`,
+                type: "grid-overlap",
+              });
+            }
+          });
+        }
       }
       gridIndex++;
 
@@ -154,7 +188,7 @@ export function calculateTotalPossibleZones(bounds, gridSpacingKm) {
  * @returns {number} Recommended grid spacing in km
  */
 export function getOptimalGridSpacing(bounds, population = null) {
-  if (!bounds) return 5; // default increased from 3 to 5
+  if (!bounds) return 2; // default reduced for better coverage
 
   const { north, south, east, west } = bounds;
 
@@ -167,20 +201,22 @@ export function getOptimalGridSpacing(bounds, population = null) {
   const areaKm2 =
     latDiff * 111 * lngDiff * 111 * Math.cos((avgLat * Math.PI) / 180);
 
-  // Adjust spacing based on city size
-  // INCREASED SPACING to reduce overlap (Google Maps shows businesses in ~5-10km radius)
-  if (areaKm2 < 50) {
-    // Small city (< 50 km²) - medium grid
-    return 3;
+  // Adjust spacing based on city size - REDUCED for better restaurant coverage
+  if (areaKm2 < 25) {
+    // Very small city (< 25 km²) - dense grid for maximum coverage
+    return 0.5;
+  } else if (areaKm2 < 50) {
+    // Small city (< 50 km²) - tight grid
+    return 1;
   } else if (areaKm2 < 200) {
-    // Medium city (50-200 km²) - wider grid
-    return 5;
+    // Medium city (50-200 km²) - medium grid
+    return 2;
   } else if (areaKm2 < 1000) {
-    // Large city (200-1000 km²) - wide grid
-    return 7;
+    // Large city (200-1000 km²) - wider grid
+    return 3;
   } else {
-    // Very large city (> 1000 km²) - very wide grid
-    return 10;
+    // Very large city (> 1000 km²) - wide grid
+    return 4;
   }
 }
 
@@ -192,8 +228,8 @@ export function getOptimalGridSpacing(bounds, population = null) {
  * @param {string} countryCode
  * @param {number|null} population
  * @param {boolean} enableDeepScrape - If false, only return city center
- * @param {number} batchSize - Zones per batch (default 25)
- * @param {number} maxTotalZones - Maximum total zones across all batches (default 200)
+ * @param {number} batchSize - Zones per batch (default 30)
+ * @param {number} maxTotalZones - Maximum total zones across all batches (default 300)
  * @returns {Object} Zone generation configuration
  */
 export async function createCityZones(
@@ -202,8 +238,8 @@ export async function createCityZones(
   countryCode,
   population = null,
   enableDeepScrape = true,
-  batchSize = 25,
-  maxTotalZones = 200
+  batchSize = 30,
+  maxTotalZones = 300
 ) {
   // City center zone (always included)
   const centerZone = {
@@ -293,27 +329,37 @@ export function generateZoneBatch(zoneConfig, batchNumber) {
 
   if (startIndex >= maxTotalZones) return [];
 
+  // Enable overlap for better coverage (especially for small cities)
+  const enableOverlap = gridSpacing <= 3; // Enable overlap for tighter grids
+
   const gridPoints = generateCityGridBatch(
     bounds,
     gridSpacing,
     startIndex,
-    endIndex
+    endIndex,
+    enableOverlap
   );
 
   // Convert grid points to zone objects
   const zones = gridPoints.map((point) => ({
-    type: "grid",
+    type: point.type, // "grid" or "grid-overlap"
     cityName,
     stateCode,
     label: point.label,
     coords: { lat: point.lat, lng: point.lng },
   }));
 
-  logger.info("ZONE_BATCH_GENERATED", "Generated zone batch", {
+  const primaryZones = zones.filter(z => z.type === "grid").length;
+  const overlapZones = zones.filter(z => z.type === "grid-overlap").length;
+
+  logger.info("ZONE_BATCH_GENERATED", "Generated zone batch with overlap strategy", {
     city: cityName,
     batchNumber,
-    batchSize: zones.length,
-    zoneRange: `${startIndex}-${startIndex + zones.length - 1}`,
+    totalZones: zones.length,
+    primaryZones,
+    overlapZones,
+    zoneRange: `${startIndex}-${startIndex + primaryZones - 1}`,
+    gridSpacingKm: gridSpacing,
   });
 
   return zones;
