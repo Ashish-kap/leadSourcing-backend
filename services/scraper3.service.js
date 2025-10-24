@@ -999,9 +999,11 @@ export async function runScraper(
         
         // Try the enhanced scroll function first
         try {
-          if (page.isClosed()) {
-            logger.warn("ENHANCED_SCROLL_SKIPPED", "Page is closed, skipping enhanced scroll", {
+          if (page.isClosed() || !page.target()) {
+            logger.warn("ENHANCED_SCROLL_SKIPPED", "Page is closed or disconnected, skipping enhanced scroll", {
               city: cityName,
+              isClosed: page.isClosed(),
+              hasTarget: !!page.target(),
             });
           } else {
             await scrollResultsPanelToCount(page, targetCount);
@@ -1018,7 +1020,7 @@ export async function runScraper(
         // Check results after scrolling
         let cardsAfterScroll = 0;
         try {
-          if (!page.isClosed()) {
+          if (!page.isClosed() && page.target()) {
             cardsAfterScroll = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
             logger.info("SCROLL_RESULTS", "Cards found after scrolling", {
               city: cityName,
@@ -1028,41 +1030,80 @@ export async function runScraper(
               improvement: cardsAfterScroll - initialCards,
             });
           } else {
-            logger.warn("SCROLL_EVAL_SKIPPED", "Page is closed, skipping card evaluation", {
+            logger.warn("SCROLL_EVAL_SKIPPED", "Page is closed or disconnected, skipping card evaluation", {
               city: cityName,
+              isClosed: page.isClosed(),
+              hasTarget: !!page.target(),
             });
             cardsAfterScroll = initialCards;
           }
         } catch (evalError) {
-          logger.warn("SCROLL_EVAL_FAILED", "Could not evaluate cards after scroll", {
-            city: cityName,
-            error: evalError.message,
-          });
+          if (evalError.message.includes('Execution context was destroyed') ||
+              evalError.message.includes('Target closed') ||
+              evalError.message.includes('detached Frame')) {
+            logger.warn("SCROLL_EVAL_CONTEXT_DESTROYED", "Card evaluation failed due to destroyed context", {
+              city: cityName,
+              error: evalError.message,
+              errorType: evalError.constructor.name,
+            });
+          } else {
+            logger.warn("SCROLL_EVAL_FAILED", "Could not evaluate cards after scroll", {
+              city: cityName,
+              error: evalError.message,
+            });
+          }
           // Use initial cards count as fallback
           cardsAfterScroll = initialCards;
         }
         
         // If that didn't work well, try the autoScroll function as fallback
         if (cardsAfterScroll < targetCount * 0.5) { // If we got less than half the target
-          logger.info("FALLBACK_SCROLL", "Using autoScroll as fallback", {
-            city: cityName,
-            cardsAfterScroll,
-            targetCount,
-          });
-          
-          try {
-            // Check if page is still valid before attempting autoScroll
-            if (page.isClosed()) {
-              logger.warn("FALLBACK_SCROLL_SKIPPED", "Page is closed, skipping autoScroll", {
-                city: cityName,
-              });
-              return;
-            }
+          // Check if we should skip autoScroll due to browser session issues
+          if (page.isClosed() || !page.target()) {
+            logger.warn("FALLBACK_SCROLL_SKIPPED", "Skipping autoScroll due to closed/disconnected page", {
+              city: cityName,
+              cardsAfterScroll,
+              targetCount,
+              isClosed: page.isClosed(),
+              hasTarget: !!page.target(),
+            });
+          } else {
+            logger.info("FALLBACK_SCROLL", "Using autoScroll as fallback", {
+              city: cityName,
+              cardsAfterScroll,
+              targetCount,
+            });
+            
+            try {
+              // Check if page is still valid before attempting autoScroll
+              if (page.isClosed() || !page.target()) {
+                logger.warn("FALLBACK_SCROLL_SKIPPED", "Page is closed or disconnected, skipping autoScroll", {
+                  city: cityName,
+                  isClosed: page.isClosed(),
+                  hasTarget: !!page.target(),
+                });
+                return;
+              }
             
             // Import and use the autoScroll function with timeout protection
             const autoScroll = (await import("./autoScroll.js")).default;
+            
+            // Wrap autoScroll in additional error handling for target close errors
             await Promise.race([
-              autoScroll(page),
+              autoScroll(page).catch(error => {
+                if (error.message.includes('Target closed') || 
+                    error.message.includes('detached Frame') ||
+                    error.message.includes('Execution context was destroyed') ||
+                    error.message.includes('Protocol error')) {
+                  logger.warn("AUTO_SCROLL_TARGET_CLOSED", "AutoScroll failed due to closed target or destroyed context", {
+                    city: cityName,
+                    error: error.message,
+                    errorType: error.constructor.name,
+                  });
+                  return; // Don't throw, just return gracefully
+                }
+                throw error; // Re-throw other errors
+              }),
               new Promise((_, reject) => 
                 setTimeout(() => reject(new Error("AutoScroll timeout")), 15000)
               )
@@ -1070,7 +1111,7 @@ export async function runScraper(
             
             // Check final results
             try {
-              if (!page.isClosed()) {
+              if (!page.isClosed() && page.target()) {
                 const finalCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
                 logger.info("FALLBACK_SCROLL_RESULTS", "Cards after fallback scroll", {
                   city: cityName,
@@ -1078,23 +1119,36 @@ export async function runScraper(
                   improvement: finalCards - cardsAfterScroll,
                 });
               } else {
-                logger.warn("FALLBACK_EVAL_SKIPPED", "Page is closed, skipping final evaluation", {
+                logger.warn("FALLBACK_EVAL_SKIPPED", "Page is closed or disconnected, skipping final evaluation", {
                   city: cityName,
+                  isClosed: page.isClosed(),
+                  hasTarget: !!page.target(),
                 });
               }
             } catch (finalEvalError) {
-              logger.warn("FALLBACK_EVAL_FAILED", "Could not evaluate final cards", {
-                city: cityName,
-                error: finalEvalError.message,
-              });
+              if (finalEvalError.message.includes('Execution context was destroyed') ||
+                  finalEvalError.message.includes('Target closed') ||
+                  finalEvalError.message.includes('detached Frame')) {
+                logger.warn("FALLBACK_EVAL_CONTEXT_DESTROYED", "Final evaluation failed due to destroyed context", {
+                  city: cityName,
+                  error: finalEvalError.message,
+                  errorType: finalEvalError.constructor.name,
+                });
+              } else {
+                logger.warn("FALLBACK_EVAL_FAILED", "Could not evaluate final cards", {
+                  city: cityName,
+                  error: finalEvalError.message,
+                });
+              }
             }
-          } catch (fallbackError) {
-            logger.warn("FALLBACK_SCROLL_FAILED", "AutoScroll fallback failed", {
-              city: cityName,
-              error: fallbackError.message,
-              cardsAfterScroll,
-            });
-            // Continue with whatever results we have
+            } catch (fallbackError) {
+              logger.warn("FALLBACK_SCROLL_FAILED", "AutoScroll fallback failed", {
+                city: cityName,
+                error: fallbackError.message,
+                cardsAfterScroll,
+              });
+              // Continue with whatever results we have
+            }
           }
         }
 
