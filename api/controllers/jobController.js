@@ -404,13 +404,40 @@ export const downloadJobResultCSV = async (req, res) => {
       }
 
       if (row.filtered_reviews && Array.isArray(row.filtered_reviews)) {
-        // pick first review only, or join texts, or explode into multiple rows
+        // Extract up to 2 reviews with all their details
+        const review1 = row.filtered_reviews[0];
+        const review2 = row.filtered_reviews[1];
+        
+        // Function to sanitize review text
+        const sanitizeReviewText = (text) => {
+          if (!text) return "";
+          
+          return text
+            // Remove or replace problematic Unicode characters
+            .replace(/[\u201C\u201D]/g, '"') // Replace smart quotes with regular quotes
+            .replace(/[\u2018\u2019]/g, "'") // Replace smart apostrophes with regular apostrophes
+            .replace(/[\u2013\u2014]/g, "-") // Replace en-dash and em-dash with regular dash
+            .replace(/[\u2026]/g, "...") // Replace ellipsis with three dots
+            .replace(/[\u00A0]/g, " ") // Replace non-breaking space with regular space
+            // Remove other problematic characters
+            .replace(/[^\x20-\x7E\u00A0-\u00FF\u0100-\u017F\u0180-\u024F\u1E00-\u1EFF]/g, "")
+            // Clean up multiple spaces
+            .replace(/\s+/g, " ")
+            // Trim whitespace
+            .trim();
+        };
+        
         return {
           ...processedRow,
           reviews_count: row.filtered_reviews.length,
-          review_1_text: row.filtered_reviews[0]?.text,
-          review_1_rating: row.filtered_reviews?.rating,
-          review_1_date: row.filtered_reviews?.date,
+          review_1_date: review1?.date || "",
+          review_1_rating: review1?.rating || "",
+          reviewer_1_name: review1?.reviewerName || "",
+          review_1_text: sanitizeReviewText(review1?.text),
+          review_2_date: review2?.date || "",
+          review_2_rating: review2?.rating || "",
+          reviewer_2_name: review2?.reviewerName || "",
+          review_2_text: sanitizeReviewText(review2?.text),
         };
       }
       return processedRow;
