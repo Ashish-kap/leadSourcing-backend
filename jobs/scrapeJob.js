@@ -1,6 +1,7 @@
 import { runScraper } from "../services/scraper3.service.js";
 import Job from "../models/jobModel.js";
 import User from "../models/userModel.js";
+import logger from "../services/logger.js";
 
 export default async function (job) {
   try {
