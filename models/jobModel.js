@@ -41,7 +41,7 @@ const jobSchema = new mongoose.Schema(
         type: Number,
         default: 50,
         min: 1,
-        max: 1000,
+        max: 3000,
       },
       minRating: {
         type: Number,
