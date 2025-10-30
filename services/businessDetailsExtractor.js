@@ -4,6 +4,38 @@ import { verifyEmail } from "./utils/emailVerifier.js";
 import { scrapeEmails } from "./utils/emailScraper.js";
 import { performance } from "perf_hooks";
 
+// Email scraping concurrency limiter (dedicated small pool)
+const EMAIL_PAGES_MAX = Number(process.env.EMAIL_PAGES_MAX || 1);
+function createEmailLimiter(concurrency) {
+  let active = 0;
+  const q = [];
+  const runNext = () => {
+    if (active >= concurrency) return;
+    const next = q.shift();
+    if (!next) return;
+    active++;
+    const { fn, resolve, reject } = next;
+    Promise.resolve()
+      .then(fn)
+      .then((v) => {
+        active--;
+        resolve(v);
+        runNext();
+      })
+      .catch((err) => {
+        active--;
+        reject(err);
+        runNext();
+      });
+  };
+  return (fn) =>
+    new Promise((resolve, reject) => {
+      q.push({ fn, resolve, reject });
+      runNext();
+    });
+}
+const limitEmail = createEmailLimiter(EMAIL_PAGES_MAX);
+
 function getCoordsFromUrl(u) {
   // matches ...!3d24.379259!4d91.4136279...
   const m = u.match(/!3d(-?\d+(\.\d+)?)!4d(-?\d+(\.\d+)?)/);
@@ -236,10 +268,11 @@ export async function extractBusinessDetails(
         const emailTimeout = Number(process.env.EMAIL_TIMEOUT_MS || 8000);
 
         // Add timeout wrapper to prevent hanging
-        const emailPromise = scrapeEmails({
-          browser,
-          startUrl: businessData.website,
-          options: {
+        const emailPromise = limitEmail(() =>
+          scrapeEmails({
+            browser,
+            startUrl: businessData.website,
+            options: {
             depth: 1,
             max: 6, // Reduced from 6 for speed
             timeout: 8000, // Reduced from 8000
@@ -250,8 +283,10 @@ export async function extractBusinessDetails(
             firstOnly: false,
             restrictDomain: false, // allow gmail/outlook etc.
             noDeobfuscate: true,
-          },
-        });
+              blockThirdParty: true,
+            },
+          })
+        );
 
         const { emails: rawEmails } = await Promise.race([
           emailPromise,
