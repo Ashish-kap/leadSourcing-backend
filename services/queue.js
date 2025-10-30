@@ -43,6 +43,8 @@ logger.info(
 );
 
 // Shared queue settings
+// lockDuration: 4 hours (longer than max job duration of 3 hours to prevent lock expiration)
+// lockRenewTime: 2 hours (automatically renew lock every 2 hours for long-running jobs)
 const queueSettings = {
   redis: redisObj,
   settings: {
@@ -50,10 +52,12 @@ const queueSettings = {
     maxStalledCount: 2,
     guardInterval: 3000,
     retryProcessDelay: 3000,
+    lockDuration: 14400000, // 4 hours (longer than max job duration of 3 hours)
   },
   defaultJobOptions: {
     removeOnComplete: 10,
     removeOnFail: 10,
+    lockRenewTime: 7200000, // Renew lock every 2 hours (must be less than lockDuration)
     backoff: {
       type: "exponential",
       delay: 2000,
@@ -251,6 +255,20 @@ const attachEventHandlers = (queue, queueName) => {
         });
       }
     } catch (error) {
+      // Handle lock expiration errors gracefully - job completed but lock was already expired
+      if (error?.message?.includes("Missing lock for job")) {
+        logger.warn(
+          "JOB_COMPLETION_LOCK_EXPIRED",
+          `${queueName}: Job ${job.id} completed but lock had expired (this is expected for long-running jobs)`,
+          { 
+            jobId: job.data?.jobId,
+            totalExtractions: totalExtractions,
+            message: error.message 
+          }
+        );
+        // Job still completed successfully, just log the lock expiration
+        return;
+      }
       logger.error(
         "JOB_COMPLETION_ERROR",
         `${queueName}: Error updating completed job ${job.id}`,

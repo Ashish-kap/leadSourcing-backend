@@ -41,7 +41,7 @@ const jobSchema = new mongoose.Schema(
         type: Number,
         default: 50,
         min: 1,
-        max: 3000,
+        max: 3000, // Maximum possible limit - plan-based validation handled in controller
       },
       minRating: {
         type: Number,

@@ -201,22 +201,23 @@ export function getOptimalGridSpacing(bounds, population = null) {
   const areaKm2 =
     latDiff * 111 * lngDiff * 111 * Math.cos((avgLat * Math.PI) / 180);
 
-  // Adjust spacing based on city size - REDUCED for better restaurant coverage
+  // Smart spacing strategy: Balance coverage vs efficiency
   if (areaKm2 < 25) {
     // Very small city (< 25 km²) - dense grid for maximum coverage
-    return 0.5;
+    return 1;
   } else if (areaKm2 < 50) {
     // Small city (< 50 km²) - tight grid
-    return 1;
+    return 2;
   } else if (areaKm2 < 200) {
     // Medium city (50-200 km²) - medium grid
-    return 2;
-  } else if (areaKm2 < 1000) {
-    // Large city (200-1000 km²) - wider grid
     return 3;
-  } else {
-    // Very large city (> 1000 km²) - wide grid
+  } else if (areaKm2 < 1000) {
+    // Large city (200-1000 km²) - balanced grid
     return 4;
+  } else {
+    // Very large city (> 1000 km²) - wider grid to avoid excessive overlap
+    // Mumbai: ~4000 km² gets 5km spacing = ~800 zones (good coverage, manageable duplicates)
+    return 5;
   }
 }
 
@@ -238,8 +239,8 @@ export async function createCityZones(
   countryCode,
   population = null,
   enableDeepScrape = true,
-  batchSize = 30,
-  maxTotalZones = 300
+  batchSize = 50,
+  maxTotalZones = 2000
 ) {
   // City center zone (always included)
   const centerZone = {

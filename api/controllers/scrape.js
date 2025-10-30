@@ -14,7 +14,7 @@ const scrapeData = async (req, res) => {
       city = null,
       countryCode,
       stateCode = null,
-      maxRecords = 50,
+      maxRecords = 50, // Default value - will be validated against user's plan limit
       ratingFilter = null,
       reviewFilter = null,
       reviewTimeRange = null,
@@ -226,18 +226,27 @@ const scrapeData = async (req, res) => {
       });
     }
 
-    // Restriction 2: maxRecords limit of 50 for free users only (not business)
-    if (!user.hasUnlimitedAccess()) {
-      if (maxRecords > 50) {
-        return res.status(422).json({
-          error: "Plan upgrade required",
-          message:
-            "Free plans are limited to 50 records. Please upgrade to Business plan for unlimited extractions.",
-          currentPlan: user.plan,
-          maxAllowed: 50,
-          requested: maxRecords,
-        });
-      }
+    // Restriction 2: Plan-based maxRecords limit
+    const maxAllowedRecords = user.getMaxRecordsLimit();
+    if (maxRecords > maxAllowedRecords) {
+      const planUpgradeMessage = user.plan === "free" 
+        ? "Free plans are limited to 50 records. Please upgrade to Pro plan for up to 1,000 records or Business plan for up to 3,000 records."
+        : user.plan === "pro"
+        ? "Pro plans are limited to 1,000 records. Please upgrade to Business plan for up to 3,000 records."
+        : "Please contact support for higher limits.";
+      
+      return res.status(422).json({
+        error: "Plan upgrade required",
+        message: planUpgradeMessage,
+        currentPlan: user.plan,
+        maxAllowed: maxAllowedRecords,
+        requested: maxRecords,
+        planLimits: {
+          free: 50,
+          pro: 1000,
+          business: 3000
+        }
+      });
     }
 
     // Credit check only for PRO users free users have unlimited extraction)

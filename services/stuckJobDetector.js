@@ -2,11 +2,11 @@ import logger from "./logger.js";
 
 // Stuck job detection configuration
 // Environment variables for stuck job detection:
-// STUCK_RECORDS_TIMEOUT_MS - Time to wait before considering job stuck on records count (default: 600000ms = 10 minutes)
-// STUCK_PERCENTAGE_TIMEOUT_MS - Time to wait before considering job stuck on percentage (default: 300000ms = 5 minutes)  
+// STUCK_RECORDS_TIMEOUT_MS - Time to wait before considering job stuck on records count (default: 900000ms = 15 minutes)
+// STUCK_PERCENTAGE_TIMEOUT_MS - Time to wait before considering job stuck on percentage (default: 600000ms = 10 minutes)  
 // STUCK_JOB_GRACE_PERIOD_MS - Grace period before force termination after stuck detection (default: 30000ms = 30 seconds)
-const STUCK_RECORDS_TIMEOUT_MS = Number(process.env.STUCK_RECORDS_TIMEOUT_MS || 600000); // 10 minutes
-const STUCK_PERCENTAGE_TIMEOUT_MS = Number(process.env.STUCK_PERCENTAGE_TIMEOUT_MS || 300000); // 5 minutes
+const STUCK_RECORDS_TIMEOUT_MS = Number(process.env.STUCK_RECORDS_TIMEOUT_MS || 900000); // 15 minutes (increased from 10)
+const STUCK_PERCENTAGE_TIMEOUT_MS = Number(process.env.STUCK_PERCENTAGE_TIMEOUT_MS || 600000); // 10 minutes (increased from 5)
 const STUCK_JOB_GRACE_PERIOD_MS = Number(process.env.STUCK_JOB_GRACE_PERIOD_MS || 30000); // 30 seconds
 
 /**

@@ -193,6 +193,16 @@ userSchema.methods.hasUnlimitedExtraction = function () {
   return false // Only business plan has unlimited credits
 };
 
+// Method to get plan-specific maxRecords limit
+userSchema.methods.getMaxRecordsLimit = function () {
+  const planLimits = {
+    free: 50,
+    pro: 1000,
+    business: 3000
+  };
+  return planLimits[this.plan] || planLimits.free;
+};
+
 // Method to deduct credits - FIXED VERSION with plan-based bypass
 userSchema.methods.deductCredits = async function (amount) {
   // Skip credit deduction for users with unlimited extraction (business only)
