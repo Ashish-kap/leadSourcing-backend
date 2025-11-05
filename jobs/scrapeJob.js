@@ -69,13 +69,43 @@ export default async function (job) {
 
     return result;
   } catch (error) {
-    // Gracefully handle progress update errors (job might be cancelled)
+    // Handle lock expiration errors - if job completed but lock expired, don't treat as failure
+    if (error?.message?.includes("Missing lock for job")) {
+      logger.warn(
+        "JOB_PROCESSOR_LOCK_EXPIRED",
+        `Job ${job.data?.jobId} finished but lock expired - this may indicate a long-running job`,
+        { jobId: job.data?.jobId, message: error.message }
+      );
+      // If the job actually completed (has a result), return it instead of throwing
+      // This allows the job to complete successfully even if lock expired during final update
+      const dbJob = await Job.findOne({ jobId: job.data.jobId });
+      if (dbJob && dbJob.status === "completed") {
+        logger.info(
+          "JOB_COMPLETED_DESPITE_LOCK_EXPIRY",
+          `Job ${job.data?.jobId} completed successfully despite lock expiry`
+        );
+        return dbJob.result || [];
+      }
+    }
+
+    // Gracefully handle progress update errors (job might be cancelled or lock expired)
     try {
       await job.progress(100, { error: error.message });
     } catch (progressError) {
-      console.log(
-        `Could not update progress for job ${job.data.jobId}: ${progressError.message}`
-      );
+      // Ignore lock expiration errors during progress update
+      if (progressError?.message?.includes("Missing lock for job")) {
+        logger.warn(
+          "PROGRESS_UPDATE_LOCK_EXPIRED",
+          `Could not update progress for job ${job.data.jobId}: lock expired`,
+          { jobId: job.data?.jobId }
+        );
+      } else {
+        logger.warn(
+          "PROGRESS_UPDATE_ERROR",
+          `Could not update progress for job ${job.data.jobId}`,
+          { error: progressError.message }
+        );
+      }
     }
 
     // Update database with error only if job still exists and not already failed

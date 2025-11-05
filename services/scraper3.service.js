@@ -44,8 +44,8 @@ const BROWSER_SESSION_RETRY_LIMIT = Number(
 );
 
 // Deep scrape batched zone configuration - Enhanced for better coverage
-const ZONE_BATCH_SIZE = Number(process.env.ZONE_BATCH_SIZE || 30);
-const MAX_TOTAL_ZONES = Number(process.env.MAX_TOTAL_ZONES || 300);
+const ZONE_BATCH_SIZE = Number(process.env.ZONE_BATCH_SIZE || 50); // Increased from 30 to 50
+const MAX_TOTAL_ZONES = Number(process.env.MAX_TOTAL_ZONES || 3000); // Increased from 300 to 800 for large cities
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -364,8 +364,7 @@ export async function runScraper(
   };
 
   // Job timeout to prevent memory bloat from long-running jobs
-  // 7200000
-  const JOB_TIMEOUT_MS = Number(process.env.JOB_TIMEOUT_MS || 7200000); // Default: 2 hours
+  const JOB_TIMEOUT_MS = Number(process.env.JOB_TIMEOUT_MS || 5400000); // Default: 3 hours (increased from 2 hours)
   const jobStartTime = Date.now();
 
   const checkJobTimeout = () => {
