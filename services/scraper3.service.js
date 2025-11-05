@@ -364,7 +364,6 @@ export async function runScraper(
   };
 
   // Job timeout to prevent memory bloat from long-running jobs
-  // Increased timeout for large cities like Mumbai
   const JOB_TIMEOUT_MS = Number(process.env.JOB_TIMEOUT_MS || 5400000); // Default: 3 hours (increased from 2 hours)
   const jobStartTime = Date.now();
 
