@@ -34,7 +34,7 @@ const DETAIL_NAV_TIMEOUT_MS = Number(
 );
 
 const BROWSER_SESSION_MAX_MS = Number(
-  process.env.BROWSER_SESSION_MAX_MS || 30000
+  process.env.BROWSER_SESSION_MAX_MS || 60000 // 60 seconds - allows 10 concurrent email scrapes (each 10-30s)
 );
 const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
   process.env.BROWSER_SESSION_DRAIN_TIMEOUT_MS || 3000
