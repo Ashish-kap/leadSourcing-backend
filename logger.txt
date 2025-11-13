@@ -1,56 +1,53 @@
-): *.*
+odemon server.js
+[nodemon] 3.1.10
+[nodemon] to restart at any time, enter `rs`
+[nodemon] watching path(s): *.*
 [nodemon] watching extensions: js,mjs,cjs,json
 [nodemon] starting `node server.js`
-[dotenv@17.2.0] injecting env (27) from .env (tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] })
-[dotenv@17.2.0] injecting env (0) from .env (tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild)
-[dotenv@17.2.0] injecting env (0) from .env (tip: ⚙️  enable debug logging with { debug: true })
+[dotenv@17.2.0] injecting env (27) from .env (tip: ⚙️  override existing env vars with { override: true })
 [dotenv@17.2.0] injecting env (0) from .env (tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit)
+[dotenv@17.2.0] injecting env (0) from .env (tip: ⚙️  override existing env vars with { override: true })
+[dotenv@17.2.0] injecting env (0) from .env (tip: ⚙️  write to custom object with { processEnv: myObject })
 [dotenv@17.2.0] injecting env (0) from .env (tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit)
-[2025-11-12T15:48:56.026Z] [INFO] [QUEUE_INIT] Initializing queues with 8 total workers: 5 business, 3 free/pro
-[dotenv@17.2.0] injecting env (0) from .env (tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] })
+[2025-11-13T05:20:41.072Z] [INFO] [QUEUE_INIT] Initializing queues with 8 total workers: 5 business, 3 free/pro
+[dotenv@17.2.0] injecting env (0) from .env (tip: ⚙️  write to custom object with { processEnv: myObject })
 Socket.IO server initialized for real-time job updates
-[2025-11-12T15:48:57.075Z] [INFO] [CREDITS_DAILY_ALLOCATION_JOB_SCHEDULED] undefined
-[2025-11-12T15:48:57.077Z] [INFO] [CREDITS_DAILY_RESET_JOB_SCHEDULED] undefined
-[2025-11-12T15:48:57.077Z] [INFO] [CREDITS_JOBS_INITIALIZED] undefined
-[2025-11-12T15:48:57.090Z] [INFO] [SERVER_STARTED] Server running on port 3000
-[2025-11-12T15:48:57.090Z] [INFO] [DASHBOARD_URL] Dashboard: http://localhost:3000/admin
-[2025-11-12T15:48:57.090Z] [INFO] [JOB_MONITOR_URL] Job Monitor: http://localhost:3000/job-monitor.html
-[2025-11-12T15:48:57.091Z] [INFO] [SOCKETIO_READY] Socket.IO server initialized for real-time job updates
-🔐 Socket.IO Authentication attempt: {
-  socketId: 'peiqz-u-AjbxA2HfAAAB',
-  hasAuth: true,
-  hasToken: true,
-  tokenPreview: 'eyJhbGciOiJIUzI1NiIs...'
+[2025-11-13T05:20:41.270Z] [INFO] [CREDITS_DAILY_ALLOCATION_JOB_SCHEDULED] undefined
+[2025-11-13T05:20:41.272Z] [INFO] [CREDITS_DAILY_RESET_JOB_SCHEDULED] undefined
+[2025-11-13T05:20:41.272Z] [INFO] [CREDITS_JOBS_INITIALIZED] undefined
+[2025-11-13T05:20:41.280Z] [INFO] [SERVER_STARTED] Server running on port 3000
+[2025-11-13T05:20:41.280Z] [INFO] [DASHBOARD_URL] Dashboard: http://localhost:3000/admin
+[2025-11-13T05:20:41.281Z] [INFO] [JOB_MONITOR_URL] Job Monitor: http://localhost:3000/job-monitor.html
+[2025-11-13T05:20:41.281Z] [INFO] [SOCKETIO_READY] Socket.IO server initialized for real-time job updates
+[2025-11-13T05:20:41.463Z] [INFO] [DB_CONNECTED] Database connection successful
+Adding job d5430f54-eb8b-4977-bc22-d9073cbdc673 to Business queue for user plan: business
+POST /api/v1/scrape 200 90.312 ms - 93
+[2025-11-13T05:20:47.101Z] [INFO] [JOB_ACTIVE] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 started processing
+[2025-11-13T05:20:47.105Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress
+[2025-11-13T05:20:47.133Z] [INFO] [MEMORY_USAGE] SCRAPER_START {
+  "rss": "223 MB",
+  "heapUsed": "136 MB",
+  "external": "27 MB"
 }
-✅ Socket.IO JWT verified for user: 68b8718526ba95d590810eff
-[2025-11-12T15:48:57.384Z] [INFO] [DB_CONNECTED] Database connection successful
-✅ Socket.IO Authentication successful: {
-  userId: '68b8718526ba95d590810eff',
-  socketId: 'peiqz-u-AjbxA2HfAAAB'
-}
-🟢 User 68b8718526ba95d590810eff connected with socket peiqz-u-AjbxA2HfAAAB
-👥 User 68b8718526ba95d590810eff joined room: user_68b8718526ba95d590810eff
-Adding job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 to Business queue for user plan: business
-POST /api/v1/scrape 200 150.197 ms - 93
-[2025-11-12T15:48:59.548Z] [INFO] [JOB_ACTIVE] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 started processing
-[2025-11-12T15:48:59.566Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress
-[MEMORY_USAGE] SCRAPER_START { rss: '216 MB', heapUsed: '137 MB', external: '27 MB' }
-[SCRAPER_CONFIG] Current configuration: {
-  CITY_CONCURRENCY: 2,
-  DETAIL_CONCURRENCY: 8,
-  POOL_MAX_PAGES: 10,
-  BROWSER_SESSION_MAX_MS: 60000,
-  maxRecords: 20,
-  jobTimeoutMinutes: 90,
-  stuckDetection: {
-    recordsTimeoutMinutes: 15,
-    percentageTimeoutMinutes: 10,
-    gracePeriodSeconds: 30
+[2025-11-13T05:20:47.133Z] [INFO] [SCRAPER_CONFIG] Current configuration {
+  "CITY_CONCURRENCY": 2,
+  "DETAIL_CONCURRENCY": 8,
+  "POOL_MAX_PAGES": 10,
+  "BROWSER_SESSION_MAX_MS": 60000,
+  "maxRecords": 20,
+  "jobTimeoutMinutes": 90,
+  "stuckDetection": {
+    "recordsTimeoutMinutes": 15,
+    "percentageTimeoutMinutes": 10,
+    "gracePeriodSeconds": 30
   }
 }
-GET /api/v1/jobs 200 105.835 ms - 3670
-[MEMORY_USAGE] AFTER_BROWSER_POOL_INIT { rss: '217 MB', heapUsed: '140 MB', external: '28 MB' }
-[2025-11-12T15:49:00.628Z] [INFO] [SCRAPER_START] Starting scraper (pooled) {
+[2025-11-13T05:20:48.134Z] [INFO] [MEMORY_USAGE] AFTER_BROWSER_POOL_INIT {
+  "rss": "217 MB",
+  "heapUsed": "136 MB",
+  "external": "27 MB"
+}
+[2025-11-13T05:20:48.135Z] [INFO] [SCRAPER_START] Starting scraper (pooled) {
   "keyword": "digital marketing",
   "countryCode": "IN",
   "stateCode": "GJ",
@@ -60,17 +57,17 @@ GET /api/v1/jobs 200 105.835 ms - 3670
   "DETAIL_CONCURRENCY": 8,
   "POOL_MAX_PAGES": 10
 }
-[2025-11-12T15:49:00.629Z] [INFO] [MODE_FULL_LOCATION] Using exact location with batched multi-zone search {
+[2025-11-13T05:20:48.135Z] [INFO] [MODE_FULL_LOCATION] Using exact location with batched multi-zone search {
   "city": "Surat",
   "state": "GJ",
   "country": "India"
 }
-[2025-11-12T15:49:00.630Z] [INFO] [GEOCODING_REQUEST] Fetching city boundaries {
+[2025-11-13T05:20:48.136Z] [INFO] [GEOCODING_REQUEST] Fetching city boundaries {
   "city": "Surat",
   "state": "GJ",
   "country": "IN"
 }
-[2025-11-12T15:49:01.837Z] [INFO] [GEOCODING_SUCCESS] Retrieved city boundaries {
+[2025-11-13T05:20:48.656Z] [INFO] [GEOCODING_SUCCESS] Retrieved city boundaries {
   "city": "Surat",
   "bounds": {
     "north": 21.3694892,
@@ -83,7 +80,7 @@ GET /api/v1/jobs 200 105.835 ms - 3670
     }
   }
 }
-[2025-11-12T15:49:01.838Z] [INFO] [CITY_ZONES_CONFIG] Prepared batched zone generation {
+[2025-11-13T05:20:48.657Z] [INFO] [CITY_ZONES_CONFIG] Prepared batched zone generation {
   "city": "Surat",
   "gridSpacingKm": 5,
   "totalPossibleZones": 56,
@@ -91,14 +88,14 @@ GET /api/v1/jobs 200 105.835 ms - 3670
   "maxTotalZones": 3000,
   "estimatedBatches": 2
 }
-[2025-11-12T15:49:01.839Z] [INFO] [CITY_ZONES_READY] Starting batched multi-zone city scrape {
+[2025-11-13T05:20:48.658Z] [INFO] [CITY_ZONES_READY] Starting batched multi-zone city scrape {
   "city": "Surat",
   "totalPossibleZones": 56,
   "batchSize": 50,
   "maxTotalZones": 3000,
   "estimatedBatches": 2
 }
-[2025-11-12T15:49:01.841Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
+[2025-11-13T05:20:48.659Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
   "url": "https://www.google.com/maps/search/digital%20marketing+in+Surat+Gujarat+India?hl=en",
   "city": "Surat",
   "state": "Gujarat",
@@ -106,26 +103,26 @@ GET /api/v1/jobs 200 105.835 ms - 3670
   "zone": "city-center",
   "coords": "N/A"
 }
-[2025-11-12T15:49:03.753Z] [INFO] [ENHANCED_SCROLL_START] Starting enhanced scrolling for better coverage {
+[2025-11-13T05:20:50.034Z] [INFO] [ENHANCED_SCROLL_START] Starting enhanced scrolling for better coverage {
   "city": "Surat",
   "neededForCity": 20,
   "targetCount": 40,
   "remaining": 20,
   "currentResults": 0
 }
-[2025-11-12T15:49:03.765Z] [INFO] [SCROLL_DEBUG] Initial card count before scrolling {
+[2025-11-13T05:20:50.040Z] [INFO] [SCROLL_DEBUG] Initial card count before scrolling {
   "city": "Surat",
   "initialCards": 0,
   "targetCount": 40
 }
-[2025-11-12T15:49:09.227Z] [INFO] [SCROLL_RESULTS] Cards found after scrolling {
+[2025-11-13T05:20:55.255Z] [INFO] [SCROLL_RESULTS] Cards found after scrolling {
   "city": "Surat",
   "initialCards": 0,
   "cardsAfterScroll": 40,
   "targetCount": 40,
   "improvement": 40
 }
-[2025-11-12T15:49:09.242Z] [INFO] [FILTER_RESULTS] Pre-filtering results {
+[2025-11-13T05:20:55.264Z] [INFO] [FILTER_RESULTS] Pre-filtering results {
   "location": "Surat, Gujarat, India",
   "totalBusinessesFound": 40,
   "matchingFilter": 40,
@@ -134,19 +131,19 @@ GET /api/v1/jobs 200 105.835 ms - 3670
   "reviewFilter": null,
   "filterEfficiency": "100.0%"
 }
-[2025-11-12T15:49:09.243Z] [INFO] [URL_DEDUPLICATION] Filtered duplicate URLs at listing level {
+[2025-11-13T05:20:55.264Z] [INFO] [URL_DEDUPLICATION] Filtered duplicate URLs at listing level {
   "city": "Surat",
   "totalUrls": 40,
   "uniqueUrls": 40,
   "duplicatesFiltered": 0,
   "toSchedule": 20
 }
-[2025-11-12T15:49:10.157Z] [INFO] [ZONE_BATCH_RANDOM_START] Starting from random batch for variety {
+[2025-11-13T05:20:55.763Z] [INFO] [ZONE_BATCH_RANDOM_START] Starting from random batch for variety {
   "city": "Surat",
   "randomStartBatch": 0,
   "totalBatches": 2
 }
-[2025-11-12T15:49:10.158Z] [INFO] [ZONE_BATCH_GENERATED] Generated zone batch with overlap strategy {
+[2025-11-13T05:20:55.765Z] [INFO] [ZONE_BATCH_GENERATED] Generated zone batch with overlap strategy {
   "city": "Surat",
   "batchNumber": 0,
   "totalZones": 50,
@@ -155,7 +152,7 @@ GET /api/v1/jobs 200 105.835 ms - 3670
   "zoneRange": "0-49",
   "gridSpacingKm": 5
 }
-[2025-11-12T15:49:10.159Z] [INFO] [ZONE_BATCH_PROCESSING] Processing shuffled zone batch {
+[2025-11-13T05:20:55.765Z] [INFO] [ZONE_BATCH_PROCESSING] Processing shuffled zone batch {
   "city": "Surat",
   "batchNumber": 0,
   "batchSize": 50,
@@ -163,175 +160,90 @@ GET /api/v1/jobs 200 105.835 ms - 3670
   "recordsNeeded": 20,
   "isShuffled": true
 }
-[2025-11-12T15:49:10.159Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
-  "url": "https://www.google.com/maps/search/digital%20marketing/@21.049489,72.671706,14z?hl=en",
+[2025-11-13T05:20:55.766Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
+  "url": "https://www.google.com/maps/search/digital%20marketing/@21.184624,72.768342,14z?hl=en",
   "city": "Surat",
   "state": "Gujarat",
   "country": "India",
-  "zone": "zone-0",
+  "zone": "zone-23",
   "coords": {
-    "lat": 21.049489,
-    "lng": 72.671706
+    "lat": 21.184624,
+    "lng": 72.768342
   }
 }
-[2025-11-12T15:49:10.160Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
-  "url": "https://www.google.com/maps/search/digital%20marketing/@21.139579,72.864977,14z?hl=en",
+[2025-11-13T05:20:55.766Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
+  "url": "https://www.google.com/maps/search/digital%20marketing/@21.274714,72.81666,14z?hl=en",
   "city": "Surat",
   "state": "Gujarat",
   "country": "India",
-  "zone": "zone-18",
+  "zone": "zone-38",
   "coords": {
-    "lat": 21.139579,
-    "lng": 72.864977
+    "lat": 21.274714,
+    "lng": 72.81666
   }
 }
-[2025-11-12T15:49:12.426Z] [INFO] [ENHANCED_SCROLL_START] Starting enhanced scrolling for better coverage {
+[2025-11-13T05:20:57.962Z] [INFO] [ENHANCED_SCROLL_START] Starting enhanced scrolling for better coverage {
   "city": "Surat",
   "neededForCity": 20,
   "targetCount": 40,
   "remaining": 20,
   "currentResults": 0
 }
-[2025-11-12T15:49:12.462Z] [INFO] [SCROLL_DEBUG] Initial card count before scrolling {
+[2025-11-13T05:20:58.005Z] [INFO] [SCROLL_DEBUG] Initial card count before scrolling {
   "city": "Surat",
   "initialCards": 0,
   "targetCount": 40
 }
-[2025-11-12T15:49:13.076Z] [INFO] [ENHANCED_SCROLL_START] Starting enhanced scrolling for better coverage {
+[2025-11-13T05:20:58.011Z] [INFO] [ENHANCED_SCROLL_START] Starting enhanced scrolling for better coverage {
   "city": "Surat",
   "neededForCity": 20,
   "targetCount": 40,
   "remaining": 20,
   "currentResults": 0
 }
-[2025-11-12T15:49:13.092Z] [INFO] [SCROLL_DEBUG] Initial card count before scrolling {
+[2025-11-13T05:20:58.035Z] [INFO] [SCROLL_DEBUG] Initial card count before scrolling {
   "city": "Surat",
   "initialCards": 0,
   "targetCount": 40
 }
-[2025-11-12T15:49:17.260Z] [INFO] [SCROLL_RESULTS] Cards found after scrolling {
-  "city": "Surat",
-  "initialCards": 0,
-  "cardsAfterScroll": 40,
-  "targetCount": 40,
-  "improvement": 40
+[2025-11-13T05:21:00.285Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://ziidm.com/
+[2025-11-13T05:21:03.856Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 1 - onum_company@mail.com
+[2025-11-13T05:21:04.001Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 3
+[2025-11-13T05:21:04.001Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 3 additional pages. Top 3: ["https://ziidm.com/ (normal)","https://ziidm.com/digital-marketing-roi-2025/ (normal)","https://ziidm.com/traditional-marketing-vs-digital-marketing/ (normal)"]
+[2025-11-13T05:21:04.154Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://merakidigihub.com/
+[2025-11-13T05:21:04.788Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://www.ivipanan.co.in/
+[2025-11-13T05:21:04.830Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: http://www.dmai.co.in/
+[2025-11-13T05:21:04.867Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://globalsurat.com/
+[2025-11-13T05:21:04.915Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://www.sunlightdigitech.com/
+[2025-11-13T05:21:04.915Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://www.goodoldgeek.com/
+[2025-11-13T05:21:06.472Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 0 -
+[2025-11-13T05:21:06.556Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 4
+[2025-11-13T05:21:06.557Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://merakidigihub.com/about-us/ (normal)","https://merakidigihub.com/ (normal)","https://merakidigihub.com/digital-marketing-course/ (normal)"]
+[2025-11-13T05:21:06.990Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://ziidm.com/digital-marketing-roi-2025/: found 1 emails - onum_company@mail.com
+[2025-11-13T05:21:07.413Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 1 - Global@Gmail.Com
+[2025-11-13T05:21:07.569Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:07.569Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://globalsurat.com/contact (contact)","https://globalsurat.com/contact.html (contact)","https://globalsurat.com/services/web-maintenance-support (support)"]
+[2025-11-13T05:21:07.639Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 1 - info@goodoldgeek.com
+[2025-11-13T05:21:07.803Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:07.803Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://www.goodoldgeek.com/contact/ (contact)","https://www.goodoldgeek.com/privacy-policy/ (normal)","https://www.goodoldgeek.com/ (normal)"]
+[2025-11-13T05:21:08.354Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://merakidigihub.com/about-us/: found 0 emails -
+[2025-11-13T05:21:08.532Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 2 - Hello@dmai.com, HELLO@DMAI.COM
+[2025-11-13T05:21:08.620Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:08.620Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["http://www.dmai.co.in/contact.html (contact)","http://www.dmai.co.in/about.html (normal)","http://www.dmai.co.in/about-us-footer.html (normal)"]
+[2025-11-13T05:21:09.816Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://globalsurat.com/contact: found 1 emails - Global@Gmail.Com
+[2025-11-13T05:21:09.817Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://ziidm.com/traditional-marketing-vs-digital-marketing/: found 1 emails - onum_company@mail.com
+[2025-11-13T05:21:09.827Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.goodoldgeek.com/contact/: found 1 emails - info@goodoldgeek.com
+[2025-11-13T05:21:10.207Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 3 - INFO@SUNLIGHTDIGITECH.COM, info@sunlightdigitech.com, sunlightdigitech@gmail.com
+[2025-11-13T05:21:10.220Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://www.dmai.co.in/contact.html: found 10 emails - Hello@dmai.com, hello@dmai.co.in, Mohit@dmai.co.in, Nitin@dmai.co.in, Vibhuti@dmai.co.in, HELLO@DMAI.COM, HELLO@DMAI.CO.IN, MOHIT@DMAI.CO.IN, NITIN@DMAI.CO.IN, VIBHUTI@DMAI.CO.IN
+[2025-11-13T05:21:10.422Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://ziidm.com/ {
+  "totalEmails": 1,
+  "emails": "onum_company@mail.com",
+  "pagesVisited": 3,
+  "pagesAttempted": 3,
+  "errors": 0,
+  "durationMs": 10137
 }
-[2025-11-12T15:49:17.285Z] [INFO] [FILTER_RESULTS] Pre-filtering results {
-  "location": "Surat, Gujarat, India",
-  "totalBusinessesFound": 40,
-  "matchingFilter": 40,
-  "filteredOut": 0,
-  "ratingFilter": null,
-  "reviewFilter": null,
-  "filterEfficiency": "100.0%"
-}
-[2025-11-12T15:49:17.285Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
-  "url": "https://www.google.com/maps/place/Ruh+SEO+Freelancer+in+Surat+%7C+Digital+Marketing/data=!4m7!3m6!1s0x3be05168d9429d21:0xaa41ba65931e2716!8m2!3d21.1499099!4d72.8395532!16s%2Fg%2F11y5lwn6xw!19sChIJIZ1C2WhR4DsRFicek2W6Qao?authuser=0&hl=en&rclk=1",
-  "city": "Surat"
-}
-[2025-11-12T15:49:17.286Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
-  "url": "https://www.google.com/maps/place/GrorichDigital.com+-+BEST+Digital+marketing+agency+in+surat/data=!4m7!3m6!1s0x3be04ffbb62021cd:0x18c4c42414576432!8m2!3d21.1709295!4d72.8203478!16s%2Fg%2F11ylzsgfjv!19sChIJzSEgtvtP4DsRMmRXFCTExBg?authuser=0&hl=en&rclk=1",
-  "city": "Surat"
-}
-[2025-11-12T15:49:17.286Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
-  "url": "https://www.google.com/maps/place/AnyLife+Digital+marketing/data=!4m7!3m6!1s0x3be04f141c24d52b:0xa6eb8f507b66100d!8m2!3d21.1754418!4d72.8771319!16s%2Fg%2F11wqsyq3vg!19sChIJK9UkHBRP4DsRDRBme1CP66Y?authuser=0&hl=en&rclk=1",
-  "city": "Surat"
-}
-[2025-11-12T15:49:17.287Z] [INFO] [URL_DEDUPLICATION] Filtered duplicate URLs at listing level {
-  "city": "Surat",
-  "totalUrls": 40,
-  "uniqueUrls": 37,
-  "duplicatesFiltered": 3,
-  "toSchedule": 20
-}
-[2025-11-12T15:49:17.528Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
-  "url": "https://www.google.com/maps/search/digital%20marketing/@21.049489,72.961613,14z?hl=en",
-  "city": "Surat",
-  "state": "Gujarat",
-  "country": "India",
-  "zone": "zone-6",
-  "coords": {
-    "lat": 21.049489,
-    "lng": 72.961613
-  }
-}
-[EmailScraper] Starting scrape for: http://www.visionexpublicity.com/
-[2025-11-12T15:49:18.787Z] [INFO] [ENHANCED_SCROLL_START] Starting enhanced scrolling for better coverage {
-  "city": "Surat",
-  "neededForCity": 20,
-  "targetCount": 40,
-  "remaining": 20,
-  "currentResults": 0
-}
-[2025-11-12T15:49:18.802Z] [INFO] [SCROLL_DEBUG] Initial card count before scrolling {
-  "city": "Surat",
-  "initialCards": 0,
-  "targetCount": 40
-}
-[EmailScraper] Starting scrape for: https://www.asdm.co.in/digital-marketing-in-surat
-[EmailScraper] Starting scrape for: https://thesocialbuddies.in/
-[EmailScraper] Starting scrape for: https://www.sunlightdigitech.com/
-[EmailScraper] Starting scrape for: https://merakidigihub.com/
-[EmailScraper] Starting scrape for: https://ziidm.com/
-[EmailScraper] Starting scrape for: https://www.ivipanan.co.in/
-[EmailScraper] Starting scrape for: https://www.satvbiz.in/digitalmarketing-course-in-vesu-surat
-[EmailScraper] Homepage emails found: 1 - info@visionexpublicity.com
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://www.visionexpublicity.com/contactus (contact)',
-  'https://www.visionexpublicity.com/aboutus (normal)',
-  'https://www.visionexpublicity.com/privacypolicy (normal)'
-]
-[EmailScraper] Homepage emails found: 0 -
-[EmailScraper] Links found on homepage: 9
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://www.satvbiz.in/contact (contact)',
-  'https://www.satvbiz.in/about (normal)',
-  'https://www.satvbiz.in/ (normal)'
-]
-[EmailScraper] Page https://www.visionexpublicity.com/contactus: found 1 emails - info@visionexpublicity.com
-[EmailScraper] Homepage emails found: 1 - info@asdm.co.in
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://www.asdm.co.in/contact-us (contact)',
-  'https://www.asdm.co.in/about-us (normal)',
-  'https://www.asdm.co.in/ (normal)'
-]
-[EmailScraper] Homepage emails found: 0 -
-[EmailScraper] Links found on homepage: 4
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://merakidigihub.com/about-us/ (normal)',
-  'https://merakidigihub.com/ (normal)',
-  'https://merakidigihub.com/digital-marketing-course/ (normal)'
-]
-[EmailScraper] Page https://www.satvbiz.in/contact: found 0 emails -
-[EmailScraper] Page https://www.asdm.co.in/contact-us: found 1 emails - info@asdm.co.in
-[EmailScraper] Page https://www.visionexpublicity.com/aboutus: found 1 emails - info@visionexpublicity.com
-GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerPage=10 200 31.710 ms - 176366
-[EmailScraper] Homepage emails found: 1 - hello@thesocialbuddies.com
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://thesocialbuddies.in/contact/ (contact)',
-  'https://thesocialbuddies.in/about-us/ (normal)',
-  'https://thesocialbuddies.in/team/ (normal)'
-]
-[EmailScraper] Page https://merakidigihub.com/about-us/: found 0 emails -
-[EmailScraper] Page https://www.satvbiz.in/about: found 0 emails -
-[EmailScraper] Page https://www.visionexpublicity.com/privacypolicy: found 1 emails - info@visionexpublicity.com
-[EmailScraper] Page https://www.asdm.co.in/about-us: found 1 emails - info@asdm.co.in
-[EmailScraper] Page https://www.satvbiz.in/: found 0 emails -
-[EmailScraper] Page https://thesocialbuddies.in/contact/: found 3 emails - hello@thesocialbuddies.in, creative.thesocialbuddies@gmail.com, hello@thesocialbuddies.com
-[EmailScraper] Page https://merakidigihub.com/digital-marketing-course/: found 0 emails -
-[EmailScraper] Page https://www.visionexpublicity.com/: found 1 emails - info@visionexpublicity.com
-[EmailScraper] Page https://www.asdm.co.in/: found 1 emails - info@asdm.co.in
-[EmailScraper] FINAL RESULT for http://www.visionexpublicity.com/:
-  - Total emails found: 1
-  - Emails: info@visionexpublicity.com
-  - Pages visited: 5
-  - Pages attempted: 5
-  - Errors: 0
-  - Duration: 11551ms
-[2025-11-12T15:49:30.264Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:10.424Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 5,
   "recordsCollected": 1,
   "maxRecords": 20,
@@ -344,23 +256,22 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Page https://www.satvbiz.in/course: found 0 emails -
-[EmailScraper] Homepage emails found: 1 - onum_company@mail.com
-[EmailScraper] Links found on homepage: 3
-[EmailScraper] Will visit 3 additional pages. Top 3: [
-  'https://ziidm.com/ (normal)',
-  'https://ziidm.com/digital-marketing-roi-2025/ (normal)',
-  'https://ziidm.com/traditional-marketing-vs-digital-marketing/ (normal)'
-]
-[EmailScraper] Page https://merakidigihub.com/blog-landing-page-startup-v1/: found 0 emails -
-[EmailScraper] FINAL RESULT for https://www.satvbiz.in/digitalmarketing-course-in-vesu-surat:
-  - Total emails found: 0
-  - Emails:
-  - Pages visited: 5
-  - Pages attempted: 5
-  - Errors: 0
-  - Duration: 11223ms
-[2025-11-12T15:49:31.225Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:10.661Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:10.662Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://www.sunlightdigitech.com/contact/ (contact)","https://www.sunlightdigitech.com/about-company/about-us/ (normal)","https://www.sunlightdigitech.com/about-company/partner-with-us/ (normal)"]
+[2025-11-13T05:21:10.697Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://merakidigihub.com/digital-marketing-course/: found 0 emails -
+[2025-11-13T05:21:14.011Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://globalsurat.com/contact.html: found 1 emails - Global@Gmail.Com
+[2025-11-13T05:21:14.202Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://www.dmai.co.in/about.html: found 2 emails - Hello@dmai.com, HELLO@DMAI.COM
+[2025-11-13T05:21:14.202Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://merakidigihub.com/blog-landing-page-startup-v1/: found 0 emails -
+[2025-11-13T05:21:14.682Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.goodoldgeek.com/privacy-policy/: found 1 emails - info@goodoldgeek.com
+[2025-11-13T05:21:14.749Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://merakidigihub.com/ {
+  "totalEmails": 0,
+  "emails": "",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 10595
+}
+[2025-11-13T05:21:14.753Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 10,
   "recordsCollected": 2,
   "maxRecords": 20,
@@ -373,14 +284,22 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] FINAL RESULT for https://merakidigihub.com/:
-  - Total emails found: 0
-  - Emails:
-  - Pages visited: 4
-  - Pages attempted: 4
-  - Errors: 0
-  - Duration: 11532ms
-[2025-11-12T15:49:31.442Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:15.316Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 2 - info@ivipanan.co.in, info@ivipanan.co.in
+[2025-11-13T05:21:15.856Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:15.859Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://www.ivipanan.co.in/contact-digital-marketing-company/ (contact)","https://www.ivipanan.co.in/about-digital-marketing-company/ (normal)","https://www.ivipanan.co.in/about-digital-marketing-company (normal)"]
+[2025-11-13T05:21:16.702Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.sunlightdigitech.com/contact/: found 2 emails - info@sunlightdigitech.com, sunlightdigitech@gmail.com
+[2025-11-13T05:21:16.786Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://www.dmai.co.in/about-us-footer.html: found 2 emails - Hello@dmai.com, HELLO@DMAI.COM
+[2025-11-13T05:21:16.985Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://globalsurat.com/services/web-maintenance-support: found 2 emails - Global@Gmail.Com, contact@globalsurat.com
+[2025-11-13T05:21:17.615Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.goodoldgeek.com/social-media-marketing-company/: found 4 emails - tejas@goodoldgeek.com, nilomi@goodoldgeek.com, mandar@goodoldgeek.com, info@goodoldgeek.com
+[2025-11-13T05:21:18.139Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://www.goodoldgeek.com/ {
+  "totalEmails": 4,
+  "emails": "info@goodoldgeek.com, mandar@goodoldgeek.com, nilomi@goodoldgeek.com, tejas@goodoldgeek.com",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 13224
+}
+[2025-11-13T05:21:18.143Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 15,
   "recordsCollected": 3,
   "maxRecords": 20,
@@ -393,16 +312,7 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Page https://thesocialbuddies.in/about-us/: found 1 emails - hello@thesocialbuddies.com
-[EmailScraper] Page https://www.asdm.co.in/advance-digital-marketing-program: found 1 emails - info@asdm.co.in
-[EmailScraper] FINAL RESULT for https://www.asdm.co.in/digital-marketing-in-surat:
-  - Total emails found: 1
-  - Emails: info@asdm.co.in
-  - Pages visited: 5
-  - Pages attempted: 5
-  - Errors: 0
-  - Duration: 13418ms
-[2025-11-12T15:49:33.043Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:18.379Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 20,
   "recordsCollected": 4,
   "maxRecords": 20,
@@ -415,16 +325,16 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Page https://thesocialbuddies.in/team/: found 1 emails - hello@thesocialbuddies.com
-[EmailScraper] Page https://thesocialbuddies.in/privacy-policy/: found 2 emails - hello@socialbuddies.com, hello@thesocialbuddies.com
-[EmailScraper] FINAL RESULT for https://thesocialbuddies.in/:
-  - Total emails found: 4
-  - Emails: creative.thesocialbuddies@gmail.com, hello@socialbuddies.com, hello@thesocialbuddies.com, hello@thesocialbuddies.in
-  - Pages visited: 5
-  - Pages attempted: 5
-  - Errors: 0
-  - Duration: 18698ms
-[2025-11-12T15:49:38.345Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:18.865Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://www.dmai.co.in/team.html: found 2 emails - Hello@dmai.com, HELLO@DMAI.COM
+[2025-11-13T05:21:19.373Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for http://www.dmai.co.in/ {
+  "totalEmails": 10,
+  "emails": "hello@dmai.co.in, HELLO@DMAI.CO.IN, Hello@dmai.com, HELLO@DMAI.COM, Mohit@dmai.co.in, MOHIT@DMAI.CO.IN, Nitin@dmai.co.in, NITIN@DMAI.CO.IN, Vibhuti@dmai.co.in, VIBHUTI@DMAI.CO.IN",
+  "pagesVisited": 5,
+  "pagesAttempted": 5,
+  "errors": 0,
+  "durationMs": 14543
+}
+[2025-11-13T05:21:19.374Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 25,
   "recordsCollected": 5,
   "maxRecords": 20,
@@ -437,39 +347,18 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Starting scrape for: https://hevikdigital.com/
-[EmailScraper] Starting scrape for: https://social101.in/
-[EmailScraper] Starting scrape for: http://www.dmai.co.in/
-[EmailScraper] Page https://ziidm.com/digital-marketing-roi-2025/: found 1 emails - onum_company@mail.com
-[EmailScraper] Homepage emails found: 0 -
-[EmailScraper] Links found on homepage: 2
-[EmailScraper] Will visit 2 additional pages. Top 3: [
-  'https://hevikdigital.com/ (normal)',
-  'https://hevikdigital.com/?p=1 (normal)'
-]
-[EmailScraper] Homepage emails found: 2 - info@ivipanan.co.in, info@ivipanan.co.in
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://www.ivipanan.co.in/contact-digital-marketing-company/ (contact)',
-  'https://www.ivipanan.co.in/about-digital-marketing-company/ (normal)',
-  'https://www.ivipanan.co.in/about-digital-marketing-company (normal)'
-]
-[EmailScraper] Homepage emails found: 1 - hello@social101.in
-[EmailScraper] Links found on homepage: 11
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://social101.in/contact-us/ (contact)',
-  'https://social101.in/about/ (normal)',
-  'https://social101.in/privacy-policy-2/ (normal)'
-]
-[EmailScraper] Page https://hevikdigital.com/?p=1: found 0 emails -
-[EmailScraper] FINAL RESULT for https://hevikdigital.com/:
-  - Total emails found: 0
-  - Emails:
-  - Pages visited: 2
-  - Pages attempted: 2
-  - Errors: 0
-  - Duration: 3796ms
-[2025-11-12T15:49:42.727Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:19.477Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://thedigitalcrazy.com/
+GET /admin/api/queues?activeQueue=scraper-business&status=completed&page=1&jobsPerPage=10 200 20.899 ms - 173605
+[2025-11-13T05:21:19.987Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://globalsurat.com/about-us: found 1 emails - Global@Gmail.Com
+[2025-11-13T05:21:20.496Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://globalsurat.com/ {
+  "totalEmails": 2,
+  "emails": "contact@globalsurat.com, Global@Gmail.Com",
+  "pagesVisited": 5,
+  "pagesAttempted": 5,
+  "errors": 0,
+  "durationMs": 15629
+}
+[2025-11-13T05:21:20.497Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 30,
   "recordsCollected": 6,
   "maxRecords": 20,
@@ -482,24 +371,25 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Homepage emails found: 2 - Hello@dmai.com, HELLO@DMAI.COM
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'http://www.dmai.co.in/contact.html (contact)',
-  'http://www.dmai.co.in/about.html (normal)',
-  'http://www.dmai.co.in/about-us-footer.html (normal)'
-]
-[EmailScraper] Page https://social101.in/contact-us/: found 2 emails - hello@social101.in, HELLO@SOCIAL101.IN
-[EmailScraper] Homepage error: Navigation timeout of 25000 ms exceeded
-[EmailScraper] Will visit 0 additional pages. Top 3: []
-[EmailScraper] FINAL RESULT for https://www.sunlightdigitech.com/:
-  - Total emails found: 0
-  - Emails:
-  - Pages visited: 0
-  - Pages attempted: 0
-  - Errors: 1
-  - Duration: 25020ms
-[2025-11-12T15:49:44.677Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:21.157Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 1 - Contact@thedigitalcrazy.com
+[2025-11-13T05:21:21.195Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 5
+[2025-11-13T05:21:21.196Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://thedigitalcrazy.com/contact/ (contact)","https://thedigitalcrazy.com/about/ (normal)","https://thedigitalcrazy.com/ (normal)"]
+[2025-11-13T05:21:22.503Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.ivipanan.co.in/contact-digital-marketing-company/: found 4 emails - info@ivipanan.co.in, support@ivipanan.co.in, info@ivipanan.co.in, support@ivipanan.co.in
+[2025-11-13T05:21:22.694Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.sunlightdigitech.com/about-company/about-us/: found 2 emails - info@sunlightdigitech.com, sunlightdigitech@gmail.com
+[2025-11-13T05:21:23.391Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://thedigitalcrazy.com/contact/: found 1 emails - Contact@thedigitalcrazy.com
+[2025-11-13T05:21:23.491Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://digitalfamous.in/
+[2025-11-13T05:21:25.242Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://thedigitalcrazy.com/about/: found 1 emails - Contact@thedigitalcrazy.com
+[2025-11-13T05:21:26.689Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: http://www.visionexpublicity.com/
+[2025-11-13T05:21:27.101Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://thedigitalcrazy.com/bolg/: found 1 emails - Contact@thedigitalcrazy.com
+[2025-11-13T05:21:27.633Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://thedigitalcrazy.com/ {
+  "totalEmails": 1,
+  "emails": "Contact@thedigitalcrazy.com",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 8156
+}
+[2025-11-13T05:21:27.634Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 35,
   "recordsCollected": 7,
   "maxRecords": 20,
@@ -512,11 +402,20 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Page http://www.dmai.co.in/contact.html: found 10 emails - Hello@dmai.com, hello@dmai.co.in, Mohit@dmai.co.in, Nitin@dmai.co.in, Vibhuti@dmai.co.in, HELLO@DMAI.COM, HELLO@DMAI.CO.IN, MOHIT@DMAI.CO.IN, NITIN@DMAI.CO.IN, VIBHUTI@DMAI.CO.IN
-[EmailScraper] Starting scrape for: https://bizbuddy.co.in/
-[EmailScraper] Page http://www.dmai.co.in/about.html: found 2 emails - Hello@dmai.com, HELLO@DMAI.COM
-[EmailScraper] Page https://social101.in/about/: found 1 emails - hello@social101.in
-[2025-11-12T15:49:48.671Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:27.999Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://thesocialbuddies.in/
+[2025-11-13T05:21:28.483Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 0 -
+[2025-11-13T05:21:28.502Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 1 - info@visionexpublicity.com
+[2025-11-13T05:21:28.518Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 1
+[2025-11-13T05:21:28.518Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 1 additional pages. Top 3: ["https://digitalfamous.in/ (normal)"]
+[2025-11-13T05:21:28.619Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://digitalfamous.in/ {
+  "totalEmails": 0,
+  "emails": "",
+  "pagesVisited": 1,
+  "pagesAttempted": 1,
+  "errors": 0,
+  "durationMs": 5128
+}
+[2025-11-13T05:21:28.620Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 40,
   "recordsCollected": 8,
   "maxRecords": 20,
@@ -529,17 +428,18 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Page http://www.dmai.co.in/about-us-footer.html: found 2 emails - Hello@dmai.com, HELLO@DMAI.COM
-[EmailScraper] Page https://ziidm.com/traditional-marketing-vs-digital-marketing/: found 1 emails - onum_company@mail.com
-[EmailScraper] Page https://social101.in/privacy-policy-2/: found 1 emails - hello@social101.in
-[EmailScraper] FINAL RESULT for https://ziidm.com/:
-  - Total emails found: 1
-  - Emails: onum_company@mail.com
-  - Pages visited: 3
-  - Pages attempted: 3
-  - Errors: 0
-  - Duration: 30576ms
-[2025-11-12T15:49:50.488Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:29.097Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:29.098Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://www.visionexpublicity.com/contactus (contact)","https://www.visionexpublicity.com/aboutus (normal)","https://www.visionexpublicity.com/privacypolicy (normal)"]
+[2025-11-13T05:21:29.250Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://bizbuddy.co.in/
+[2025-11-13T05:21:29.951Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 1 - hello@thesocialbuddies.com
+[2025-11-13T05:21:30.031Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:30.031Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://thesocialbuddies.in/contact/ (contact)","https://thesocialbuddies.in/about-us/ (normal)","https://thesocialbuddies.in/team/ (normal)"]
+[2025-11-13T05:21:30.465Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.ivipanan.co.in/about-digital-marketing-company/: found 2 emails - info@ivipanan.co.in, info@ivipanan.co.in
+[2025-11-13T05:21:30.552Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.visionexpublicity.com/contactus: found 1 emails - info@visionexpublicity.com
+[2025-11-13T05:21:32.777Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.visionexpublicity.com/aboutus: found 1 emails - info@visionexpublicity.com
+[2025-11-13T05:21:33.522Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.sunlightdigitech.com/about-company/partner-with-us/: found 2 emails - info@sunlightdigitech.com, sunlightdigitech@gmail.com
+[2025-11-13T05:21:33.562Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://thesocialbuddies.in/contact/: found 3 emails - hello@thesocialbuddies.in, creative.thesocialbuddies@gmail.com, hello@thesocialbuddies.com
+[2025-11-13T05:21:33.599Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 45,
   "recordsCollected": 9,
   "maxRecords": 20,
@@ -552,14 +452,22 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] FINAL RESULT for https://social101.in/:
-  - Total emails found: 2
-  - Emails: hello@social101.in, HELLO@SOCIAL101.IN
-  - Pages visited: 4
-  - Pages attempted: 4
-  - Errors: 0
-  - Duration: 11068ms
-[2025-11-12T15:49:50.717Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:33.833Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 2 - info@bizbuddy.co.in, Info@Bizbuddy.Co.In
+[2025-11-13T05:21:34.041Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:34.043Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://bizbuddy.co.in/contact/ (contact)","https://bizbuddy.co.in/privacy-policy/ (normal)","https://bizbuddy.co.in/ (normal)"]
+[2025-11-13T05:21:34.645Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.visionexpublicity.com/privacypolicy: found 1 emails - info@visionexpublicity.com
+[2025-11-13T05:21:37.034Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://digirivera.com/
+[2025-11-13T05:21:37.166Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.visionexpublicity.com/: found 1 emails - info@visionexpublicity.com
+[2025-11-13T05:21:37.330Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://thesocialbuddies.in/about-us/: found 1 emails - hello@thesocialbuddies.com
+[2025-11-13T05:21:37.676Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for http://www.visionexpublicity.com/ {
+  "totalEmails": 1,
+  "emails": "info@visionexpublicity.com",
+  "pagesVisited": 5,
+  "pagesAttempted": 5,
+  "errors": 0,
+  "durationMs": 10987
+}
+[2025-11-13T05:21:37.677Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 50,
   "recordsCollected": 10,
   "maxRecords": 20,
@@ -572,17 +480,22 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Starting scrape for: https://thedigitalcrazy.com/
-[EmailScraper] Page https://www.ivipanan.co.in/contact-digital-marketing-company/: found 4 emails - info@ivipanan.co.in, support@ivipanan.co.in, info@ivipanan.co.in, support@ivipanan.co.in
-[EmailScraper] Page http://www.dmai.co.in/team.html: found 2 emails - Hello@dmai.com, HELLO@DMAI.COM
-[EmailScraper] FINAL RESULT for http://www.dmai.co.in/:
-  - Total emails found: 10
-  - Emails: hello@dmai.co.in, HELLO@DMAI.CO.IN, Hello@dmai.com, HELLO@DMAI.COM, Mohit@dmai.co.in, MOHIT@DMAI.CO.IN, Nitin@dmai.co.in, NITIN@DMAI.CO.IN, Vibhuti@dmai.co.in, VIBHUTI@DMAI.CO.IN
-  - Pages visited: 5
-  - Pages attempted: 5
-  - Errors: 0
-  - Duration: 13342ms
-[2025-11-12T15:49:53.116Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:39.325Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.ivipanan.co.in/about-digital-marketing-company: found 2 emails - info@ivipanan.co.in, info@ivipanan.co.in
+[2025-11-13T05:21:40.334Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://thesocialbuddies.in/team/: found 1 emails - hello@thesocialbuddies.com
+[2025-11-13T05:21:41.523Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 2 - Info@digirivera.com, info@digirivera.com
+[2025-11-13T05:21:41.605Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:41.605Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://digirivera.com/contact-us/ (contact)","https://digirivera.com/about-us/ (normal)","https://digirivera.com/privacy-policy/ (normal)"]
+[2025-11-13T05:21:41.652Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.sunlightdigitech.com/privacy-policy/: found 2 emails - info@sunlightdigitech.com, sunlightdigitech@gmail.com
+[2025-11-13T05:21:42.085Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://www.satvbiz.in/
+[2025-11-13T05:21:42.177Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://www.sunlightdigitech.com/ {
+  "totalEmails": 3,
+  "emails": "info@sunlightdigitech.com, INFO@SUNLIGHTDIGITECH.COM, sunlightdigitech@gmail.com",
+  "pagesVisited": 5,
+  "pagesAttempted": 5,
+  "errors": 0,
+  "durationMs": 37262
+}
+[2025-11-13T05:21:42.178Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 55,
   "recordsCollected": 11,
   "maxRecords": 20,
@@ -595,28 +508,16 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Homepage emails found: 1 - Contact@thedigitalcrazy.com
-[EmailScraper] Links found on homepage: 5
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://thedigitalcrazy.com/contact/ (contact)',
-  'https://thedigitalcrazy.com/about/ (normal)',
-  'https://thedigitalcrazy.com/ (normal)'
-]
-[EmailScraper] Page https://thedigitalcrazy.com/contact/: found 1 emails - Contact@thedigitalcrazy.com
-[EmailScraper] Starting scrape for: https://globalsurat.com/
-[EmailScraper] Page https://thedigitalcrazy.com/about/: found 1 emails - Contact@thedigitalcrazy.com
-[EmailScraper] Starting scrape for: https://www.icedinfotech.com/
-[EmailScraper] Starting scrape for: https://posts.gle/nj6hVFrgJWdAqqoeA?g_st=awb
-[EmailScraper] Page https://thedigitalcrazy.com/bolg/: found 1 emails - Contact@thedigitalcrazy.com
-[EmailScraper] Homepage emails found: 1 - Global@Gmail.Com
-[EmailScraper] FINAL RESULT for https://thedigitalcrazy.com/:
-  - Total emails found: 1
-  - Emails: Contact@thedigitalcrazy.com
-  - Pages visited: 4
-  - Pages attempted: 4
-  - Errors: 0
-  - Duration: 8780ms
-[2025-11-12T15:49:59.958Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:42.478Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://thesocialbuddies.in/privacy-policy/: found 2 emails - hello@socialbuddies.com, hello@thesocialbuddies.com
+[2025-11-13T05:21:42.999Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://thesocialbuddies.in/ {
+  "totalEmails": 4,
+  "emails": "creative.thesocialbuddies@gmail.com, hello@socialbuddies.com, hello@thesocialbuddies.com, hello@thesocialbuddies.in",
+  "pagesVisited": 5,
+  "pagesAttempted": 5,
+  "errors": 0,
+  "durationMs": 15000
+}
+[2025-11-13T05:21:43.000Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 60,
   "recordsCollected": 12,
   "maxRecords": 20,
@@ -629,7 +530,10 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[2025-11-12T15:50:00.103Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:43.751Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 0 -
+[2025-11-13T05:21:43.822Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 8
+[2025-11-13T05:21:43.822Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://www.satvbiz.in/contact (contact)","https://www.satvbiz.in/about (normal)","https://www.satvbiz.in/ (normal)"]
+[2025-11-13T05:21:44.125Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 65,
   "recordsCollected": 13,
   "maxRecords": 20,
@@ -642,62 +546,20 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://globalsurat.com/contact (contact)',
-  'https://globalsurat.com/contact.html (contact)',
-  'https://globalsurat.com/services/web-maintenance-support (support)'
-]
-[EmailScraper] Starting scrape for: https://creativekshetra.com/
-[EmailScraper] Homepage emails found: 1 - info@icedinfotech.com
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://www.icedinfotech.com/contact/ (contact)',
-  'https://www.icedinfotech.com/about/ (normal)',
-  'https://www.icedinfotech.com/ (normal)'
-]
-[EmailScraper] Page https://globalsurat.com/contact: found 1 emails - Global@Gmail.Com
-[EmailScraper] Homepage emails found: 2 - info@bizbuddy.co.in, Info@Bizbuddy.Co.In
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://bizbuddy.co.in/contact/ (contact)',
-  'https://bizbuddy.co.in/privacy-policy/ (normal)',
-  'https://bizbuddy.co.in/ (normal)'
-]
-[EmailScraper] Homepage emails found: 0 -
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://posts.gle/search?sca_esv=5676decb8ecacc3d&udm=2&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeqDdErwP5rACeJAty2zADJgYJpo1blvMpITBRgbnARM6y8KwxzRsF24u6g33NutBQob5A_iQFqoKV6t8gXXdCIEJ8JnYNdKJoZI4xXF_cpcf-iEk6cUUutr62OIA6a-5Vkvw052RQJ26MgVJ9k1di7DvbhlFmqrCpuARL1a989np9gNdjg&q=Offers+Digital+Marketing&sa=X&ved=2ahUKEwjc4sW8--yQAxXqePUHHT6yDeYQtKgLegQIEBAB (normal)',
-  'https://posts.gle/search?sca_esv=5676decb8ecacc3d&q=Offers+Digital+Marketing&tbm=nws&source=lnms&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeqDdErwP5rACeJAty2zADJgYJpo1blvMpITBRgbnARM6y8KwxzRsF24u6g33NutBQob5A_iQFqoKV6t8gXXdCIEJ8JnYNdKJoZI4xXF_cpcf-iEk6cUUutr62OIA6a-5Vkvw052RQJ26MgVJ9k1di7DvbhlFmqrCpuARL1a989np9gNdjg&sa=X&ved=2ahUKEwjc4sW8--yQAxXqePUHHT6yDeYQ0pQJegQIDhAB (normal)',
-  'https://posts.gle/search?sca_esv=5676decb8ecacc3d&udm=7&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeqDdErwP5rACeJAty2zADJgYJpo1blvMpITBRgbnARM6y8KwxzRsF24u6g33NutBQob5A_iQFqoKV6t8gXXdCIEJ8JnYNdKJoZI4xXF_cpcf-iEk6cUUutr62OIA6a-5Vkvw052RQJ26MgVJ9k1di7DvbhlFmqrCpuARL1a989np9gNdjg&q=Offers+Digital+Marketing&sa=X&ved=2ahUKEwjc4sW8--yQAxXqePUHHT6yDeYQtKgLegQIDBAB (normal)'
-]
-[EmailScraper] Page https://www.ivipanan.co.in/about-digital-marketing-company/: found 2 emails - info@ivipanan.co.in, info@ivipanan.co.in
-[EmailScraper] Homepage emails found: 1 - creativekshetra@gmail.com
-[EmailScraper] Links found on homepage: 12
-[EmailScraper] Will visit 4 additional pages. Top 3: [
-  'https://creativekshetra.com/contact/ (contact)',
-  'http://creativekshetra.com/contact (contact)',
-  'https://creativekshetra.com/about-us/ (normal)'
-]
-[EmailScraper] Page https://www.icedinfotech.com/contact/: found 1 emails - info@icedinfotech.com
-[EmailScraper] Page https://posts.gle/search?sca_esv=5676decb8ecacc3d&udm=2&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeqDdErwP5rACeJAty2zADJgYJpo1blvMpITBRgbnARM6y8KwxzRsF24u6g33NutBQob5A_iQFqoKV6t8gXXdCIEJ8JnYNdKJoZI4xXF_cpcf-iEk6cUUutr62OIA6a-5Vkvw052RQJ26MgVJ9k1di7DvbhlFmqrCpuARL1a989np9gNdjg&q=Offers+Digital+Marketing&sa=X&ved=2ahUKEwjc4sW8--yQAxXqePUHHT6yDeYQtKgLegQIEBAB: found 0 emails -
-[EmailScraper] Page https://globalsurat.com/contact.html: found 1 emails - Global@Gmail.Com
-[EmailScraper] Page https://creativekshetra.com/contact/: found 1 emails - creativekshetra@gmail.com
-[EmailScraper] Page https://www.icedinfotech.com/about/: found 1 emails - info@icedinfotech.com
-[EmailScraper] Page https://posts.gle/search?sca_esv=5676decb8ecacc3d&q=Offers+Digital+Marketing&tbm=nws&source=lnms&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeqDdErwP5rACeJAty2zADJgYJpo1blvMpITBRgbnARM6y8KwxzRsF24u6g33NutBQob5A_iQFqoKV6t8gXXdCIEJ8JnYNdKJoZI4xXF_cpcf-iEk6cUUutr62OIA6a-5Vkvw052RQJ26MgVJ9k1di7DvbhlFmqrCpuARL1a989np9gNdjg&sa=X&ved=2ahUKEwjc4sW8--yQAxXqePUHHT6yDeYQ0pQJegQIDhAB: found 0 emails -
-[EmailScraper] Page https://globalsurat.com/services/web-maintenance-support: found 2 emails - Global@Gmail.Com, contact@globalsurat.com
-[EmailScraper] Starting scrape for: http://www.skywinitacademy.com/
-[EmailScraper] Page https://posts.gle/search?sca_esv=5676decb8ecacc3d&udm=7&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeqDdErwP5rACeJAty2zADJgYJpo1blvMpITBRgbnARM6y8KwxzRsF24u6g33NutBQob5A_iQFqoKV6t8gXXdCIEJ8JnYNdKJoZI4xXF_cpcf-iEk6cUUutr62OIA6a-5Vkvw052RQJ26MgVJ9k1di7DvbhlFmqrCpuARL1a989np9gNdjg&q=Offers+Digital+Marketing&sa=X&ved=2ahUKEwjc4sW8--yQAxXqePUHHT6yDeYQtKgLegQIDBAB: found 0 emails -
-[EmailScraper] Page https://www.icedinfotech.com/service/: found 1 emails - info@icedinfotech.com
-[EmailScraper] Page http://creativekshetra.com/contact: found 1 emails - creativekshetra@gmail.com
-[EmailScraper] FINAL RESULT for https://www.icedinfotech.com/:
-  - Total emails found: 1
-  - Emails: info@icedinfotech.com
-  - Pages visited: 4
-  - Pages attempted: 4
-  - Errors: 0
-  - Duration: 10715ms
-[2025-11-12T15:50:09.674Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:45.218Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.satvbiz.in/contact: found 0 emails -
+[2025-11-13T05:21:45.520Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://digirivera.com/contact-us/: found 2 emails - Info@digirivera.com, info@digirivera.com
+[2025-11-13T05:21:45.978Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://digitaldhruv.com/
+[2025-11-13T05:21:46.805Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.ivipanan.co.in/core-team/: found 2 emails - info@ivipanan.co.in, info@ivipanan.co.in
+[2025-11-13T05:21:47.120Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.satvbiz.in/about: found 0 emails -
+[2025-11-13T05:21:47.320Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://www.ivipanan.co.in/ {
+  "totalEmails": 2,
+  "emails": "info@ivipanan.co.in, support@ivipanan.co.in",
+  "pagesVisited": 5,
+  "pagesAttempted": 5,
+  "errors": 0,
+  "durationMs": 42532
+}
+[2025-11-13T05:21:47.322Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 70,
   "recordsCollected": 14,
   "maxRecords": 20,
@@ -710,18 +572,17 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[2025-11-12T15:50:09.959Z] [WARN] [BROWSER_SESSION_REFRESH] Refreshing browser session {
-  "reason": "ttl-expired"
+[2025-11-13T05:21:48.207Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://bizbuddy.co.in/contact/: found 2 emails - info@bizbuddy.co.in, Info@Bizbuddy.Co.In
+[2025-11-13T05:21:49.115Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.satvbiz.in/course: found 0 emails -
+[2025-11-13T05:21:49.646Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://www.satvbiz.in/ {
+  "totalEmails": 0,
+  "emails": "",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 7561
 }
-[EmailScraper] Page https://globalsurat.com/about-us: found 1 emails - Global@Gmail.Com
-[EmailScraper] FINAL RESULT for https://globalsurat.com/:
-  - Total emails found: 2
-  - Emails: contact@globalsurat.com, Global@Gmail.Com
-  - Pages visited: 5
-  - Pages attempted: 5
-  - Errors: 0
-  - Duration: 13246ms
-[2025-11-12T15:50:10.591Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:49.647Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 75,
   "recordsCollected": 15,
   "maxRecords": 20,
@@ -734,15 +595,26 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Page https://posts.gle/search?sca_esv=5676decb8ecacc3d&udm=28&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeqDdErwP5rACeJAty2zADJgYJpo1blvMpITBRgbnARM6y8KwxzRsF24u6g33NutBQob5A_iQFqoKV6t8gXXdCIEJ8JnYNdKJoZI4xXF_cpcf-iEk6cUUutr62OIA6a-5Vkvw052RQJ26MgVJ9k1di7DvbhlFmqrCpuARL1a989np9gNdjg&q=Offers+Digital+Marketing&ved=1t:220175&ictx=111: found 0 emails -
-[EmailScraper] FINAL RESULT for https://posts.gle/nj6hVFrgJWdAqqoeA?g_st=awb:
-  - Total emails found: 0
-  - Emails:
-  - Pages visited: 5
-  - Pages attempted: 5
-  - Errors: 0
-  - Duration: 12484ms
-[2025-11-12T15:50:11.456Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:21:50.748Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: https://www.icedinfotech.com/
+[2025-11-13T05:21:50.930Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://digirivera.com/about-us/: found 2 emails - Info@digirivera.com, info@digirivera.com
+[2025-11-13T05:21:51.088Z] [INFO] [EMAIL_SCRAPER_START] Starting scrape for: http://myprachar.com/
+[2025-11-13T05:21:53.172Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 0 -
+[2025-11-13T05:21:53.211Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 7
+[2025-11-13T05:21:53.212Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["http://myprachar.com/Contact-Us.php (contact)","http://myprachar.com/About-Us.php (normal)","http://myprachar.com/index.php (normal)"]
+[2025-11-13T05:21:54.660Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 2 - consultation@digitaldhruv.com, Consultation@Digitaldhruv.Com
+[2025-11-13T05:21:54.726Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:54.726Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://digitaldhruv.com/contact-us/ (contact)","https://digitaldhruv.com/ (normal)","https://digitaldhruv.com/best-online-facebook-marketing-course/ (normal)"]
+[2025-11-13T05:21:55.085Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://myprachar.com/Contact-Us.php: found 1 emails - hi@myprachar.com
+[2025-11-13T05:21:55.162Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://digirivera.com/privacy-policy/: found 2 emails - Info@digirivera.com, info@digirivera.com
+[2025-11-13T05:21:55.686Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://digirivera.com/ {
+  "totalEmails": 2,
+  "emails": "info@digirivera.com, Info@digirivera.com",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 18652
+}
+[2025-11-13T05:21:55.687Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 80,
   "recordsCollected": 16,
   "maxRecords": 20,
@@ -755,96 +627,25 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] Page https://creativekshetra.com/about-us/: found 1 emails - creativekshetra@gmail.com
-[2025-11-12T15:50:13.008Z] [WARN] [BROWSER_SESSION_FORCE_ROTATE] Closing browser with active pages {
-  "pendingPages": 7
+[2025-11-13T05:21:55.967Z] [INFO] [EMAIL_SCRAPER_HOMEPAGE] Homepage emails found: 1 - info@icedinfotech.com
+[2025-11-13T05:21:56.249Z] [INFO] [EMAIL_SCRAPER_LINKS] Links found on homepage: 12
+[2025-11-13T05:21:56.249Z] [INFO] [EMAIL_SCRAPER_PAGES] Will visit 4 additional pages. Top 3: ["https://www.icedinfotech.com/contact/ (contact)","https://www.icedinfotech.com/about/ (normal)","https://www.icedinfotech.com/ (normal)"]
+[2025-11-13T05:21:57.361Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://myprachar.com/About-Us.php: found 0 emails -
+[2025-11-13T05:21:57.970Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://digitaldhruv.com/contact-us/: found 2 emails - consultation@digitaldhruv.com, Consultation@Digitaldhruv.Com
+[2025-11-13T05:21:59.380Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://myprachar.com/index.php: found 0 emails -
+[2025-11-13T05:21:59.920Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.icedinfotech.com/contact/: found 1 emails - info@icedinfotech.com
+[2025-11-13T05:22:00.341Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://digitaldhruv.com/best-online-facebook-marketing-course/: found 2 emails - consultation@digitaldhruv.com, Consultation@Digitaldhruv.Com
+[2025-11-13T05:22:00.341Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://bizbuddy.co.in/privacy-policy/: found 2 emails - info@bizbuddy.co.in, Info@Bizbuddy.Co.In
+[2025-11-13T05:22:01.237Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page http://myprachar.com/Digital-Marketing-Services-In-Surat.php: found 0 emails -
+[2025-11-13T05:22:01.792Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for http://myprachar.com/ {
+  "totalEmails": 1,
+  "emails": "hi@myprachar.com",
+  "pagesVisited": 5,
+  "pagesAttempted": 5,
+  "errors": 0,
+  "durationMs": 10704
 }
-[2025-11-12T15:50:13.162Z] [WARN] [ENHANCED_SCROLL_FAILED] Enhanced scroll failed {
-  "city": "Surat",
-  "error": "Protocol error (Runtime.callFunctionOn): Target closed",
-  "targetCount": 40
-}
-[2025-11-12T15:50:13.221Z] [WARN] [ENHANCED_SCROLL_FAILED] Enhanced scroll failed {
-  "city": "Surat",
-  "error": "Protocol error (Runtime.callFunctionOn): Target closed",
-  "targetCount": 40
-}
-[2025-11-12T15:50:13.265Z] [WARN] [SCROLL_EVAL_CONTEXT_DESTROYED] Card evaluation failed due to destroyed context {
-  "city": "Surat",
-  "error": "Execution context was destroyed",
-  "errorType": "Error"
-}
-[2025-11-12T15:50:13.265Z] [WARN] [FALLBACK_SCROLL_SKIPPED] Skipping autoScroll due to closed/disconnected page {
-  "city": "Surat",
-  "cardsAfterScroll": 0,
-  "targetCount": 40,
-  "isClosed": true,
-  "hasTarget": true
-}
-[2025-11-12T15:50:13.265Z] [INFO] [CITY_SCRAPE_STOPPED] Zone scrape stopped (expected during shutdown) {
-  "city": "Surat",
-  "state": "Gujarat",
-  "zone": "zone-0",
-  "reason": "detached_frame"
-}
-[2025-11-12T15:50:13.266Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
-  "url": "https://www.google.com/maps/search/digital%20marketing/@21.049489,72.81666,14z?hl=en",
-  "city": "Surat",
-  "state": "Gujarat",
-  "country": "India",
-  "zone": "zone-3",
-  "coords": {
-    "lat": 21.049489,
-    "lng": 72.81666
-  }
-}
-[2025-11-12T15:50:13.326Z] [WARN] [SCROLL_EVAL_CONTEXT_DESTROYED] Card evaluation failed due to destroyed context {
-  "city": "Surat",
-  "error": "Execution context was destroyed",
-  "errorType": "Error"
-}
-[2025-11-12T15:50:13.327Z] [WARN] [FALLBACK_SCROLL_SKIPPED] Skipping autoScroll due to closed/disconnected page {
-  "city": "Surat",
-  "cardsAfterScroll": 0,
-  "targetCount": 40,
-  "isClosed": true,
-  "hasTarget": true
-}
-[2025-11-12T15:50:13.328Z] [INFO] [CITY_SCRAPE_STOPPED] Zone scrape stopped (expected during shutdown) {
-  "city": "Surat",
-  "state": "Gujarat",
-  "zone": "zone-6",
-  "reason": "detached_frame"
-}
-[2025-11-12T15:50:13.329Z] [INFO] [CITY_SCRAPE_START] Scraping city zone (discovery only) {
-  "url": "https://www.google.com/maps/search/digital%20marketing/@21.139579,72.961613,14z?hl=en",
-  "city": "Surat",
-  "state": "Gujarat",
-  "country": "India",
-  "zone": "zone-20",
-  "coords": {
-    "lat": 21.139579,
-    "lng": 72.961613
-  }
-}
-[EmailScraper] Homepage error: Attempted to use detached Frame 'B90766A402C34818286575E4A6A3BDDA'.
-[EmailScraper] Will visit 0 additional pages. Top 3: []
-[EmailScraper] FINAL RESULT for http://www.skywinitacademy.com/:
-  - Total emails found: 0
-  - Emails:
-  - Pages visited: 0
-  - Pages attempted: 0
-  - Errors: 1
-  - Duration: 5517ms
-[Email Scraper] Retrying http://www.skywinitacademy.com/ after browser closure (0 emails found)...
-[EmailScraper] FINAL RESULT for https://www.ivipanan.co.in/:
-  - Total emails found: 2
-  - Emails: info@ivipanan.co.in, support@ivipanan.co.in
-  - Pages visited: 3
-  - Pages attempted: 4
-  - Errors: 1
-  - Duration: 54209ms
-[2025-11-12T15:50:14.192Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:22:01.793Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 85,
   "recordsCollected": 17,
   "maxRecords": 20,
@@ -857,14 +658,18 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] FINAL RESULT for https://creativekshetra.com/:
-  - Total emails found: 1
-  - Emails: creativekshetra@gmail.com
-  - Pages visited: 4
-  - Pages attempted: 5
-  - Errors: 1
-  - Duration: 13524ms
-[2025-11-12T15:50:15.119Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:22:02.176Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.icedinfotech.com/about/: found 1 emails - info@icedinfotech.com
+[2025-11-13T05:22:04.586Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://digitaldhruv.com/online-social-media-marketing-consultation/: found 2 emails - consultation@digitaldhruv.com, Consultation@Digitaldhruv.Com
+[2025-11-13T05:22:04.862Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://www.icedinfotech.com/service/: found 1 emails - info@icedinfotech.com
+[2025-11-13T05:22:05.110Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://digitaldhruv.com/ {
+  "totalEmails": 2,
+  "emails": "consultation@digitaldhruv.com, Consultation@Digitaldhruv.Com",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 19132
+}
+[2025-11-13T05:22:05.110Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 90,
   "recordsCollected": 18,
   "maxRecords": 20,
@@ -877,8 +682,15 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[Email Scraper] Retry failed for http://www.skywinitacademy.com/: Connection closed.
-[2025-11-12T15:50:16.113Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 progress {
+[2025-11-13T05:22:05.398Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://www.icedinfotech.com/ {
+  "totalEmails": 1,
+  "emails": "info@icedinfotech.com",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 14650
+}
+[2025-11-13T05:22:05.398Z] [INFO] [JOB_PROGRESS] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 progress {
   "percentage": 95,
   "recordsCollected": 19,
   "maxRecords": 20,
@@ -891,14 +703,164 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   },
   "currentLocation": "Surat, Gujarat, India"
 }
-[EmailScraper] FINAL RESULT for https://bizbuddy.co.in/:
-  - Total emails found: 2
-  - Emails: info@bizbuddy.co.in, Info@Bizbuddy.Co.In
-  - Pages visited: 1
-  - Pages attempted: 4
-  - Errors: 3
-  - Duration: 29208ms
-[2025-11-12T15:50:20.477Z] [INFO] [ZONE_BATCH_TARGET_REACHED] Target records reached {
+[2025-11-13T05:22:09.158Z] [INFO] [EMAIL_SCRAPER_PAGE_RESULT] Page https://bizbuddy.co.in/digital-marketing/: found 2 emails - info@bizbuddy.co.in, Info@Bizbuddy.Co.In
+[2025-11-13T05:22:09.717Z] [INFO] [EMAIL_SCRAPER_COMPLETE] FINAL RESULT for https://bizbuddy.co.in/ {
+  "totalEmails": 2,
+  "emails": "info@bizbuddy.co.in, Info@Bizbuddy.Co.In",
+  "pagesVisited": 4,
+  "pagesAttempted": 4,
+  "errors": 0,
+  "durationMs": 40467
+}
+[2025-11-13T05:22:12.806Z] [INFO] [SCROLL_RESULTS] Cards found after scrolling {
+  "city": "Surat",
+  "initialCards": 0,
+  "cardsAfterScroll": 40,
+  "targetCount": 40,
+  "improvement": 40
+}
+[2025-11-13T05:22:12.811Z] [INFO] [FILTER_RESULTS] Pre-filtering results {
+  "location": "Surat, Gujarat, India",
+  "totalBusinessesFound": 40,
+  "matchingFilter": 40,
+  "filteredOut": 0,
+  "ratingFilter": null,
+  "reviewFilter": null,
+  "filterEfficiency": "100.0%"
+}
+[2025-11-13T05:22:12.811Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/VISIONEX+PUBLICITY+-+BEST+DIGITAL+MARKETING+COMPANY+IN+KATARGAM,+SURAT/data=!4m7!3m6!1s0x3be04f5179038fc7:0x4890b2d26b1c9b86!8m2!3d21.2317903!4d72.8365391!16s%2Fg%2F11ldxv4z1m!19sChIJx48DeVFP4DsRhpsca9KykEg?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.811Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/MyPrachar/data=!4m7!3m6!1s0x3be04f950c29886b:0xf4c685472a944afb!8m2!3d21.2345634!4d72.8713509!16s%2Fg%2F11h_9vw8bj!19sChIJa4gpDJVP4DsR-0qUKkeFxvQ?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.811Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Global+Surat:+Digital+Marketing+Agency+in+Surat/data=!4m7!3m6!1s0x3be04f867d630269:0x69a15cda27acbbfa!8m2!3d21.234215!4d72.8711907!16s%2Fg%2F11fmgzls0l!19sChIJaQJjfYZP4DsR-rusJ9pcoWk?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Growly+Digital/data=!4m7!3m6!1s0x84ef6570ada63dad:0x83f76b4ca6851085!8m2!3d21.235305!4d72.8712815!16s%2Fg%2F11kjzgkdzk!19sChIJrT2mrXBl74QRhRCFpkxr94M?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/DigiRivera+Digital+Marketing+Agency/data=!4m7!3m6!1s0x3be04fe7fb7edeed:0x539eab8b41cd2f74!8m2!3d21.2367632!4d72.884924!16s%2Fg%2F11sswpsfp3!19sChIJ7d5---dP4DsRdC_NQYurnlM?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/iVIPANAN+Digital+Marketing+Services/data=!4m7!3m6!1s0x3be04dcb166525f5:0x6d628b8cf0d8a410!8m2!3d21.199125!4d72.7907774!16s%2Fg%2F11hf4r_q8r!19sChIJ9SVlFstN4DsREKTY8IyLYm0?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Dhruv+Parekh+-+Digital+Marketing+Expert/data=!4m7!3m6!1s0x3be04dd68b2839fb:0x85cdaddfb3f65ff3!8m2!3d21.2135093!4d72.7954496!16s%2Fg%2F11h4_ls0w4!19sChIJ-zkoi9ZN4DsR81_2s9-tzYU?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Hevik+Digital+-+Digital+Marketing+Services+In+Surat/data=!4m7!3m6!1s0x3be04f4dcff47091:0xf9f5f20e6471e562!8m2!3d21.2154555!4d72.872811!16s%2Fg%2F11ydllhx_v!19sChIJkXD0z01P4DsRYuVxZA7y9fk?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Sunlight+Digital+Tech+-+Digital+Marketing+Surat,+SEO+Company,+Website+Design/data=!4m7!3m6!1s0x3be04f7aba0d4cc5:0xe98d343cf7ff292f!8m2!3d21.2034005!4d72.8678929!16s%2Fg%2F11s61swd87!19sChIJxUwNunpP4DsRLyn_9zw0jek?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Bizbuddy+Digital+Marketing+Agency+%7C+SEO+%7C+Business+Automation+solutions/data=!4m7!3m6!1s0x3be04dd3c00af83d:0xb12cabc2f372abf3!8m2!3d21.1920121!4d72.7968068!16s%2Fg%2F11ddxbzrcl!19sChIJPfgKwNNN4DsR86ty88KrLLE?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/DMAI+PVT+LTD/data=!4m7!3m6!1s0x3be04f08307f9fd3:0x4e7c5fd3ca545289!8m2!3d21.1995565!4d72.8680806!16s%2Fg%2F11bw69rzhp!19sChIJ059_MAhP4DsRiVJUytNffE4?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Webgrov+Digital+marketing+agency/data=!4m7!3m6!1s0x3be04d8a6547ac57:0x3cf31bcba0fa19e0!8m2!3d21.1978842!4d72.8814688!16s%2Fg%2F11frnwtff7!19sChIJV6xHZYpN4DsR4Bn6oMsb8zw?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:12.812Z] [INFO] [URL_DEDUPLICATION] Filtered duplicate URLs at listing level {
+  "city": "Surat",
+  "totalUrls": 40,
+  "uniqueUrls": 28,
+  "duplicatesFiltered": 12,
+  "toSchedule": 20
+}
+GET /admin/api/queues?activeQueue=scraper-business&status=completed&page=1&jobsPerPage=10 304 11.129 ms - -
+[2025-11-13T05:22:30.548Z] [WARN] [ENHANCED_SCROLL_FAILED] Enhanced scroll failed {
+  "city": "Surat",
+  "error": "Runtime.callFunctionOn timed out. Increase the 'protocolTimeout' setting in launch/connect calls for a higher timeout if needed.",
+  "targetCount": 40
+}
+[2025-11-13T05:22:30.553Z] [INFO] [SCROLL_RESULTS] Cards found after scrolling {
+  "city": "Surat",
+  "initialCards": 0,
+  "cardsAfterScroll": 20,
+  "targetCount": 40,
+  "improvement": 20
+}
+[2025-11-13T05:22:30.559Z] [INFO] [FILTER_RESULTS] Pre-filtering results {
+  "location": "Surat, Gujarat, India",
+  "totalBusinessesFound": 20,
+  "matchingFilter": 20,
+  "filteredOut": 0,
+  "ratingFilter": null,
+  "reviewFilter": null,
+  "filterEfficiency": "100.0%"
+}
+[2025-11-13T05:22:30.559Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/iVIPANAN+Digital+Marketing+Services/data=!4m7!3m6!1s0x3be04dcb166525f5:0x6d628b8cf0d8a410!8m2!3d21.199125!4d72.7907774!16s%2Fg%2F11hf4r_q8r!19sChIJ9SVlFstN4DsREKTY8IyLYm0?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.559Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Dhruv+Parekh+-+Digital+Marketing+Expert/data=!4m7!3m6!1s0x3be04dd68b2839fb:0x85cdaddfb3f65ff3!8m2!3d21.2135093!4d72.7954496!16s%2Fg%2F11h4_ls0w4!19sChIJ-zkoi9ZN4DsR81_2s9-tzYU?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.560Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Bizbuddy+Digital+Marketing+Agency+%7C+SEO+%7C+Business+Automation+solutions/data=!4m7!3m6!1s0x3be04dd3c00af83d:0xb12cabc2f372abf3!8m2!3d21.1920121!4d72.7968068!16s%2Fg%2F11ddxbzrcl!19sChIJPfgKwNNN4DsR86ty88KrLLE?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.560Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/The+Digital+Crazy+%7C+Digital+Marketing+Company+in+Surat/data=!4m7!3m6!1s0x3be04d2f69d86a43:0x8bdebedb02cb1608!8m2!3d21.1669554!4d72.7956953!16s%2Fg%2F11rw7ktk81!19sChIJQ2rYaS9N4DsRCBbLAtu-3os?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.560Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Good+Old+Geek/data=!4m7!3m6!1s0x3be04dd6a644a11b:0xe00c85670c92d6d5!8m2!3d21.18678!4d72.7859125!16s%2Fg%2F11gh086tv8!19sChIJG6FEptZN4DsR1daSDGeFDOA?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.560Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/TechEasify+-+Branding+Agency/data=!4m7!3m6!1s0x3be04e6a38425a89:0x82250b4f0435ba0e!8m2!3d21.1909637!4d72.7982082!16s%2Fg%2F11hd1tdl2l!19sChIJiVpCOGpO4DsRDro1BE8LJYI?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.560Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/iDigitals/data=!4m7!3m6!1s0x3be04e74cbe9d025:0xe6184cc35225a5a6!8m2!3d21.171622!4d72.8087821!16s%2Fg%2F11c67wm8tf!19sChIJJdDpy3RO4DsRpqUlUsNMGOY?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.560Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Skyline+Digital+Social+Media+Marketing+%7C+Graphic+Designer+%7C+Website+Development/data=!4m7!3m6!1s0x3be04ff34e32e9c1:0x5fe6754eab2eb8eb!8m2!3d21.1921571!4d72.7997679!16s%2Fg%2F11hyzbbq3m!19sChIJwekyTvNP4DsR67guq0515l8?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.561Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/LW+Digital+Marketing/data=!4m7!3m6!1s0x3be04f5425b7baeb:0x96eaf38db9e0bb0c!8m2!3d21.1899062!4d72.7955148!16s%2Fg%2F11py8lvlhx!19sChIJ67q3JVRP4DsRDLvguY3z6pY?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.561Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/Infinique+Digital/data=!4m7!3m6!1s0x3be04f20432fcc8f:0x6a644724b4ea292c!8m2!3d21.194603!4d72.801111!16s%2Fg%2F11fnh77939!19sChIJj8wvQyBP4DsRLCnqtCRHZGo?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.561Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/ASDM+-+Digital+marketing+course+in+Surat/data=!4m7!3m6!1s0x3be053428fa108e3:0x8d2b7660c3245be5!8m2!3d21.1524036!4d72.7683823!16s%2Fg%2F11fkt7vp1s!19sChIJ4wihj0JT4DsR5Vskw2B2K40?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.561Z] [INFO] [DUPLICATE_URL_FILTERED] Skipping duplicate URL at listing level {
+  "url": "https://www.google.com/maps/place/ICED+infotech+-+Website+Developers+in+Surat+-+SEO+Company+in+Surat+-+Digital+Marketing+Company+in+Surat/data=!4m7!3m6!1s0x3be04c2e4581eb45:0x40bce4cf2bf9ec0b!8m2!3d21.1877142!4d72.813481!16s%2Fg%2F1tf_ls1j!19sChIJReuBRS5M4DsRC-z5K8_kvEA?authuser=0&hl=en&rclk=1",
+  "city": "Surat"
+}
+[2025-11-13T05:22:30.561Z] [INFO] [URL_DEDUPLICATION] Filtered duplicate URLs at listing level {
+  "city": "Surat",
+  "totalUrls": 20,
+  "uniqueUrls": 8,
+  "duplicatesFiltered": 12,
+  "toSchedule": 8
+}
+[2025-11-13T05:22:30.664Z] [INFO] [ZONE_BATCH_TARGET_REACHED] Target records reached {
   "city": "Surat",
   "batchesProcessed": 1,
   "totalZonesProcessed": 51,
@@ -906,7 +868,7 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
   "targetRecords": 20,
   "randomStartBatch": 0
 }
-[2025-11-12T15:50:20.477Z] [INFO] [CITY_SCRAPE_COMPLETE] City scraping completed {
+[2025-11-13T05:22:30.664Z] [INFO] [CITY_SCRAPE_COMPLETE] City scraping completed {
   "city": "Surat",
   "batchesProcessed": 1,
   "totalZonesProcessed": 51,
@@ -917,18 +879,17 @@ GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerP
     0
   ]
 }
-[2025-11-12T15:50:21.193Z] [INFO] [JOB_CANCELLED_CLEANUP] Job cancelled - skipping final progress update {
-  "jobId": "aeb3e959-2c3d-4398-bf7f-a856be9fbd52",
+[2025-11-13T05:22:31.049Z] [INFO] [JOB_CANCELLED_CLEANUP] Job cancelled - skipping final progress update {
+  "jobId": "d5430f54-eb8b-4977-bc22-d9073cbdc673",
   "recordsCollected": 20
 }
-[MEMORY_USAGE] JOB_COMPLETE { rss: '249 MB', heapUsed: '133 MB', external: '22 MB' }
-[2025-11-12T15:50:21.258Z] [INFO] [JOB_COMPLETED] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 completed
-[2025-11-12T15:50:21.277Z] [INFO] [JOB_FINISHED] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 finished with 20 records, status: completed
-[2025-11-12T15:50:21.277Z] [INFO] [CREDIT_CALCULATION] BusinessQueue: Job aeb3e959-2c3d-4398-bf7f-a856be9fbd52 - Requested: 20, Got: 20, Estimated: 20, Actual: 20, Refund: 0
-GET /api/v1/jobs 200 109.618 ms - 3701
-GET /api/v1/users/me 200 106.279 ms - 1005
-GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerPage=10 200 27.861 ms - 177897
-GET /api/v1/aeb3e959-2c3d-4398-bf7f-a856be9fbd52/download 200 63.586 ms - 12612
-GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerPage=10 304 28.999 ms - -
-GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerPage=10 304 32.457 ms - -
-GET /admin/api/queues?activeQueue=scraper-business&status=latest&page=1&jobsPerPage=10 304 30.101 ms - -
+[2025-11-13T05:22:31.049Z] [INFO] [MEMORY_USAGE] JOB_COMPLETE {
+  "rss": "166 MB",
+  "heapUsed": "115 MB",
+  "external": "21 MB"
+}
+[2025-11-13T05:22:31.088Z] [INFO] [JOB_COMPLETED] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 completed
+[2025-11-13T05:22:31.105Z] [INFO] [JOB_FINISHED] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 finished with 20 records, status: completed
+[2025-11-13T05:22:31.105Z] [INFO] [CREDIT_CALCULATION] BusinessQueue: Job d5430f54-eb8b-4977-bc22-d9073cbdc673 - Requested: 20, Got: 20, Estimated: 20, Actual: 20, Refund: 0
+GET /admin/api/queues?activeQueue=scraper-business&status=completed&page=1&jobsPerPage=10 200 7.252 ms - 173193
+GET /admin/api/queues?activeQueue=scraper-business&status=completed&page=1&jobsPerPage=10 304 6.486 ms - -

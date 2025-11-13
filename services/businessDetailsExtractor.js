@@ -305,7 +305,7 @@ export async function extractBusinessDetails(
                                  err.message.includes("frame was detached");
           
           if (process.env.LOG_EMAIL_FAILURES === "true" || isBrowserError) {
-            logger.warn(`[Email Scraper] ${isBrowserError ? 'Browser closed' : 'Timeout'} for ${businessData.website}:`, err.message);
+            logger.warn("EMAIL_SCRAPER_ERROR", `${isBrowserError ? 'Browser closed' : 'Timeout'} for ${businessData.website}: ${err.message}`);
           }
           
           // Return empty - retry will be handled after checking the result
@@ -332,13 +332,43 @@ export async function extractBusinessDetails(
           );
         };
         
+        // Helper function to check if browser pool is ready
+        const waitForBrowserReady = async (maxWaitMs = 15000) => {
+          const startTime = Date.now();
+          let lastError = null;
+          
+          while (Date.now() - startTime < maxWaitMs) {
+            try {
+              // Try to acquire a test page to verify browser is ready
+              const testPage = await browser.acquirePage();
+              if (testPage) {
+                await browser.releasePage(testPage);
+                return true; // Browser is ready
+              }
+            } catch (err) {
+              lastError = err;
+              // Wait 2 seconds before next attempt
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+          
+          // Timeout reached
+          logger.warn("BROWSER_POOL_NOT_READY", `Browser pool not ready after ${maxWaitMs}ms: ${lastError?.message || 'unknown'}`);
+          return false;
+        };
+        
         // Retry logic: Check result AFTER promise completes
         // Retry if: (1) no emails found AND (2) browser closure detected
         if (rawEmails.length === 0 && hasBrowserClosureError(scrapingErrors)) {
-          logger.log(`[Email Scraper] Retrying ${businessData.website} after browser closure (0 emails found)...`);
+          logger.info("EMAIL_SCRAPER_RETRY", `Retrying ${businessData.website} after browser closure (0 emails found)...`);
           
-          // Wait 5 seconds for browser pool to stabilize
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          // Wait for browser pool to be ready (with 15s timeout)
+          const isReady = await waitForBrowserReady(15000);
+          
+          if (!isReady) {
+            logger.warn("EMAIL_SCRAPER_RETRY_SKIPPED", `Skipping retry for ${businessData.website} - browser pool not ready`);
+            // Keep original empty result, don't attempt retry
+          } else {
           
           try {
             // Retry with fresh browser
@@ -362,7 +392,7 @@ export async function extractBusinessDetails(
               })
             );
             
-            logger.log(`[Email Scraper] Retry completed for ${businessData.website}: ${retryResult.emails?.length || 0} emails found`);
+            logger.info("EMAIL_SCRAPER_RETRY_COMPLETE", `Retry completed for ${businessData.website}: ${retryResult.emails?.length || 0} emails found`);
             
             // Use retry result if successful
             if (retryResult.emails && retryResult.emails.length > 0) {
@@ -370,8 +400,9 @@ export async function extractBusinessDetails(
               scrapingErrors = retryResult.errors || [];
             }
           } catch (retryErr) {
-            logger.warn(`[Email Scraper] Retry failed for ${businessData.website}:`, retryErr.message);
+            logger.warn("EMAIL_SCRAPER_RETRY_FAILED", `Retry failed for ${businessData.website}: ${retryErr.message}`);
             // Keep original empty result
+          }
           }
         }
         // businessData.timings.scrape_ms = Math.round(
@@ -527,9 +558,9 @@ export async function extractBusinessDetails(
         //   })),
         // };
       } catch (err) {
-        console.warn(
-          "email extraction/verification failed:",
-          err?.message || err
+        logger.warn(
+          "EMAIL_EXTRACTION_FAILED",
+          `Email extraction/verification failed: ${err?.message || err}`
         );
         businessData.email = [];
         businessData.email_status = [];
@@ -542,15 +573,7 @@ export async function extractBusinessDetails(
     return null;
   }
 
-  // total time for this extractor run
-  // businessData.timings = businessData.timings || {
-  //   scrape_ms: null,
-  //   verify: { wall_ms: null, sum_email_ms: null, per_email: [] },
-  //   total_ms: null,
-  // };
-  // businessData.timings.total_ms = Math.round(
-  //   performance.now() - T_OVERALL_START
-  // );
+
 
   return businessData;
 }

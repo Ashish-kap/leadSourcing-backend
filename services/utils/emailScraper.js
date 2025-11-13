@@ -5,6 +5,7 @@
 //   const { emails } = await scrapeEmails({ browser, startUrl: "https://site" });
 
 import { fileURLToPath } from "url";
+import logger from "../logger.js";
 
 const DEFAULTS = {
   depth: 1,
@@ -359,7 +360,7 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
     // Step 1: Visit homepage - extract emails AND get links at the same time
     let homepageLinks = [];
     try {
-      console.log(`[EmailScraper] Starting scrape for: ${startUrl}`);
+      logger.info("EMAIL_SCRAPER_START", `Starting scrape for: ${startUrl}`);
       await page.goto(startUrl, { waitUntil, timeout: cfg.timeout });
       await sleep(1000); // 1 second for JS-heavy sites to render
       
@@ -369,16 +370,16 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
         restrictSet: cfg.restrictDomain ? allowSuffixes : null,
       });
       homepageEmails.forEach((e) => found.add(e));
-      console.log(`[EmailScraper] Homepage emails found: ${homepageEmails.length} - ${homepageEmails.join(', ')}`);
+      logger.info("EMAIL_SCRAPER_HOMEPAGE", `Homepage emails found: ${homepageEmails.length} - ${homepageEmails.join(', ')}`);
       
       // Get links for other pages
       homepageLinks = await candidateLinks(page, startUrl, cfg.perPageLinks);
-      console.log(`[EmailScraper] Links found on homepage: ${homepageLinks.length}`);
+      logger.info("EMAIL_SCRAPER_LINKS", `Links found on homepage: ${homepageLinks.length}`);
       
       visited.add(startUrl);
       visitedList.push(startUrl);
     } catch (err) {
-      console.error(`[EmailScraper] Homepage error: ${err.message}`);
+      logger.error("EMAIL_SCRAPER_ERROR", `Homepage error: ${err.message}`);
       errors.push({
         url: startUrl,
         type: err.name || "UnknownError",
@@ -411,8 +412,8 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
         priority: score >= 120 ? "contact" : score >= 60 ? "support" : "normal" 
       }));
     
-    console.log(`[EmailScraper] Will visit ${toVisit.length} additional pages. Top 3:`, 
-      toVisit.slice(0, 3).map(p => `${p.url} (${p.priority})`));
+    logger.info("EMAIL_SCRAPER_PAGES", `Will visit ${toVisit.length} additional pages. Top 3: ${JSON.stringify(toVisit.slice(0, 3).map(p => `${p.url} (${p.priority})`))}`);
+
 
     // Step 4: Visit remaining pages in priority order
     while (toVisit.length && visited.size < cfg.max) {
@@ -441,7 +442,7 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
             restrictSet: cfg.restrictDomain ? allowSuffixes : null,
           });
           emails.forEach((e) => found.add(e));
-          console.log(`[EmailScraper] Page ${url}: found ${emails.length} emails - ${emails.join(', ')}`);
+          logger.info("EMAIL_SCRAPER_PAGE_RESULT", `Page ${url}: found ${emails.length} emails - ${emails.join(', ')}`);
           visitedList.push(url);
           pageSuccess = true;
 
@@ -481,13 +482,14 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
   }
 
   const emails = Array.from(found).sort((a, b) => a.localeCompare(b));
-  console.log(`[EmailScraper] FINAL RESULT for ${startUrl}:`);
-  console.log(`  - Total emails found: ${emails.length}`);
-  console.log(`  - Emails: ${emails.join(', ')}`);
-  console.log(`  - Pages visited: ${visitedList.length}`);
-  console.log(`  - Pages attempted: ${visited.size}`);
-  console.log(`  - Errors: ${errors.length}`);
-  console.log(`  - Duration: ${Date.now() - startedAt}ms`);
+  logger.info("EMAIL_SCRAPER_COMPLETE", `FINAL RESULT for ${startUrl}`, {
+    totalEmails: emails.length,
+    emails: emails.join(', '),
+    pagesVisited: visitedList.length,
+    pagesAttempted: visited.size,
+    errors: errors.length,
+    durationMs: Date.now() - startedAt
+  });
   
   return {
     emails,
