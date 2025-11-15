@@ -34,7 +34,7 @@ const DETAIL_NAV_TIMEOUT_MS = Number(
 );
 
 const BROWSER_SESSION_MAX_MS = Number(
-  process.env.BROWSER_SESSION_MAX_MS || 30000
+  process.env.BROWSER_SESSION_MAX_MS || 60000 // 60 seconds - allows 10 concurrent email scrapes (each 10-30s)
 );
 const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
   process.env.BROWSER_SESSION_DRAIN_TIMEOUT_MS || 3000
@@ -356,7 +356,7 @@ export async function runScraper(
   // Memory tracking helper
   const logMemory = (label) => {
     const usage = process.memoryUsage();
-    console.log(`[MEMORY_USAGE] ${label}`, {
+    logger.info("MEMORY_USAGE", label, {
       rss: `${(usage.rss / 1024 / 1024).toFixed(0)} MB`,
       heapUsed: `${(usage.heapUsed / 1024 / 1024).toFixed(0)} MB`,
       external: `${(usage.external / 1024 / 1024).toFixed(0)} MB`,
@@ -386,7 +386,7 @@ export async function runScraper(
 
   // Log initial memory and config
   logMemory("SCRAPER_START");
-  console.log("[SCRAPER_CONFIG] Current configuration:", {
+  logger.info("SCRAPER_CONFIG", "Current configuration", {
     CITY_CONCURRENCY,
     DETAIL_CONCURRENCY,
     POOL_MAX_PAGES,
@@ -1580,7 +1580,7 @@ export async function runScraper(
   if (global.gc) {
     try {
       global.gc();
-      console.log("[MEMORY] Forced garbage collection after job completion");
+      logger.info("MEMORY_GC", "Forced garbage collection after job completion");
     } catch (e) {
       // GC not available
     }

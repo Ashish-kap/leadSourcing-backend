@@ -5,10 +5,11 @@
 //   const { emails } = await scrapeEmails({ browser, startUrl: "https://site" });
 
 import { fileURLToPath } from "url";
+import logger from "../logger.js";
 
 const DEFAULTS = {
   depth: 1,
-  max: 6,
+  max: 8,
   timeout: 20000,
   delay: 300,
   wait: "dom", // dom | load | networkidle
@@ -141,6 +142,7 @@ function decodeCf(hex) {
 }
 
 async function extractFromPage(page, { noDeobfuscate, restrictSet }) {
+  // 1. Extract from mailto links
   const fromMailto = await page.$$eval('a[href^="mailto:"]', (as) =>
     as
       .map(
@@ -150,6 +152,7 @@ async function extractFromPage(page, { noDeobfuscate, restrictSet }) {
       .filter(Boolean)
   );
 
+  // 2. Extract from visible text
   const visibleText = await page.evaluate(() =>
     document.body ? document.body.innerText : ""
   );
@@ -157,14 +160,66 @@ async function extractFromPage(page, { noDeobfuscate, restrictSet }) {
   const textBag = noDeobfuscate ? text : safeDeobfuscate(text);
   const textMatches = textBag.match(EMAIL_RE) || [];
 
+  // 3. Extract from Cloudflare protected emails
   const cfHexes = await page.$$eval("[data-cfemail]", (els) =>
     els.map((e) => e.getAttribute("data-cfemail")).filter(Boolean)
   );
   const cfDecoded = cfHexes.map((h) => decodeCf(h)).filter(Boolean);
 
-  return sanitizeEmails([].concat(fromMailto, textMatches, cfDecoded), {
-    restrictSet,
+  // 4. Extract from meta tags
+  const fromMeta = await page.$$eval('meta[name*="email"], meta[property*="email"], meta[name="contact"], meta[property="contact"]', (metas) =>
+    metas.map((m) => m.getAttribute("content")).filter(Boolean)
+  );
+
+  // 5. Extract from footer specifically (often contains contact info)
+  const footerText = await page.evaluate(() => {
+    const footer = document.querySelector("footer, .footer, #footer");
+    return footer ? footer.innerText : "";
   });
+  const footerMatches = footerText.match(EMAIL_RE) || [];
+
+  // 6. Extract from data attributes and aria-labels
+  const fromDataAttrs = await page.evaluate(() => {
+    const elements = document.querySelectorAll("[data-email], [data-contact], [aria-label*='email'], [aria-label*='Email'], [aria-label*='contact'], [aria-label*='Contact']");
+    const results = [];
+    elements.forEach((el) => {
+      const dataEmail = el.getAttribute("data-email");
+      const dataContact = el.getAttribute("data-contact");
+      const ariaLabel = el.getAttribute("aria-label");
+      if (dataEmail) results.push(dataEmail);
+      if (dataContact) results.push(dataContact);
+      if (ariaLabel) results.push(ariaLabel);
+    });
+    return results;
+  });
+  const dataAttrMatches = fromDataAttrs.flatMap((str) => str.match(EMAIL_RE) || []);
+
+  // 7. Extract from JSON-LD structured data
+  const fromJsonLd = await page.evaluate(() => {
+    const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+    const results = [];
+    scripts.forEach((script) => {
+      try {
+        const data = JSON.parse(script.textContent || "");
+        const findEmails = (obj) => {
+          if (!obj || typeof obj !== "object") return;
+          if (obj.email) results.push(obj.email);
+          if (obj.contactPoint && obj.contactPoint.email) results.push(obj.contactPoint.email);
+          Object.values(obj).forEach((val) => {
+            if (Array.isArray(val)) val.forEach(findEmails);
+            else if (typeof val === "object") findEmails(val);
+          });
+        };
+        findEmails(data);
+      } catch {}
+    });
+    return results;
+  });
+
+  return sanitizeEmails(
+    [].concat(fromMailto, textMatches, cfDecoded, fromMeta, footerMatches, dataAttrMatches, fromJsonLd),
+    { restrictSet }
+  );
 }
 
 async function candidateLinks(page, baseUrl, limit = 8) {
@@ -189,9 +244,12 @@ async function candidateLinks(page, baseUrl, limit = 8) {
     );
 
   const weights = [
-    { key: "contact", w: 100 },
-    { key: "contacts", w: 100 },
-    { key: "impressum", w: 90 },
+    { key: "contact", w: 150 }, // Highest priority - increased weight
+    { key: "contacts", w: 150 },
+    { key: "reach", w: 140 }, // New keyword
+    { key: "get-in-touch", w: 140 }, // New keyword
+    { key: "connect", w: 130 }, // New keyword
+    { key: "impressum", w: 120 }, // Increased - common in German sites
     { key: "support", w: 70 },
     { key: "help", w: 65 },
     { key: "team", w: 40 },
@@ -264,7 +322,8 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
   page.on("request", (req) => {
     try {
       const type = req.resourceType();
-      if (["image", "media", "font", "stylesheet"].includes(type))
+      // Don't block stylesheets - some sites need CSS for proper DOM rendering
+      if (["image", "media", "font"].includes(type))
         return req.abort();
       if (cfg.blockThirdParty) {
         const u = new URL(req.url());
@@ -290,15 +349,76 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
   });
 
   const visited = new Set();
-  const toVisit = [{ url: startUrl, d: 0 }];
   const visitedList = [];
   const found = new Set();
   const startedAt = Date.now();
+  const errors = []; // Track errors for debugging
 
+  // SIMPLIFIED APPROACH: Visit homepage, extract emails, get links, visit high-priority pages
+  
   try {
+    // Step 1: Visit homepage - extract emails AND get links at the same time
+    let homepageLinks = [];
+    try {
+      logger.info("EMAIL_SCRAPER_START", `Starting scrape for: ${startUrl}`);
+      await page.goto(startUrl, { waitUntil, timeout: cfg.timeout });
+      await sleep(1000); // 1 second for JS-heavy sites to render
+      
+      // EXTRACT EMAILS from homepage immediately
+      const homepageEmails = await extractFromPage(page, {
+        noDeobfuscate: cfg.noDeobfuscate,
+        restrictSet: cfg.restrictDomain ? allowSuffixes : null,
+      });
+      homepageEmails.forEach((e) => found.add(e));
+      logger.info("EMAIL_SCRAPER_HOMEPAGE", `Homepage emails found: ${homepageEmails.length} - ${homepageEmails.join(', ')}`);
+      
+      // Get links for other pages
+      homepageLinks = await candidateLinks(page, startUrl, cfg.perPageLinks);
+      logger.info("EMAIL_SCRAPER_LINKS", `Links found on homepage: ${homepageLinks.length}`);
+      
+      visited.add(startUrl);
+      visitedList.push(startUrl);
+    } catch (err) {
+      logger.error("EMAIL_SCRAPER_ERROR", `Homepage error: ${err.message}`);
+      errors.push({
+        url: startUrl,
+        type: err.name || "UnknownError",
+        message: err.message || String(err),
+        phase: "homepage",
+      });
+    }
+
+    // Step 2: Sort links by priority (contact pages first)
+    const scoredLinks = homepageLinks.map((url) => {
+      const urlL = url.toLowerCase();
+      let score = 0;
+      if (urlL.includes("contact")) score += 150;
+      if (urlL.includes("reach")) score += 140;
+      if (urlL.includes("get-in-touch")) score += 140;
+      if (urlL.includes("connect")) score += 130;
+      if (urlL.includes("impressum")) score += 120;
+      if (urlL.includes("support")) score += 70;
+      if (urlL.includes("about")) score += 35;
+      return { url, score };
+    });
+    scoredLinks.sort((a, b) => b.score - a.score);
+
+    // Step 3: Build visit queue with top priority pages
+    const toVisit = scoredLinks
+      .slice(0, cfg.max - 1) // Reserve 1 slot for homepage already visited
+      .map(({ url, score }) => ({ 
+        url, 
+        d: 1, 
+        priority: score >= 120 ? "contact" : score >= 60 ? "support" : "normal" 
+      }));
+    
+    logger.info("EMAIL_SCRAPER_PAGES", `Will visit ${toVisit.length} additional pages. Top 3: ${JSON.stringify(toVisit.slice(0, 3).map(p => `${p.url} (${p.priority})`))}`);
+
+
+    // Step 4: Visit remaining pages in priority order
     while (toVisit.length && visited.size < cfg.max) {
       if (Date.now() - startedAt > cfg.budget) break;
-      const { url, d } = toVisit.shift();
+      const { url, d, priority } = toVisit.shift();
       if (visited.has(url)) continue;
       if (!sameHost(url, startUrl)) continue;
       if (!(await robotsAllow(url))) {
@@ -306,33 +426,54 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
         continue;
       }
 
-      try {
-        await page.goto(url, { waitUntil, timeout: cfg.timeout });
-        await sleep(250);
-        const emails = await extractFromPage(page, {
-          noDeobfuscate: cfg.noDeobfuscate,
-          restrictSet: cfg.restrictDomain ? allowSuffixes : null,
-        });
-        emails.forEach((e) => found.add(e));
-        visitedList.push(url);
+      let retryCount = 0;
+      let pageSuccess = false;
+      
+      while (retryCount <= 1 && !pageSuccess) {
+        try {
+          if (retryCount > 0) {
+            await sleep(1000); // Wait 1 second before retry
+          }
+          
+          await page.goto(url, { waitUntil, timeout: cfg.timeout });
+          await sleep(1000); // 1 second for JS-heavy sites to fully render
+          const emails = await extractFromPage(page, {
+            noDeobfuscate: cfg.noDeobfuscate,
+            restrictSet: cfg.restrictDomain ? allowSuffixes : null,
+          });
+          emails.forEach((e) => found.add(e));
+          logger.info("EMAIL_SCRAPER_PAGE_RESULT", `Page ${url}: found ${emails.length} emails - ${emails.join(', ')}`);
+          visitedList.push(url);
+          pageSuccess = true;
 
-        if (cfg.firstOnly && found.size) {
-          toVisit.length = 0;
-          break;
-        }
+          if (cfg.firstOnly && found.size) {
+            toVisit.length = 0;
+            break;
+          }
 
-        if (d < cfg.depth) {
-          const links = await candidateLinks(page, url, cfg.perPageLinks);
-          for (const l of links)
-            if (!visited.has(l) && toVisit.length + visited.size < cfg.max)
-              toVisit.push({ url: l, d: d + 1 });
+          if (cfg.delay) await sleep(cfg.delay);
+        } catch (err) {
+          retryCount++;
+          
+          // Only log error if all retries failed
+          if (retryCount > 1) {
+            const errorType = err.name || "UnknownError";
+            const errorMsg = err.message || String(err);
+            errors.push({
+              url,
+              type: errorType,
+              message: errorMsg,
+              priority,
+              isNavigation: errorMsg.includes("Navigation") || errorMsg.includes("net::"),
+              isTimeout: errorMsg.includes("timeout") || errorMsg.includes("Timeout"),
+              retriedOnce: true,
+            });
+          }
+          // Continue despite errors - try remaining pages
         }
-        if (cfg.delay) await sleep(cfg.delay);
-      } catch (_) {
-        // ignore page-level errors
-      } finally {
-        visited.add(url);
       }
+      
+      visited.add(url);
     }
   } finally {
     try {
@@ -341,10 +482,24 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
   }
 
   const emails = Array.from(found).sort((a, b) => a.localeCompare(b));
+  logger.info("EMAIL_SCRAPER_COMPLETE", `FINAL RESULT for ${startUrl}`, {
+    totalEmails: emails.length,
+    emails: emails.join(', '),
+    pagesVisited: visitedList.length,
+    pagesAttempted: visited.size,
+    errors: errors.length,
+    durationMs: Date.now() - startedAt
+  });
+  
   return {
     emails,
     pagesVisited: visitedList.length,
     visited: visitedList,
-    meta: { durationMs: Date.now() - startedAt },
+    errors: errors.length > 0 ? errors : undefined, // Include errors if any occurred
+    meta: {
+      durationMs: Date.now() - startedAt,
+      pagesFailed: errors.length,
+      pagesAttempted: visited.size,
+    },
   };
 }

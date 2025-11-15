@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import puppeteerCore from "puppeteer-core";
 import puppeteerLocal from "puppeteer";
+import logger from "../logger.js";
 
 /**
  * Lightweight browser + page pool (no external deps).
@@ -41,12 +42,13 @@ export class BrowserPool {
 
     if (endpoint) {
       // Browserless applies memory-optimized flags via DEFAULT_LAUNCH_ARGS env var
-      console.log(
-        "[BROWSERLESS] Connecting to:",
-        endpoint.replace(/token=[^&]+/, "token=***")
+      logger.info(
+        "BROWSERLESS_CONNECT",
+        `Connecting to: ${endpoint.replace(/token=[^&]+/, "token=***")}`
       );
-      console.log(
-        "[BROWSERLESS] Memory flags applied via launch parameter in connection URL"
+      logger.info(
+        "BROWSERLESS_CONFIG",
+        "Memory flags applied via launch parameter in connection URL"
       );
 
       // Create memory-optimized launch args for Browserless
@@ -118,7 +120,7 @@ export class BrowserPool {
       });
     } else {
       this.browser = await puppeteerLocal.launch({
-        headless: true,
+        headless: false,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
@@ -336,10 +338,10 @@ export class BrowserPool {
         const proc =
           typeof browser.process === "function" ? browser.process() : null;
         if (proc && typeof proc.kill === "function") {
-          console.log("[BROWSER] Force-killing Chrome process (SIGKILL)");
+          logger.info("BROWSER_FORCE_KILL", "Force-killing Chrome process (SIGKILL)");
           proc.kill("SIGKILL");
         } else if (typeof browser.disconnect === "function") {
-          console.log("[BROWSER] Disconnecting from remote browser");
+          logger.info("BROWSER_DISCONNECT", "Disconnecting from remote browser");
           browser.disconnect();
         }
       } catch (_) {
@@ -351,7 +353,7 @@ export class BrowserPool {
     if (global.gc) {
       try {
         global.gc();
-        console.log("[BROWSER] Forced GC after browser close");
+        logger.info("BROWSER_GC", "Forced GC after browser close");
       } catch (_) {
         // GC not available
       }
