@@ -439,23 +439,29 @@ async function handleSubscriptionOnHold(webhookData) {
       throw new Error(`User not found for customer ID: ${customerId}`);
     }
 
-    // Update subscription status to on_hold
-    if (user.subscription) {
-      user.subscription.status = "on_hold";
-    }
+    // Get the original plan from product ID before downgrading
+    const productId = webhookData.data?.product_id;
+    const originalPlan = productId ? PRODUCT_PLAN_MAPPING[productId] : null;
 
-    // Save user with updated subscription status
-    await user.save({ validateBeforeSave: false });
+    // Use credits service to handle subscription on hold (downgrades to free)
+    await creditsService.handleSubscriptionStatusChange(
+      user._id,
+      "on_hold",
+      "subscription_on_hold"
+    );
 
-    logger.info("USER_SUBSCRIPTION_ON_HOLD", {
+    logger.info("USER_PLAN_DOWNGRADED_ON_HOLD", {
       userId: user._id,
       customerId: customerId,
       businessId: businessId,
+      productId: productId,
+      originalPlan: originalPlan,
+      newPlan: "free",
       subscriptionId: subscriptionId,
     });
 
     console.log(
-      `⏸️ User ${user._id} subscription status updated to on_hold: ${subscriptionId}`
+      `⏸️ User ${user._id} plan downgraded to free due to subscription on hold: ${subscriptionId}`
     );
   } catch (error) {
     logger.error("SUBSCRIPTION_ON_HOLD_ERROR", {

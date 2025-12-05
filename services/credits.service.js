@@ -441,8 +441,8 @@ class CreditsService {
         user.subscription.status = newStatus;
       }
 
-      // If subscription is cancelled, expired, or failed, downgrade to free
-      if (["cancelled", "expired", "failed"].includes(newStatus)) {
+      // If subscription is cancelled, expired, failed, or on_hold, downgrade to free
+      if (["cancelled", "expired", "failed", "on_hold"].includes(newStatus)) {
         return await this.downgradeToFreePlan(userId, reason);
       }
 
