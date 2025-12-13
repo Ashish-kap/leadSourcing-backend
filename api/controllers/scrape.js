@@ -21,6 +21,7 @@ const scrapeData = async (req, res) => {
       isExtractEmail = false,
       isValidate = false,
       extractNegativeReviews = false,
+      avoidDuplicate = false,
     } = req.body;
 
     // Get user from auth middleware (assuming you have auth middleware)
@@ -280,6 +281,7 @@ const scrapeData = async (req, res) => {
       isExtractEmail: isExtractEmail,
       isValidate: isValidate,
       extractNegativeReviews: Boolean(extractNegativeReviews),
+      avoidDuplicate: Boolean(avoidDuplicate),
     };
 
     // Create job record in database
