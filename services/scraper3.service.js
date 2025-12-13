@@ -11,6 +11,7 @@ import {
   generateZoneBatch,
 } from "./utils/cityZoneGenerator.js";
 import { ProgressMonitor, getStuckJobConfig } from "./stuckJobDetector.js";
+import { batchCheckUrls, markUrlAsScraped } from "./redisUrlTracker.js";
 
 const defaultPopulationResolver = createPopulationResolverAllTheCities();
 
@@ -343,6 +344,8 @@ export async function runScraper(
     isExtractEmail = false,
     isValidate = false,
     extractNegativeReviews = false,
+    avoidDuplicate = false,
+    userId = null,
 
     // Population / ordering options
     minPopulation = 5000,
@@ -353,6 +356,18 @@ export async function runScraper(
   },
   job
 ) {
+  // Extract userId from job.data if not provided in parameters
+  const finalUserId = userId || job?.data?.userId || null;
+  
+  // Log Redis deduplication configuration
+  if (avoidDuplicate) {
+    logger.info("REDIS_DEDUP_ENABLED", "Redis URL deduplication enabled", {
+      userId: finalUserId,
+      avoidDuplicate,
+      hasUserId: !!finalUserId,
+    });
+  }
+
   // Memory tracking helper
   const logMemory = (label) => {
     const usage = process.memoryUsage();
@@ -867,7 +882,12 @@ export async function runScraper(
             meta.isValidate
           );
 
-          if (!businessData) return null;
+          if (!businessData) {
+            logger.warn("BUSINESS_DATA_NULL", "Business data is null, skipping Redis mark", {
+              url,
+            });
+            return null;
+          }
 
           // Optional review filtering on the same page
           if (meta.reviewTimeRange || meta.extractNegativeReviews) {
@@ -885,6 +905,47 @@ export async function runScraper(
 
           businessData.url = url;
           pushResult(businessData);
+
+          // Mark URL as scraped in Redis (always tracked, regardless of avoidDuplicate)
+          logger.info("REDIS_MARK_CHECK", "Checking if URL should be marked in Redis", {
+            url,
+            avoidDuplicate,
+            hasUserId: !!finalUserId,
+            userId: finalUserId,
+            hasBusinessData: !!businessData,
+          });
+
+          if (finalUserId && url) {
+            try {
+              logger.info("REDIS_MARK_ATTEMPT", "Attempting to mark URL in Redis", {
+                url,
+                userId: finalUserId,
+              });
+              await markUrlAsScraped(finalUserId, url);
+              logger.info("REDIS_MARK_SUCCESS", "Successfully marked URL in Redis after extraction", {
+                url,
+                userId: finalUserId,
+                businessName: businessData.name || "Unknown",
+              });
+            } catch (redisMarkError) {
+              // Non-critical - log but don't fail
+              logger.warn("REDIS_MARK_URL_ERROR", "Error marking URL in Redis", {
+                error: redisMarkError.message,
+                url,
+                userId: finalUserId,
+                stack: redisMarkError.stack,
+              });
+            }
+          } else {
+            // Log why URL wasn't marked (for debugging)
+            logger.warn("REDIS_MARK_SKIPPED", "Skipping Redis mark - condition not met", {
+              url,
+              avoidDuplicate,
+              hasUserId: !!finalUserId,
+              userId: finalUserId,
+              hasUrl: !!url,
+            });
+          }
 
           await updateProgress({
             currentLocation: `${meta.city}, ${meta.state || ""}, ${
@@ -1157,17 +1218,64 @@ export async function runScraper(
           reviewFilter
         );
 
-        // Handle case where execution context was destroyed
-        if (!listingsData) {
-          logger.warn(
-            "CITY_SCRAPE_NO_DATA",
-            "No listings data returned (execution context may have been destroyed)",
-            {
-              city: cityName,
-              state: stateName,
-              zone: zoneLabel || "center",
+        // IMMEDIATE Redis check (if avoidDuplicate is true)
+        let filteredListingsData = listingsData;
+        if (avoidDuplicate && finalUserId && listingsData && listingsData.length > 0) {
+          try {
+            const urls = listingsData.map((x) => x.url);
+            const redisCheckResults = await batchCheckUrls(finalUserId, urls);
+            
+            // Filter out URLs found in Redis
+            filteredListingsData = listingsData.filter(
+              (item, index) => !redisCheckResults[index]
+            );
+
+            const filteredCount = listingsData.length - filteredListingsData.length;
+            if (filteredCount > 0) {
+              logger.info("REDIS_FILTER", "Filtered URLs from Redis", {
+                city: cityName,
+                totalUrls: listingsData.length,
+                filteredByRedis: filteredCount,
+                remainingUrls: filteredListingsData.length,
+              });
             }
-          );
+          } catch (redisError) {
+            logger.warn("REDIS_FILTER_ERROR", "Error filtering URLs with Redis", {
+              error: redisError.message,
+              city: cityName,
+            });
+            // On error, continue with all URLs (don't block scraping)
+            filteredListingsData = listingsData;
+          }
+        }
+
+        // Use filtered listings data for rest of processing
+        const listingsDataToProcess = filteredListingsData;
+
+        // Handle case where execution context was destroyed or all URLs filtered
+        if (!listingsDataToProcess || listingsDataToProcess.length === 0) {
+          if (!listingsData) {
+            logger.warn(
+              "CITY_SCRAPE_NO_DATA",
+              "No listings data returned (execution context may have been destroyed)",
+              {
+                city: cityName,
+                state: stateName,
+                zone: zoneLabel || "center",
+              }
+            );
+          } else if (listingsData.length > 0 && listingsDataToProcess.length === 0) {
+            logger.info(
+              "CITY_SCRAPE_ALL_FILTERED",
+              "All listings filtered by Redis (already scraped)",
+              {
+                city: cityName,
+                state: stateName,
+                zone: zoneLabel || "center",
+                totalListings: listingsData.length,
+              }
+            );
+          }
           return;
         }
 
@@ -1178,20 +1286,20 @@ export async function runScraper(
         logger.info("FILTER_RESULTS", "Pre-filtering results", {
           location: `${cityName}, ${stateName}, ${countryName}`,
           totalBusinessesFound: totalListingsFound,
-          matchingFilter: listingsData.length,
-          filteredOut: totalListingsFound - listingsData.length,
+          matchingFilter: listingsDataToProcess.length,
+          filteredOut: totalListingsFound - listingsDataToProcess.length,
           ratingFilter,
           reviewFilter,
           filterEfficiency: `${(
-            (listingsData.length / Math.max(totalListingsFound, 1)) *
+            (listingsDataToProcess.length / Math.max(totalListingsFound, 1)) *
             100
           ).toFixed(1)}%`,
         });
 
-        if (listingsData.length === 0) return;
+        if (listingsDataToProcess.length === 0) return;
 
         // Filter out duplicate URLs before scheduling details (Tier B)
-        const allUrls = listingsData.map((x) => x.url);
+        const allUrls = listingsDataToProcess.map((x) => x.url);
         const uniqueUrls = allUrls.filter(url => {
           if (seenBusinessUrls.has(url)) {
             logger.info("DUPLICATE_URL_FILTERED", "Skipping duplicate URL at listing level", {
