@@ -215,6 +215,27 @@ const scrapeData = async (req, res) => {
       });
     }
 
+    // Logical validation: isExtractEmail and isValidate must be false if onlyWithoutWebsite is true
+    if (onlyWithoutWebsite === true) {
+      if (isExtractEmail === true) {
+        return res.status(400).json({
+          error: "isExtractEmail cannot be true when onlyWithoutWebsite is true",
+          message:
+            "Email extraction is not available when filtering for businesses without websites",
+        });
+      }
+      if (isValidate === true) {
+        return res.status(400).json({
+          error: "isValidate cannot be true when onlyWithoutWebsite is true",
+          message:
+            "Email validation is not available when filtering for businesses without websites",
+        });
+      }
+      // Force set to false to ensure consistency
+      isExtractEmail = false;
+      isValidate = false;
+    }
+
     // Check user and apply plan-based restrictions
     const user = await User.findById(userId);
     const estimatedCredits = Math.ceil((maxRecords / 10) * 10);
