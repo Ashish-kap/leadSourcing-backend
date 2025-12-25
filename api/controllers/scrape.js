@@ -231,9 +231,6 @@ const scrapeData = async (req, res) => {
             "Email validation is not available when filtering for businesses without websites",
         });
       }
-      // Force set to false to ensure consistency
-      isExtractEmail = false;
-      isValidate = false;
     }
 
     // Check user and apply plan-based restrictions
@@ -298,6 +295,10 @@ const scrapeData = async (req, res) => {
     const jobId = uuidv4();
 
     // Create job parameters
+    // Ensure isExtractEmail and isValidate are false when onlyWithoutWebsite is true
+    const finalIsExtractEmail = onlyWithoutWebsite ? false : isExtractEmail;
+    const finalIsValidate = onlyWithoutWebsite ? false : isValidate;
+    
     const jobParams = {
       keyword: cleanKeyword, // Use the keyword as-is (supports multiple keywords)
       city: city ? city.trim() : null,
@@ -307,8 +308,8 @@ const scrapeData = async (req, res) => {
       ratingFilter: ratingFilter,
       reviewFilter: reviewFilter,
       reviewTimeRange: reviewTimeRange ? parseInt(reviewTimeRange) : null,
-      isExtractEmail: isExtractEmail,
-      isValidate: isValidate,
+      isExtractEmail: finalIsExtractEmail,
+      isValidate: finalIsValidate,
       extractNegativeReviews: Boolean(extractNegativeReviews),
       avoidDuplicate: Boolean(avoidDuplicate),
       onlyWithoutWebsite: Boolean(onlyWithoutWebsite),
