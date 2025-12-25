@@ -345,6 +345,7 @@ export async function runScraper(
     isValidate = false,
     extractNegativeReviews = false,
     avoidDuplicate = false,
+    onlyWithoutWebsite = false,
     userId = null,
 
     // Population / ordering options
@@ -879,7 +880,8 @@ export async function runScraper(
             null,
             null,
             meta.isExtractEmail,
-            meta.isValidate
+            meta.isValidate,
+            meta.onlyWithoutWebsite
           );
 
           if (!businessData) {
@@ -1322,6 +1324,7 @@ export async function runScraper(
           isValidate,
           reviewTimeRange,
           extractNegativeReviews,
+          onlyWithoutWebsite,
         };
 
         logger.info("URL_DEDUPLICATION", "Filtered duplicate URLs at listing level", {

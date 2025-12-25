@@ -22,6 +22,7 @@ const scrapeData = async (req, res) => {
       isValidate = false,
       extractNegativeReviews = false,
       avoidDuplicate = false,
+      onlyWithoutWebsite = false,
     } = req.body;
 
     // Get user from auth middleware (assuming you have auth middleware)
@@ -207,6 +208,13 @@ const scrapeData = async (req, res) => {
       });
     }
 
+    // Validate onlyWithoutWebsite parameter
+    if (onlyWithoutWebsite !== null && typeof onlyWithoutWebsite !== "boolean") {
+      return res.status(400).json({
+        error: "onlyWithoutWebsite must be a boolean value (true or false)",
+      });
+    }
+
     // Check user and apply plan-based restrictions
     const user = await User.findById(userId);
     const estimatedCredits = Math.ceil((maxRecords / 10) * 10);
@@ -282,6 +290,7 @@ const scrapeData = async (req, res) => {
       isValidate: isValidate,
       extractNegativeReviews: Boolean(extractNegativeReviews),
       avoidDuplicate: Boolean(avoidDuplicate),
+      onlyWithoutWebsite: Boolean(onlyWithoutWebsite),
     };
 
     // Create job record in database
