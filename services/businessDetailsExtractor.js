@@ -53,7 +53,8 @@ export async function extractBusinessDetails(
   ratingFilter = null,
   reviewFilter = null,
   isExtractEmail = false,
-  isValidate = false
+  isValidate = false,
+  onlyWithoutWebsite = false
 ) {
   // const T_OVERALL_START = performance.now();
 
@@ -252,6 +253,11 @@ export async function extractBusinessDetails(
     businessData.latitude = latitude;
     businessData.longitude = longitude;
 
+    // Filter: Skip businesses with websites if onlyWithoutWebsite is true
+    if (onlyWithoutWebsite && businessData.website) {
+      return null; // Skip businesses with websites
+    }
+
     // Initialize timings bucket
     // businessData.timings = {
     //   scrape_ms: null,
@@ -259,7 +265,12 @@ export async function extractBusinessDetails(
     //   total_ms: null,
     // };
 
-    if (
+    // Skip email extraction when onlyWithoutWebsite is true
+    // (businesses without websites won't have emails to scrape anyway)
+    if (onlyWithoutWebsite) {
+      businessData.email = [];
+      businessData.email_status = [];
+    } else if (
       isExtractEmail &&
       businessData.website &&
       !businessData.website.startsWith("javascript:")
