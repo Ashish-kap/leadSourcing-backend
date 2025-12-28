@@ -258,6 +258,11 @@ export async function extractBusinessDetails(
       return null; // Skip businesses with websites
     }
 
+    // Filter: Skip businesses without website if email extraction is required
+    if (isExtractEmail && !businessData.website) {
+      return null; // Skip businesses without websites when email extraction is required
+    }
+
     // Initialize timings bucket
     // businessData.timings = {
     //   scrape_ms: null,
@@ -579,6 +584,11 @@ export async function extractBusinessDetails(
     } else {
       businessData.email = [];
       businessData.email_status = [];
+    }
+
+    // Filter: Skip businesses with no emails found if email extraction is required
+    if (isExtractEmail && (!businessData.email || businessData.email.length === 0)) {
+      return null; // Skip businesses where no emails were found when email extraction is required
     }
   } catch (_) {
     return null;
