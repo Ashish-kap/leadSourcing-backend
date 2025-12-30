@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import scraperRouter from "./Routes/scraper.js";
 import { createBullBoard } from "@bull-board/api";
@@ -51,8 +52,17 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "500kb" }));
 
 // Middleware
-app.use(cors());
+// CORS configuration - allow frontend origin and credentials for cookies
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true, // Allow cookies to be sent
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
+app.use(cookieParser());
 // Serve static files
 app.use(express.static("public"));
 // app.use(expressMongoSanitize());

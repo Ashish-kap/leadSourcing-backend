@@ -5,6 +5,7 @@ import Job from "./../../models/jobModel.js";
 import catchAsync from "./../../utils/catchAsync.js";
 import AppError from "./../../utils/appError.js";
 import APIFeatures from "./../../utils/apiFeatures.js";
+import { encodeReferralCode } from "./../../utils/referralCode.js";
 import * as factory from "./handlerFactory.js";
 
 const multerStorage = multer.memoryStorage();
@@ -78,6 +79,9 @@ const createSafeUserResponse = (user) => {
   delete userObj.passwordForgotToken;
   delete userObj.passwordExpireToken;
   delete userObj.__v;
+
+  // Add referral code for frontend to create referral links
+  userObj.referralCode = encodeReferralCode(user._id);
 
   return userObj;
 };

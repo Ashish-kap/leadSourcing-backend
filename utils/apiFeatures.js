@@ -1,7 +1,6 @@
 class APIFeatures {
   constructor(getAll, queryString) {
     this.getAll = getAll;
-
     this.queryString = queryString;
   }
 
@@ -9,20 +8,18 @@ class APIFeatures {
     const queryObj = { ...this.queryString };
     const excludedFields = ["page", "sort", "limit", "fields"];
     excludedFields.forEach((el) => delete queryObj[el]);
-    //    console.log(req.query,queryObj);
 
-    // 2) ADVANCE FILTERING
-
+    // ADVANCE FILTERING
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
-    // console.log(JSON.parse(queryStr))
-    this.getAll.find(JSON.parse(queryStr));
-    // let getAll = Tour.find(JSON.parse(queryStr));
-    // console.log(req.query.sort)
+    
+    if (Object.keys(JSON.parse(queryStr)).length > 0) {
+      this.getAll = this.getAll.find(JSON.parse(queryStr));
+    }
     return this;
   }
 
-  sorting() {
+  sort() {
     if (this.queryString.sort) {
       const sortBy = this.queryString.sort.split(",").join(" ");
       this.getAll = this.getAll.sort(sortBy);
@@ -32,25 +29,58 @@ class APIFeatures {
     return this;
   }
 
-  fields() {
+  // Alias for backward compatibility
+  sorting() {
+    return this.sort();
+  }
+
+  limitFields() {
     if (this.queryString.fields) {
-      const getfields = this.queryString.fields.split(",").join("");
+      const getfields = this.queryString.fields.split(",").join(" ");
       this.getAll = this.getAll.select(getfields);
     } else {
       this.getAll = this.getAll.select("-__v");
     }
     return this;
   }
-  paginations() {
+
+  // Alias for backward compatibility
+  fields() {
+    return this.limitFields();
+  }
+
+  paginate() {
     const page = this.queryString.page * 1 || 1;
     const limit = this.queryString.limit * 1 || 10;
-    var skip = (page - 1) * limit;
+    const skip = (page - 1) * limit;
     this.getAll = this.getAll.skip(skip).limit(limit);
-    // if(this.queryString.page){
-    //     const numOfTours =  Tour.countDocuments();
-    //     if(skip > numOfTours) throw new Error('this page doesnt exist')
-    // }
     return this;
+  }
+
+  // Alias for backward compatibility
+  paginations() {
+    return this.paginate();
+  }
+
+  // Getter for query (used in controllers)
+  get query() {
+    return this.getAll;
+  }
+
+  // Get the filter object for counting (without pagination)
+  getFilterObject() {
+    const queryObj = { ...this.queryString };
+    const excludedFields = ["page", "sort", "limit", "fields"];
+    excludedFields.forEach((el) => delete queryObj[el]);
+
+    // ADVANCE FILTERING
+    let queryStr = JSON.stringify(queryObj);
+    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+    
+    if (Object.keys(JSON.parse(queryStr)).length > 0) {
+      return JSON.parse(queryStr);
+    }
+    return {};
   }
 }
 export default APIFeatures;
