@@ -165,6 +165,15 @@ const userSchema = new mongoose.Schema(
     passwordForgotToken: String,
     passwordExpireToken: Date,
 
+    // Referral tracking fields
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User", // Enables population if needed later
+    },
+    referredAt: {
+      type: Date,
+    },
+
     active: {
       type: Boolean,
       default: true,
@@ -306,6 +315,9 @@ userSchema.methods.createPasswordForgottenToken = function () {
   this.passwordExpireToken = Date.now() + 1000 * 60 * 1000;
   return forgotToken;
 };
+
+// Add sparse index on referredBy for query performance
+userSchema.index({ referredBy: 1 }, { sparse: true });
 
 const User = mongoose.model("User", userSchema);
 export default User;

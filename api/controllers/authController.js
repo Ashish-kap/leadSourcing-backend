@@ -5,6 +5,7 @@ import catchAsync from "./../../utils/catchAsync.js";
 import jwt from "jsonwebtoken";
 import AppError from "./../../utils/appError.js";
 import sendEmail from "./../../utils/email.js";
+import { decodeReferralCode } from "./../../utils/referralCode.js";
 
 // const bcrypt = require('bcryptjs');
 const signToken = (id) => {
@@ -251,6 +252,27 @@ export const googleCallback = catchAsync(async (req, res, next) => {
     return next(new AppError("Google authentication failed", 400));
   }
 
+  const refCode = req.cookies?.ref;
+
+  // Save referral only on first attribution (don't overwrite)
+  if (refCode && !req.user.referredBy) {
+    const referringUserId = decodeReferralCode(refCode);
+
+    if (referringUserId) {
+      // Verify referring user exists
+      const referringUser = await User.findById(referringUserId);
+
+      if (
+        referringUser &&
+        referringUser._id.toString() !== req.user._id.toString()
+      ) {
+        req.user.referredBy = referringUserId;
+        req.user.referredAt = new Date();
+        await req.user.save({ validateBeforeSave: false });
+      }
+    }
+  }
+
   // Create JWT token for the authenticated user
   createSendToken(req.user, 200, res);
 });
@@ -305,6 +327,29 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
         await user.save({ validateBeforeSave: false });
       }
     }
+
+    // Handle referral tracking
+    const refCode = req.cookies?.ref;
+
+    // Save referral only on first attribution (don't overwrite)
+    if (refCode && !user.referredBy) {
+      const referringUserId = decodeReferralCode(refCode);
+
+      if (referringUserId) {
+        // Verify referring user exists
+        const referringUser = await User.findById(referringUserId);
+
+        if (
+          referringUser &&
+          referringUser._id.toString() !== user._id.toString()
+        ) {
+          user.referredBy = referringUserId;
+          user.referredAt = new Date();
+          await user.save({ validateBeforeSave: false });
+        }
+      }
+    }
+
     createSendToken(user, 200, res);
   } catch (error) {
     console.error("Google token verification error:", error);

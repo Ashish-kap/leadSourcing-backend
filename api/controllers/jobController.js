@@ -3,6 +3,7 @@ import Job from "./../../models/jobModel.js";
 import User from "./../../models/userModel.js";
 import { Parser } from "json2csv";
 import socketService from "../../services/socket.service.js";
+import APIFeatures from "../../utils/apiFeatures.js";
 
 const { getQueueForUser, businessQueue, freeProQueue } = queueService;
 
@@ -18,79 +19,112 @@ const getUserJobs = async (req, res) => {
       keyword,
       startDate,
       endDate,
+      sort,
     } = req.query;
 
-    // Build filter query
-    const filter = { userId };
+    // Base filter - always filter by userId
+    const baseFilter = { userId };
 
-    if (status) {
-      filter.status = status;
-    }
-
+    // Handle special filters that can't be done via query string
     if (keyword) {
-      filter["jobParams.keyword"] = new RegExp(keyword, "i");
+      baseFilter["jobParams.keyword"] = new RegExp(keyword, "i");
     }
 
     if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
+      baseFilter.createdAt = {};
+      if (startDate) baseFilter.createdAt.$gte = new Date(startDate);
+      if (endDate) baseFilter.createdAt.$lte = new Date(endDate);
     }
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const sortOrder = order === "desc" ? -1 : 1;
+    // Dynamic limit configuration
+    const DEFAULT_LIMIT = 10;
+    const MAX_LIMIT = 100;
+    const requestedLimit = limit ? parseInt(limit, 10) : DEFAULT_LIMIT;
+    const finalLimit = Math.min(Math.max(1, requestedLimit), MAX_LIMIT);
+    const finalPage = page ? Math.max(1, parseInt(page, 10)) : 1;
 
-    // Get jobs with pagination
-    const jobs = await Job.find(filter)
-      .sort({ [sortBy]: sortOrder })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select("-__v");
+    // Prepare query params for APIFeatures (exclude special params handled separately)
+    const queryParams = { ...req.query };
+    // Remove special params that are handled in baseFilter or converted
+    delete queryParams.keyword;
+    delete queryParams.startDate;
+    delete queryParams.endDate;
+    delete queryParams.sortBy;
+    delete queryParams.order;
+    queryParams.limit = finalLimit;
+    queryParams.page = finalPage;
 
-    // Get total count for pagination
-    const totalJobs = await Job.countDocuments(filter);
-    const totalPages = Math.ceil(totalJobs / parseInt(limit));
+    // Handle backward compatibility: convert sortBy/order to sort format
+    if (sortBy && !sort) {
+      const sortPrefix = order === "desc" ? "-" : "";
+      queryParams.sort = `${sortPrefix}${sortBy}`;
+    } else if (!sort && !sortBy) {
+      // Default sort
+      queryParams.sort = "-createdAt";
+    }
 
-    res.json({
-      success: true,
-      data: {
-        jobs: jobs.map((job) => ({
-          id: job.jobId,
-          keyword: job.jobParams.keyword,
-          location: [
-            job.jobParams.city,
-            job.jobParams.stateCode,
-            job.jobParams.countryCode,
-          ]
-            .filter(Boolean)
-            .join(", "),
-          status: job.status,
-          progress: job.progress.percentage,
-          maxRecords: job.jobParams.maxRecords,
-          recordsCollected: job.metrics?.dataPointsCollected || 0,
-          createdAt: job.createdAt,
-          startedAt: job.startedAt,
-          completedAt: job.completedAt,
-          duration: {
-            raw: job.duration, // milliseconds
-            seconds: job.durationSeconds,
-            formatted: job.durationFormatted, // e.g., "5m 30s"
-          },
-        })),
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalJobs,
-          hasNextPage: parseInt(page) < totalPages,
-          hasPrevPage: parseInt(page) > 1,
-        },
+    // Use APIFeatures for pagination, sorting, and filtering
+    const features = new APIFeatures(
+      Job.find(baseFilter),
+      queryParams
+    )
+      .filter()
+      .sort()
+      .limitFields()
+      .paginate();
+
+    // Get filter object for count query (same filters as main query)
+    const queryFilters = features.getFilterObject();
+    const countFilter = { ...baseFilter, ...queryFilters };
+
+    // Execute queries in parallel for better performance
+    const [jobs, totalCount] = await Promise.all([
+      features.query,
+      Job.countDocuments(countFilter),
+    ]);
+
+    // Transform jobs to match current format
+    const items = jobs.map((job) => ({
+      id: job.jobId,
+      keyword: job.jobParams.keyword,
+      location: [
+        job.jobParams.city,
+        job.jobParams.stateCode,
+        job.jobParams.countryCode,
+      ]
+        .filter(Boolean)
+        .join(", "),
+      status: job.status,
+      progress: job.progress.percentage,
+      maxRecords: job.jobParams.maxRecords,
+      recordsCollected: job.metrics?.dataPointsCollected || 0,
+      createdAt: job.createdAt,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      duration: {
+        raw: job.duration, // milliseconds
+        seconds: job.durationSeconds,
+        formatted: job.durationFormatted, // e.g., "5m 30s"
       },
+    }));
+
+    const totalPages = Math.ceil(totalCount / finalLimit);
+
+    return res.json({
+      status: "success",
+      results: items.length,
+      page: finalPage,
+      limit: finalLimit,
+      totalPages,
+      total: totalCount,
+      hasNextPage: finalPage < totalPages,
+      hasPrevPage: finalPage > 1,
+      data: items,
     });
   } catch (error) {
     console.error("Error fetching user jobs:", error);
     res.status(500).json({
-      success: false,
+      status: "error",
       error: "Internal server error",
       message: error.message,
     });
