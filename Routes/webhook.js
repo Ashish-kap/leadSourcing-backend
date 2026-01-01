@@ -233,6 +233,24 @@ async function handleSubscriptionActive(webhookData) {
     // Save user with updated plan and subscription details
     await user.save({ validateBeforeSave: false });
 
+    // Set referral payout eligibility if this is their first time becoming qualified
+    if (
+      user.referredBy &&
+      (newPlan === "pro" || newPlan === "business") &&
+      !user.referralPayout?.eligibleAt
+    ) {
+      user.referralPayout = user.referralPayout || {};
+      user.referralPayout.eligibleAt = new Date();
+      await user.save({ validateBeforeSave: false });
+
+      logger.info("REFERRAL_PAYOUT_ELIGIBLE", {
+        referredUserId: user._id,
+        referrerId: user.referredBy,
+        plan: newPlan,
+        eligibleAt: user.referralPayout.eligibleAt,
+      });
+    }
+
     // Allocate credits based on the new plan
     try {
       await creditsService.allocateCredits(user._id, "subscription_active");
