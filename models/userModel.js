@@ -174,6 +174,30 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
+    // Referral payout tracking
+    referralPayout: {
+      amount: {
+        type: Number,
+        default: 20,
+      },
+      paid: {
+        type: Boolean,
+        default: false,
+      },
+      eligibleAt: {
+        type: Date,
+      },
+      paidAt: {
+        type: Date,
+      },
+      paidTxnId: {
+        type: String,
+      },
+      paidMethod: {
+        type: String,
+      },
+    },
+
     active: {
       type: Boolean,
       default: true,
@@ -318,6 +342,14 @@ userSchema.methods.createPasswordForgottenToken = function () {
 
 // Add sparse index on referredBy for query performance
 userSchema.index({ referredBy: 1 }, { sparse: true });
+
+// Add compound index for affiliate dashboard queries
+userSchema.index({
+  referredBy: 1,
+  plan: 1,
+  "subscription.status": 1,
+  "referralPayout.paidAt": 1,
+});
 
 const User = mongoose.model("User", userSchema);
 export default User;
