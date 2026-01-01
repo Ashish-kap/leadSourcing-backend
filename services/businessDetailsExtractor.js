@@ -586,10 +586,9 @@ export async function extractBusinessDetails(
       businessData.email_status = [];
     }
 
-    // Filter: Skip businesses with no emails found if email extraction is required
-    if (isExtractEmail && (!businessData.email || businessData.email.length === 0)) {
-      return null; // Skip businesses where no emails were found when email extraction is required
-    }
+    // Note: We no longer filter out businesses with no emails found
+    // This allows businesses to be included even if email scraping fails due to technical errors
+    // The "no website" filter (line 261-264) still applies when isExtractEmail is true
   } catch (_) {
     return null;
   }
