@@ -328,8 +328,8 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
       }
     }
 
-    // Handle referral tracking
-    const refCode = req.cookies?.ref;
+    // Handle referral tracking - check both header and cookies
+    const refCode = req.headers['x-referral-code'] || req.cookies?.ref;
     
     // Debug logging for referral tracking
     console.log("[REFERRAL_DEBUG] Google Token Auth - Referral Tracking:", {

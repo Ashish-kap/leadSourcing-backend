@@ -61,6 +61,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   "https://app.cazalead.com",
   "http://localhost:5173",
+  "http://localhost:3000",
 ].filter(Boolean); // Remove undefined values
 
 app.use(
@@ -78,7 +79,7 @@ app.use(
     },
     credentials: true, // Allow cookies to be sent
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "x-referral-code"],
   })
 );
 // Serve static files
