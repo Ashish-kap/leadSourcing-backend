@@ -330,14 +330,37 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
 
     // Handle referral tracking
     const refCode = req.cookies?.ref;
+    
+    // Debug logging for referral tracking
+    console.log("[REFERRAL_DEBUG] Google Token Auth - Referral Tracking:", {
+      userId: user._id.toString(),
+      email: user.emailID,
+      hasCookies: !!req.cookies,
+      allCookies: Object.keys(req.cookies || {}),
+      refCode: refCode || null,
+      existingReferredBy: user.referredBy?.toString() || null,
+      willProcess: !!(refCode && !user.referredBy)
+    });
 
     // Save referral only on first attribution (don't overwrite)
     if (refCode && !user.referredBy) {
       const referringUserId = decodeReferralCode(refCode);
+      
+      console.log("[REFERRAL_DEBUG] Decoding referral code:", {
+        refCode,
+        decodedUserId: referringUserId?.toString() || null,
+        decodeSuccess: !!referringUserId
+      });
 
       if (referringUserId) {
         // Verify referring user exists
         const referringUser = await User.findById(referringUserId);
+        
+        console.log("[REFERRAL_DEBUG] Referring user lookup:", {
+          referringUserId: referringUserId.toString(),
+          referringUserExists: !!referringUser,
+          isSelfReferral: referringUser && referringUser._id.toString() === user._id.toString()
+        });
 
         if (
           referringUser &&
@@ -346,8 +369,27 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
           user.referredBy = referringUserId;
           user.referredAt = new Date();
           await user.save({ validateBeforeSave: false });
+          
+          console.log("[REFERRAL_DEBUG] Referral saved successfully:", {
+            userId: user._id.toString(),
+            referredBy: user.referredBy.toString(),
+            referredAt: user.referredAt
+          });
+        } else {
+          console.log("[REFERRAL_DEBUG] Referral not saved - validation failed:", {
+            reason: !referringUser ? "referring user not found" : "self-referral detected"
+          });
         }
+      } else {
+        console.log("[REFERRAL_DEBUG] Referral code decode failed:", {
+          refCode,
+          reason: "invalid or malformed referral code"
+        });
       }
+    } else {
+      console.log("[REFERRAL_DEBUG] Referral tracking skipped:", {
+        reason: !refCode ? "no referral code in cookies" : "user already has referredBy"
+      });
     }
 
     createSendToken(user, 200, res);
