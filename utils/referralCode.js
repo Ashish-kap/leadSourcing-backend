@@ -39,7 +39,6 @@ export const encodeReferralCode = (userId) => {
  */
 export const decodeReferralCode = (code) => {
   if (!code || typeof code !== "string") {
-    console.log("[REFERRAL_DECODE] Invalid input:", { code, type: typeof code });
     return null;
   }
 
@@ -51,57 +50,19 @@ export const decodeReferralCode = (code) => {
     while (base64Code.length % 4) {
       base64Code += "=";
     }
-    
-    console.log("[REFERRAL_DECODE] Decoding process:", {
-      originalCode: code,
-      codeLength: code.length,
-      base64Code: base64Code,
-      base64Length: base64Code.length
-    });
 
     // Decode base64 to Buffer, then to hex string
     const buffer = Buffer.from(base64Code, "base64");
     const hexString = buffer.toString("hex");
 
-    console.log("[REFERRAL_DECODE] After base64 decode:", {
-      hexString: hexString,
-      hexLength: hexString.length,
-      isValidLength: hexString.length === 24
-    });
-
     // Validate it's a valid ObjectId format (24 hex characters)
-    if (hexString.length !== 24) {
-      console.log("[REFERRAL_DECODE] Invalid hex length:", {
-        expected: 24,
-        actual: hexString.length,
-        hexString: hexString
-      });
+    if (hexString.length !== 24 || !mongoose.Types.ObjectId.isValid(hexString)) {
       return null;
     }
 
-    // Validate it's a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(hexString)) {
-      console.log("[REFERRAL_DECODE] Invalid ObjectId format:", {
-        hexString: hexString,
-        isValid: mongoose.Types.ObjectId.isValid(hexString)
-      });
-      return null;
-    }
-
-    const objectId = new mongoose.Types.ObjectId(hexString);
-    console.log("[REFERRAL_DECODE] Successfully decoded:", {
-      originalCode: code,
-      decodedObjectId: objectId.toString()
-    });
-    
-    return objectId;
+    return new mongoose.Types.ObjectId(hexString);
   } catch (error) {
     // Invalid base64 or conversion error
-    console.log("[REFERRAL_DECODE] Decode error:", {
-      code: code,
-      error: error.message,
-      stack: error.stack
-    });
     return null;
   }
 };
