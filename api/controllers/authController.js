@@ -252,15 +252,38 @@ export const googleCallback = catchAsync(async (req, res, next) => {
     return next(new AppError("Google authentication failed", 400));
   }
 
-  const refCode = req.cookies?.ref;
+  const refCode = req.headers['x-referral-code'] || req.cookies?.ref;
+
+  // Debug logging for referral tracking
+  console.log("[REFERRAL_DEBUG] Google Callback - Referral Tracking:", {
+    userId: req.user._id.toString(),
+    email: req.user.emailID,
+    hasCookies: !!req.cookies,
+    allCookies: Object.keys(req.cookies || {}),
+    refCode: refCode || null,
+    existingReferredBy: req.user.referredBy?.toString() || null,
+    willProcess: !!(refCode && !req.user.referredBy)
+  });
 
   // Save referral only on first attribution (don't overwrite)
   if (refCode && !req.user.referredBy) {
     const referringUserId = decodeReferralCode(refCode);
+    
+    console.log("[REFERRAL_DEBUG] Decoding referral code:", {
+      refCode,
+      decodedUserId: referringUserId?.toString() || null,
+      decodeSuccess: !!referringUserId
+    });
 
     if (referringUserId) {
       // Verify referring user exists
       const referringUser = await User.findById(referringUserId);
+      
+      console.log("[REFERRAL_DEBUG] Referring user lookup:", {
+        referringUserId: referringUserId.toString(),
+        referringUserExists: !!referringUser,
+        isSelfReferral: referringUser && referringUser._id.toString() === req.user._id.toString()
+      });
 
       if (
         referringUser &&
@@ -269,8 +292,27 @@ export const googleCallback = catchAsync(async (req, res, next) => {
         req.user.referredBy = referringUserId;
         req.user.referredAt = new Date();
         await req.user.save({ validateBeforeSave: false });
+        
+        console.log("[REFERRAL_DEBUG] Referral saved successfully:", {
+          userId: req.user._id.toString(),
+          referredBy: req.user.referredBy.toString(),
+          referredAt: req.user.referredAt
+        });
+      } else {
+        console.log("[REFERRAL_DEBUG] Referral not saved - validation failed:", {
+          reason: !referringUser ? "referring user not found" : "self-referral detected"
+        });
       }
+    } else {
+      console.log("[REFERRAL_DEBUG] Referral code decode failed:", {
+        refCode,
+        reason: "invalid or malformed referral code"
+      });
     }
+  } else {
+    console.log("[REFERRAL_DEBUG] Referral tracking skipped:", {
+      reason: !refCode ? "no referral code in cookies" : "user already has referredBy"
+    });
   }
 
   // Create JWT token for the authenticated user
@@ -329,7 +371,9 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
     }
 
     // Handle referral tracking - check both header and cookies
-    const refCode = req.headers['x-referral-code'] || req.cookies?.ref;
+    const headerRefCode = req.headers['x-referral-code'];
+    const cookieRefCode = req.cookies?.ref;
+    const refCode = headerRefCode || cookieRefCode;
     
     // Debug logging for referral tracking
     console.log("[REFERRAL_DEBUG] Google Token Auth - Referral Tracking:", {
@@ -337,7 +381,10 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
       email: user.emailID,
       hasCookies: !!req.cookies,
       allCookies: Object.keys(req.cookies || {}),
+      headerRefCode: headerRefCode || null,
+      cookieRefCode: cookieRefCode || null,
       refCode: refCode || null,
+      source: headerRefCode ? "header" : cookieRefCode ? "cookie" : "none",
       existingReferredBy: user.referredBy?.toString() || null,
       willProcess: !!(refCode && !user.referredBy)
     });
