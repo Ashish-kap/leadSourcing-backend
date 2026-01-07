@@ -6,7 +6,7 @@ import { performance } from "perf_hooks";
 import logger from "./logger.js";
 
 // Email scraping concurrency limiter (dedicated small pool)
-const EMAIL_PAGES_MAX = Number(process.env.EMAIL_PAGES_MAX || 8);
+const EMAIL_PAGES_MAX = Number(process.env.EMAIL_PAGES_MAX || 4);
 function createEmailLimiter(concurrency) {
   let active = 0;
   const q = [];
