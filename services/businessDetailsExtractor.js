@@ -1,12 +1,13 @@
 import dotenv from "dotenv";
 dotenv.config();
 import { verifyEmail } from "./utils/emailVerifier.js";
-import { scrapeEmails } from "./utils/emailScraper.js";
+import { fetchPageContent, fetchMultiplePages, fetchPageContentWithRetry } from "./utils/browserlessContentClient.js";
+import { extractEmailsFromHtml, findContactUrls } from "./utils/emailExtractorFromHtml.js";
 import { performance } from "perf_hooks";
 import logger from "./logger.js";
 
-// Email scraping concurrency limiter (dedicated small pool)
-const EMAIL_PAGES_MAX = Number(process.env.EMAIL_PAGES_MAX || 4);
+// Email extraction concurrency limiter for Browserless Content API
+const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 5);
 function createEmailLimiter(concurrency) {
   let active = 0;
   const q = [];
@@ -35,7 +36,8 @@ function createEmailLimiter(concurrency) {
       runNext();
     });
 }
-const limitEmail = createEmailLimiter(EMAIL_PAGES_MAX);
+// Use EMAIL_API_CONCURRENCY to control how many email extractions run concurrently
+const limitEmail = createEmailLimiter(EMAIL_API_CONCURRENCY);
 
 function getCoordsFromUrl(u) {
   // matches ...!3d24.379259!4d91.4136279...
@@ -56,9 +58,7 @@ export async function extractBusinessDetails(
   isValidate = false,
   onlyWithoutWebsite = false
 ) {
-  // const T_OVERALL_START = performance.now();
 
-  // --- NEW: wait for the header & rating cluster to render (don’t hard-fail if rating is missing) ---
   try {
     await page.waitForSelector("h1.DUwDvf.lfPIob", {
       visible: true,
@@ -263,6 +263,122 @@ export async function extractBusinessDetails(
       return null; // Skip businesses without websites when email extraction is required
     }
 
+    /**
+     * Extract emails using Browserless Content API with Smart Prioritization
+     * Fetches homepage + priority pages (contact, about, team) concurrently
+     * This avoids creating new Puppeteer pages, eliminating frame detachment issues
+     */
+    async function extractEmailsViaBrowserlessAPI(websiteUrl) {
+      try {
+        const allEmails = [];
+        const visitedPages = [];
+        
+        // Step 1: Fetch homepage first to find priority pages
+        logger.info("EMAIL_API_START", `Fetching homepage for ${websiteUrl}`);
+        
+        // Wrap in try-catch, use retry for homepage (critical page)
+        let homepage = { html: null, error: null };
+        try {
+          homepage = await fetchPageContentWithRetry(websiteUrl, 2); // Retry 2 times
+          if (homepage.error) {
+            logger.warn("HOMEPAGE_FETCH_FAILED", `Homepage failed for ${websiteUrl}: ${homepage.error}`);
+          }
+        } catch (error) {
+          logger.error("HOMEPAGE_FETCH_ERROR", `Critical error fetching homepage ${websiteUrl}: ${error.message}`);
+        }
+        
+        // Continue even if homepage fails
+        if (homepage.html) {
+          const homepageEmails = extractEmailsFromHtml(homepage.html, websiteUrl);
+          allEmails.push(...homepageEmails);
+          visitedPages.push(websiteUrl);
+          logger.info("EMAIL_API_HOMEPAGE", `Homepage: found ${homepageEmails.length} emails for ${websiteUrl}`);
+        } else {
+          visitedPages.push(websiteUrl); // Still track as visited
+          logger.warn("HOMEPAGE_NO_HTML", `Skipping homepage email extraction for ${websiteUrl}`);
+        }
+        
+        // Step 2: Find priority pages (contact, about, team) from homepage
+        // Only if homepage HTML is available AND no emails found on homepage
+        const shouldFetchPriorityPages = homepage.html && allEmails.length === 0;
+        
+        if (shouldFetchPriorityPages) {
+          const priorityUrls = findContactUrls(homepage.html, websiteUrl);
+          
+          // Step 3: Fetch priority pages concurrently
+          if (priorityUrls.length > 0) {
+            logger.info("EMAIL_API_PRIORITY_PAGES", `No emails on homepage, fetching ${priorityUrls.length} priority pages for ${websiteUrl}`);
+            
+            // Fetch up to 5 priority pages concurrently
+            const maxPriorityPages = 5;
+            const pagesToFetch = priorityUrls.slice(0, maxPriorityPages);
+            const priorityConcurrency = Math.min(3, maxPriorityPages); // Max 3 concurrent priority pages
+            
+            const priorityPages = await fetchMultiplePages(pagesToFetch, priorityConcurrency);
+            
+            // Extract emails from each priority page
+            // Track ALL pages, not just successful ones
+            for (const page of priorityPages) {
+              visitedPages.push(page.url); // Move OUTSIDE the if block
+              
+              if (page.html && !page.error) {
+                const pageEmails = extractEmailsFromHtml(page.html, websiteUrl);
+                if (pageEmails.length > 0) {
+                  logger.info("EMAIL_API_PAGE_SUCCESS", `Found ${pageEmails.length} emails on ${page.url}`);
+                  allEmails.push(...pageEmails);
+                }
+              } else if (page.error) {
+                logger.warn("EMAIL_API_PAGE_ERROR", `Failed to fetch ${page.url}: ${page.error}`);
+              }
+            }
+          } else {
+            logger.info("EMAIL_API_NO_PRIORITY_URLS", `No priority URLs found for ${websiteUrl}`);
+          }
+        } else if (homepage.html && allEmails.length > 0) {
+          logger.info("EMAIL_API_SKIP_PRIORITY", `Found ${allEmails.length} emails on homepage for ${websiteUrl}, skipping priority pages`);
+        }
+        
+        // Step 4: Dedupe and sort emails (prefer domain emails first)
+        const uniqueEmails = [...new Set(allEmails)];
+        
+        // Sort: prefer emails from the website's domain
+        const siteDomain = (() => {
+          try {
+            return new URL(websiteUrl).hostname.replace(/^www\./, '').toLowerCase();
+          } catch {
+            return null;
+          }
+        })();
+        
+        if (siteDomain) {
+          uniqueEmails.sort((a, b) => {
+            const aDomain = a.split('@')[1]?.toLowerCase() || '';
+            const bDomain = b.split('@')[1]?.toLowerCase() || '';
+            const aMatch = aDomain.includes(siteDomain) ? 1 : 0;
+            const bMatch = bDomain.includes(siteDomain) ? 1 : 0;
+            return bMatch - aMatch;
+          });
+        }
+        
+        logger.info("EMAIL_API_COMPLETE", `Extracted ${uniqueEmails.length} unique emails from ${visitedPages.length} pages for ${websiteUrl}`);
+        
+        return {
+          emails: uniqueEmails,
+          pagesVisited: visitedPages.length,
+          visited: visitedPages,
+          errors: []
+        };
+      } catch (error) {
+        logger.error("BROWSERLESS_API_EMAIL_ERROR", `Error extracting emails via API for ${websiteUrl}: ${error.message}`);
+        return { 
+          emails: [], 
+          pagesVisited: 0,
+          visited: [],
+          errors: [{ type: "api_error", message: error.message }] 
+        };
+      }
+    }
+
     // Initialize timings bucket
     // businessData.timings = {
     //   scrape_ms: null,
@@ -284,26 +400,10 @@ export async function extractBusinessDetails(
         // const T_SCRAPE_START = performance.now();
         const emailTimeout = Number(process.env.EMAIL_TIMEOUT_MS || 65000); // 65s to accommodate 60s budget + buffer
 
-        // Add timeout wrapper to prevent hanging
-        const emailPromise = limitEmail(() =>
-          scrapeEmails({
-            browser,
-            startUrl: businessData.website,
-            options: {
-            depth: 1,
-            max: 5, // Visit 5 pages total (homepage + 4 priority pages)
-            timeout: 35000, // 35s - accommodates slow sites like sunlightdigitech.com
-            delay: 500, // Delay between pages - let content load
-            wait: "dom",
-            budget: 60000, // 60s budget (5 pages × 10-12s avg)
-            perPageLinks: 12, // Top links per page
-            firstOnly: false,
-            restrictDomain: false, // allow gmail/outlook etc.
-            noDeobfuscate: true,
-              blockThirdParty: true,
-            },
-          })
-        );
+        // Use Browserless Content API - eliminates frame detachment issues
+        const emailPromise = limitEmail(async () => {
+          return await extractEmailsViaBrowserlessAPI(businessData.website);
+        });
 
         let emailResult = await Promise.race([
           emailPromise,
@@ -314,113 +414,16 @@ export async function extractBusinessDetails(
             )
           ),
         ]).catch(async (err) => {
-          // Log timeout/error but don't discard emails if found before error
-          const isBrowserError = err.message.includes("Target closed") || 
-                                 err.message.includes("Protocol error") ||
-                                 err.message.includes("Session closed") ||
-                                 err.message.includes("frame was detached");
-          
-          if (process.env.LOG_EMAIL_FAILURES === "true" || isBrowserError) {
-            logger.warn("EMAIL_SCRAPER_ERROR", `${isBrowserError ? 'Browser closed' : 'Timeout'} for ${businessData.website}: ${err.message}`);
+          // Log timeout/error
+          if (process.env.LOG_EMAIL_FAILURES === "true") {
+            logger.warn("EMAIL_API_ERROR", `Timeout/error for ${businessData.website}: ${err.message}`);
           }
           
-          // Return empty - retry will be handled after checking the result
-          return { emails: [], errors: [{ type: isBrowserError ? 'browser_closed' : 'timeout', message: err.message }] };
+          // Return empty on error
+          return { emails: [], errors: [{ type: 'timeout', message: err.message }] };
         });
 
         let { emails: rawEmails = [], errors: scrapingErrors = [] } = emailResult;
-        
-        // Helper function to detect browser closure errors
-        const hasBrowserClosureError = (errors) => {
-          if (!errors || errors.length === 0) return false;
-          return errors.some(err => 
-            err.type === 'browser_closed' ||
-            err.type === 'TimeoutError' ||
-            (err.message && (
-              err.message.includes("Target closed") ||
-              err.message.includes("Protocol error") ||
-              err.message.includes("Session closed") ||
-              err.message.includes("frame was detached") ||
-              err.message.includes("detached Frame") ||
-              err.message.includes("Execution context was destroyed") ||
-              err.message.includes("Navigation timeout")
-            ))
-          );
-        };
-        
-        // Helper function to check if browser pool is ready
-        const waitForBrowserReady = async (maxWaitMs = 15000) => {
-          const startTime = Date.now();
-          let lastError = null;
-          
-          while (Date.now() - startTime < maxWaitMs) {
-            try {
-              // Try to acquire a test page to verify browser is ready
-              const testPage = await browser.acquirePage();
-              if (testPage) {
-                await browser.releasePage(testPage);
-                return true; // Browser is ready
-              }
-            } catch (err) {
-              lastError = err;
-              // Wait 2 seconds before next attempt
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-          }
-          
-          // Timeout reached
-          logger.warn("BROWSER_POOL_NOT_READY", `Browser pool not ready after ${maxWaitMs}ms: ${lastError?.message || 'unknown'}`);
-          return false;
-        };
-        
-        // Retry logic: Check result AFTER promise completes
-        // Retry if: (1) no emails found AND (2) browser closure detected
-        if (rawEmails.length === 0 && hasBrowserClosureError(scrapingErrors)) {
-          logger.info("EMAIL_SCRAPER_RETRY", `Retrying ${businessData.website} after browser closure (0 emails found)...`);
-          
-          // Wait for browser pool to be ready (with 15s timeout)
-          const isReady = await waitForBrowserReady(15000);
-          
-          if (!isReady) {
-            logger.warn("EMAIL_SCRAPER_RETRY_SKIPPED", `Skipping retry for ${businessData.website} - browser pool not ready`);
-            // Keep original empty result, don't attempt retry
-          } else {
-          
-          try {
-            // Retry with fresh browser
-            const retryResult = await limitEmail(() =>
-              scrapeEmails({
-                browser,
-                startUrl: businessData.website,
-                options: {
-                  depth: 1,
-                  max: 5,
-                  timeout: 35000,
-                  delay: 500,
-                  wait: "dom",
-                  budget: 60000,
-                  perPageLinks: 12,
-                  firstOnly: false,
-                  restrictDomain: false,
-                  noDeobfuscate: true,
-                  blockThirdParty: true,
-                },
-              })
-            );
-            
-            logger.info("EMAIL_SCRAPER_RETRY_COMPLETE", `Retry completed for ${businessData.website}: ${retryResult.emails?.length || 0} emails found`);
-            
-            // Use retry result if successful
-            if (retryResult.emails && retryResult.emails.length > 0) {
-              rawEmails = retryResult.emails;
-              scrapingErrors = retryResult.errors || [];
-            }
-          } catch (retryErr) {
-            logger.warn("EMAIL_SCRAPER_RETRY_FAILED", `Retry failed for ${businessData.website}: ${retryErr.message}`);
-            // Keep original empty result
-          }
-          }
-        }
         // businessData.timings.scrape_ms = Math.round(
         //   performance.now() - T_SCRAPE_START
         // );
