@@ -33,6 +33,60 @@ export async function extractFilteredReviews(
       return [];
     }
 
+    // Click Reviews tab if not already active (CRITICAL: Reviews container only visible when tab is active)
+    try {
+      const reviewsTab = await page.evaluate(() => {
+        // Try multiple selectors for the Reviews tab
+        const tab = document.querySelector('button[aria-label*="Reviews"]') ||
+                    document.querySelector('button[data-tab-index="1"]') ||
+                    Array.from(document.querySelectorAll('button[role="tab"]')).find(
+                      btn => btn.textContent.includes('Reviews')
+                    );
+        
+        if (!tab) {
+          return { found: false, reason: "Reviews tab not found" };
+        }
+        
+        const isSelected = tab.getAttribute('aria-selected') === 'true';
+        if (!isSelected) {
+          tab.click();
+          return { found: true, clicked: true, wasSelected: false };
+        }
+        
+        return { found: true, clicked: false, wasSelected: true };
+      });
+      
+      if (reviewsTab.found && reviewsTab.clicked) {
+        logger.info("EXTRACT_REVIEWS", "Clicked Reviews tab", { 
+          url: page.url(),
+          wasSelected: reviewsTab.wasSelected
+        });
+        // Wait for tab content to load - wait for reviews container to appear
+        try {
+          await page.waitForSelector(".m6QErb.Pf6ghf", { timeout: 5000 });
+          logger.info("EXTRACT_REVIEWS", "Reviews container appeared after tab click");
+        } catch (waitError) {
+          logger.warn("EXTRACT_REVIEWS", "Reviews container did not appear after tab click, waiting additional time", {
+            error: waitError.message
+          });
+          await page.waitForTimeout(2000); // Fallback wait
+        }
+      } else if (reviewsTab.found && !reviewsTab.clicked) {
+        logger.info("EXTRACT_REVIEWS", "Reviews tab already active", { url: page.url() });
+      } else {
+        logger.warn("EXTRACT_REVIEWS", "Reviews tab not found, continuing anyway", { 
+          reason: reviewsTab.reason,
+          url: page.url()
+        });
+      }
+    } catch (tabError) {
+      logger.warn("EXTRACT_REVIEWS", "Could not click Reviews tab", { 
+        error: tabError.message,
+        url: page.url()
+      });
+      // Continue anyway - maybe tab is already visible or page structure is different
+    }
+
     // Wait for reviews container to load with increased timeout
     await page
       .waitForSelector(".m6QErb.Pf6ghf", { timeout: 10000 })
@@ -47,6 +101,26 @@ export async function extractFilteredReviews(
       return [];
     }
 
+    // Wait for at least some review elements to be loaded before scrolling
+    // This ensures the page is fully loaded and reviews are rendered
+    try {
+      await page.waitForFunction(
+        () => document.querySelectorAll("[data-review-id]").length > 0,
+        { timeout: 5000 }
+      );
+      const initialReviewCount = await page.evaluate(() => document.querySelectorAll("[data-review-id]").length);
+      logger.info("EXTRACT_REVIEWS", "Initial reviews loaded", {
+        initialReviewCount,
+        url: page.url()
+      });
+    } catch (waitError) {
+      logger.warn("EXTRACT_REVIEWS", "No reviews found after waiting, continuing anyway", {
+        error: waitError.message,
+        url: page.url()
+      });
+      // Continue - maybe there are no reviews or they load differently
+    }
+
     // If extracting negative reviews, sort by lowest rating first
     if (ratingFilter === "negative") {
       logger.info("EXTRACT_REVIEWS", "Sorting reviews by lowest rating for negative review extraction");
@@ -54,6 +128,10 @@ export async function extractFilteredReviews(
     }
 
     // Scroll through review sections to load content
+    logger.info("EXTRACT_REVIEWS", "Starting auto-scroll to load reviews", {
+      reviewTimeRange,
+      ratingFilter
+    });
     await autoScrollReviews(page);
 
     // Check once more before evaluation
@@ -212,33 +290,77 @@ async function autoScrollReviews(page) {
   try {
     // Check if page is closed before proceeding
     if (page.isClosed()) {
+      logger.warn("AUTO_SCROLL_REVIEWS", "Page is closed, skipping scroll");
       return;
     }
 
-    await page.evaluate(async () => {
-      await new Promise((resolve) => {
-        const reviewSection = document.querySelector(".m6QErb.Pf6ghf");
-        if (!reviewSection) return resolve();
+    const scrollResult = await page.evaluate(async () => {
+      const reviewSection = document.querySelector(".m6QErb.Pf6ghf");
+      if (!reviewSection) {
+        return { success: false, reason: "Review section not found" };
+      }
 
-        let lastHeight = 0;
-        let scrollAttempts = 0;
-        const maxScrollAttempts = 20; // Prevent infinite loops
+      let lastHeight = reviewSection.scrollHeight;
+      let lastReviewCount = document.querySelectorAll("[data-review-id]").length;
+      let scrollAttempts = 0;
+      const maxScrollAttempts = 30; // Increased attempts for lazy loading
+      const initialHeight = reviewSection.scrollHeight;
+      const initialReviewCount = lastReviewCount;
 
-        const scrollInterval = setInterval(() => {
-          reviewSection.scrollTop += 1000;
+      while (scrollAttempts < maxScrollAttempts) {
+        // Scroll the container to bottom
+        reviewSection.scrollTop = reviewSection.scrollHeight;
+        
+        // Wait for content to load (lazy loading)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const currentHeight = reviewSection.scrollHeight;
+        const currentReviewCount = document.querySelectorAll("[data-review-id]").length;
+        
+        // If height or review count increased, content loaded
+        if (currentHeight > lastHeight || currentReviewCount > lastReviewCount) {
+          lastHeight = currentHeight;
+          lastReviewCount = currentReviewCount;
+          scrollAttempts = 0; // Reset attempts since we're making progress
+        } else {
           scrollAttempts++;
-
-          if (
-            reviewSection.scrollTop === lastHeight ||
-            scrollAttempts >= maxScrollAttempts
-          ) {
-            clearInterval(scrollInterval);
-            resolve();
+        }
+        
+        // Stop if we've scrolled to bottom and no new content after multiple attempts
+        if (reviewSection.scrollTop + reviewSection.clientHeight >= reviewSection.scrollHeight - 10) {
+          if (scrollAttempts >= 3) {
+            break; // No new content loading
           }
-          lastHeight = reviewSection.scrollTop;
-        }, 500);
-      });
+        }
+      }
+
+      return {
+        success: true,
+        scrollAttempts: scrollAttempts,
+        initialHeight,
+        finalHeight: reviewSection.scrollHeight,
+        initialReviewCount,
+        finalReviewCount: document.querySelectorAll("[data-review-id]").length,
+        heightIncrease: reviewSection.scrollHeight - initialHeight,
+        reviewCountIncrease: document.querySelectorAll("[data-review-id]").length - initialReviewCount
+      };
     });
+
+    if (scrollResult && scrollResult.success) {
+      logger.info("AUTO_SCROLL_REVIEWS", "Successfully scrolled review section", {
+        scrollAttempts: scrollResult.scrollAttempts,
+        initialHeight: scrollResult.initialHeight,
+        finalHeight: scrollResult.finalHeight,
+        heightIncrease: scrollResult.heightIncrease,
+        initialReviewCount: scrollResult.initialReviewCount,
+        finalReviewCount: scrollResult.finalReviewCount,
+        reviewCountIncrease: scrollResult.reviewCountIncrease
+      });
+    } else {
+      logger.warn("AUTO_SCROLL_REVIEWS", "Could not scroll review section", {
+        reason: scrollResult?.reason || "Unknown"
+      });
+    }
   } catch (error) {
     // Silently fail if frame is detached during scrolling
     if (
@@ -252,7 +374,10 @@ async function autoScrollReviews(page) {
       );
       return;
     }
-    logger.error("AUTO_SCROLL_REVIEWS", "Error during auto scroll", error);
+    logger.error("AUTO_SCROLL_REVIEWS", "Error during auto scroll", {
+      error: error.message,
+      stack: error.stack
+    });
   }
 }
 

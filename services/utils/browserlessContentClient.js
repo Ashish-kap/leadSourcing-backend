@@ -58,7 +58,7 @@ export async function fetchPageContent(url, options = {}) {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     const response = await fetch(
-      `${BROWSERLESS_API_URL}?token=${BROWSERLESS_TOKEN}`,
+      `${BROWSERLESS_API_URL}/content?token=${BROWSERLESS_TOKEN}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

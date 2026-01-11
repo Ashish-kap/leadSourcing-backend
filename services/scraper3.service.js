@@ -282,22 +282,49 @@ async function getListingsData(page, ratingFilter, reviewFilter) {
 
           const ratingElement = listing.querySelector('.ZkP5Je[role="img"]');
           const ratingText = ratingElement?.getAttribute("aria-label") || "";
-          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+          
+          // Extract rating (first number before "stars")
+          const ratingMatch = ratingText.match(/(\d+\.?\d*)\s+stars?/i);
           const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
 
-          const reviewLabelElement = listing.querySelector(
-            '[aria-label*="reviews"], [aria-label*="Reviews"]'
-          );
-          const reviewLabelText =
-            reviewLabelElement?.getAttribute("aria-label") || "";
-          const reviewMatch = reviewLabelText.match(/(\d+)\s+[Rr]eviews?/);
-          const reviewCount = reviewMatch ? parseInt(reviewMatch[1], 10) : 0;
+          // Extract review count - try aria-label first (old format: "5.0 stars 4 Reviews")
+          // Handle comma-separated numbers like "4,078"
+          const reviewMatch = ratingText.match(/(\d{1,3}(?:,\d{3})*|\d+)\s+[Rr]eviews?/);
+          let reviewCount = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, ''), 10) : 0;
+          let reviewCountSource = reviewMatch ? "aria-label" : null;
+
+          // If not found in aria-label, try the separate element (new format: <span class="UY7F9">(4)</span>)
+          if (reviewCount === 0) {
+            const reviewCountElement = listing.querySelector('.UY7F9[aria-hidden="true"]');
+            const reviewCountText = reviewCountElement?.textContent?.trim() || "";
+            // Extract number from parentheses: "(4)" or "(4,078)"
+            const parenMatch = reviewCountText.match(/\((\d{1,3}(?:,\d{3})*|\d+)\)/);
+            if (parenMatch) {
+              reviewCount = parseInt(parenMatch[1].replace(/,/g, ''), 10);
+              reviewCountSource = "separate-element";
+            }
+          }
 
           const nameElement = listing.querySelector(".qBF1Pd");
           const businessName =
             nameElement?.textContent?.trim() || "Unknown Business";
 
-          return { url, rating, reviewCount, businessName };
+          return { 
+            url, 
+            rating, 
+            reviewCount, 
+            businessName,
+            // DEBUG: Include extraction details
+            _debug: {
+              ratingText,
+              ratingMatch: ratingMatch ? ratingMatch[0] : null,
+              reviewMatch: reviewMatch ? reviewMatch[0] : null,
+              reviewCountSource,
+              reviewCountElementText: reviewCountSource === "separate-element" 
+                ? listing.querySelector('.UY7F9[aria-hidden="true"]')?.textContent?.trim() || null
+                : null
+            }
+          };
         })
         .filter(Boolean)
         .filter((item) => {
@@ -842,8 +869,9 @@ export async function runScraper(
 
   // -------- Tier B: detail worker --------
   const detailTasks = [];
-  const scheduleDetail = (url, meta) => {
+  const scheduleDetail = (listing, meta) => {
     if (shouldStop) return;
+    const url = listing.url; // Extract URL from listing object
     const p = limitDetail(async () => {
       // Re-check stop as soon as the task actually starts
       if (shouldStop) return null;
@@ -851,37 +879,47 @@ export async function runScraper(
         return await withPage(`detail:${url}`, async (page) => {
           if (shouldStop) return null;
 
-          // Faster nav with retry logic
-          try {
-            await page.goto(url, {
-              waitUntil: "domcontentloaded",
-              timeout: DETAIL_NAV_TIMEOUT_MS,
-            });
-          } catch (navError) {
-            // If navigation fails, try once more with longer timeout
-            logger.warn("NAVIGATION_RETRY", `Retrying navigation for ${url}`);
-            await page.goto(url, {
-              waitUntil: "networkidle2",
-              timeout: DETAIL_NAV_TIMEOUT_MS + 10000,
-            });
-          }
+          // Only navigate to page if we need it for review extraction
+          // Business data extraction uses Browserless Scrape API, so no navigation needed
+          const needsPageForReviews = meta.reviewTimeRange || meta.extractNegativeReviews;
+          
+          if (needsPageForReviews) {
+            // Faster nav with retry logic (only needed for reviews)
+            try {
+              await page.goto(url, {
+                waitUntil: "domcontentloaded",
+                timeout: DETAIL_NAV_TIMEOUT_MS,
+              });
+            } catch (navError) {
+              // If navigation fails, try once more with longer timeout
+              logger.warn("NAVIGATION_RETRY", `Retrying navigation for ${url}`);
+              await page.goto(url, {
+                waitUntil: "networkidle2",
+                timeout: DETAIL_NAV_TIMEOUT_MS + 10000,
+              });
+            }
 
-          // In case stop was requested during navigation, exit before parsing
-          if (shouldStop) return null;
+            // In case stop was requested during navigation, exit before parsing
+            if (shouldStop) return null;
+          }
 
           const locationString = [meta.city, meta.state, meta.countryName]
             .filter(Boolean)
             .join(", ");
+          
+          // Extract business data using Browserless Scrape API (no page navigation needed)
+          // Pass rating and reviewCount from listings page to avoid re-scraping
           const businessData = await extractBusinessDetails(
-            page,
-            page.browser(),
+            url, // Use the URL directly, not page.url()
             meta.keyword,
             locationString,
             null,
             null,
             meta.isExtractEmail,
             meta.isValidate,
-            meta.onlyWithoutWebsite
+            meta.onlyWithoutWebsite,
+            listing.rating,        // Pre-scraped from listings page
+            listing.reviewCount    // Pre-scraped from listings page
           );
 
           if (!businessData) {
@@ -894,14 +932,39 @@ export async function runScraper(
           // Optional review filtering on the same page
           if (meta.reviewTimeRange || meta.extractNegativeReviews) {
             try {
-              const filteredReviews = await extractFilteredReviews(page, {
-                reviewTimeRange: meta.reviewTimeRange,
-                ratingFilter: meta.extractNegativeReviews ? "negative" : null,
-              });
-              businessData.filtered_reviews = filteredReviews;
-              businessData.filtered_review_count = filteredReviews.length;
+              // Check if page is still open
+              if (page.isClosed()) {
+                logger.warn("REVIEW_EXTRACTION_SKIPPED", "Page closed before review extraction", {
+                  url,
+                  businessName: businessData.name
+                });
+                businessData.filtered_reviews = [];
+                businessData.filtered_review_count = 0;
+              } else {
+                const filteredReviews = await extractFilteredReviews(page, {
+                  reviewTimeRange: meta.reviewTimeRange,
+                  ratingFilter: meta.extractNegativeReviews ? "negative" : null,
+                });
+                businessData.filtered_reviews = filteredReviews;
+                businessData.filtered_review_count = filteredReviews.length;
+                
+                logger.info("REVIEWS_EXTRACTED", "Successfully extracted reviews", {
+                  url,
+                  businessName: businessData.name,
+                  reviewCount: filteredReviews.length,
+                  reviewTimeRange: meta.reviewTimeRange
+                });
+              }
             } catch (err) {
-              // non-fatal
+              logger.warn("REVIEW_EXTRACTION_ERROR", "Failed to extract reviews", {
+                url,
+                businessName: businessData.name,
+                error: err.message,
+                errorType: err.constructor.name,
+                stack: err.stack
+              });
+              businessData.filtered_reviews = [];
+              businessData.filtered_review_count = 0;
             }
           }
 
@@ -1220,6 +1283,18 @@ export async function runScraper(
           reviewFilter
         );
 
+        // DEBUG: Log first listing extraction details
+        if (listingsData && listingsData.length > 0 && listingsData[0]._debug) {
+          logger.info("DEBUG_LISTING_EXTRACTION", "First listing extraction details", {
+            city: cityName,
+            businessName: listingsData[0].businessName,
+            url: listingsData[0].url,
+            rating: listingsData[0].rating,
+            reviewCount: listingsData[0].reviewCount,
+            debug: listingsData[0]._debug
+          });
+        }
+
         // IMMEDIATE Redis check (if avoidDuplicate is true)
         let filteredListingsData = listingsData;
         if (avoidDuplicate && finalUserId && listingsData && listingsData.length > 0) {
@@ -1301,20 +1376,20 @@ export async function runScraper(
         if (listingsDataToProcess.length === 0) return;
 
         // Filter out duplicate URLs before scheduling details (Tier B)
-        const allUrls = listingsDataToProcess.map((x) => x.url);
-        const uniqueUrls = allUrls.filter(url => {
-          if (seenBusinessUrls.has(url)) {
+        // Keep full listing objects to preserve rating and reviewCount
+        const uniqueListings = listingsDataToProcess.filter(listing => {
+          if (seenBusinessUrls.has(listing.url)) {
             logger.info("DUPLICATE_URL_FILTERED", "Skipping duplicate URL at listing level", {
-              url,
+              url: listing.url,
               city: cityName,
             });
             return false;
           }
-          seenBusinessUrls.add(url);
+          seenBusinessUrls.add(listing.url);
           return true;
         });
 
-        const toSchedule = Math.min(uniqueUrls.length, remaining);
+        const toSchedule = Math.min(uniqueListings.length, remaining);
         const meta = {
           keyword,
           city: cityName,
@@ -1329,14 +1404,14 @@ export async function runScraper(
 
         logger.info("URL_DEDUPLICATION", "Filtered duplicate URLs at listing level", {
           city: cityName,
-          totalUrls: allUrls.length,
-          uniqueUrls: uniqueUrls.length,
-          duplicatesFiltered: allUrls.length - uniqueUrls.length,
+          totalUrls: listingsDataToProcess.length,
+          uniqueUrls: uniqueListings.length,
+          duplicatesFiltered: listingsDataToProcess.length - uniqueListings.length,
           toSchedule,
         });
 
         for (let i = 0; i < toSchedule && !shouldStop; i++) {
-          scheduleDetail(uniqueUrls[i], meta);
+          scheduleDetail(uniqueListings[i], meta);
         }
       });
     } catch (error) {

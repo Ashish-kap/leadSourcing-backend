@@ -1,9 +1,9 @@
 import dotenv from "dotenv";
 dotenv.config();
 import { verifyEmail } from "./utils/emailVerifier.js";
-import { fetchPageContent, fetchMultiplePages, fetchPageContentWithRetry } from "./utils/browserlessContentClient.js";
+import { fetchMultiplePages, fetchPageContentWithRetry } from "./utils/browserlessContentClient.js";
 import { extractEmailsFromHtml, findContactUrls } from "./utils/emailExtractorFromHtml.js";
-import { performance } from "perf_hooks";
+import { scrapeGoogleMapsBusiness } from "./utils/googleMapsScraper.js";
 import logger from "./logger.js";
 
 // Email extraction concurrency limiter for Browserless Content API
@@ -48,206 +48,88 @@ function getCoordsFromUrl(u) {
 }
 
 export async function extractBusinessDetails(
-  page,
-  browser,
+  googleMapsUrl,
   searchTerm,
   searchLocation,
   ratingFilter = null,
   reviewFilter = null,
   isExtractEmail = false,
   isValidate = false,
-  onlyWithoutWebsite = false
+  onlyWithoutWebsite = false,
+  preScrapedRating = null,
+  preScrapedReviewCount = null
 ) {
 
-  try {
-    await page.waitForSelector("h1.DUwDvf.lfPIob", {
-      visible: true,
-      timeout: 7000,
-    });
-  } catch (_) {} // some places have slow paint; we’ll still attempt evaluate
+  // --- Parse coords from URL (reliable) ---
+  const { latitude, longitude } = getCoordsFromUrl(googleMapsUrl);
 
-  try {
-    await page.waitForSelector('.F7nice .ceNzKf[role="img"]', {
-      visible: true,
-      timeout: 7000,
-    });
-  } catch (_) {}
-
-  try {
-    await page.waitForSelector(
-      'a[data-item-id="authority"], a[aria-label^="Website"], a[aria-label="Open website"], button[aria-label*="Website"]',
-      { visible: true, timeout: 7000 }
-    );
-  } catch (_) {}
-
-  // --- NEW: parse coords from page.url() (reliable) ---
-  const { latitude, longitude } = getCoordsFromUrl(page.url());
-
+  // --- Extract business data using Browserless Scrape API ---
   let businessData;
   try {
-    businessData = await Promise.race([
-      page.evaluate(
-        (searchTerm, searchLocation, ratingFilter, reviewFilter) => {
-          const qs = (sel) => document.querySelector(sel);
-          const txt = (el) => el?.textContent?.trim() || null;
+    businessData = await scrapeGoogleMapsBusiness(googleMapsUrl);
+    
+    if (!businessData) {
+      logger.warn("BUSINESS_DATA_EXTRACTION_FAILED", `Failed to extract business data from ${googleMapsUrl}`);
+      return null;
+    }
 
-          const normalizeWebsiteHref = (href) => {
-            if (!href) return null;
-            try {
-              const u = new URL(href, location.href);
-              // Google redirector used by Maps sometimes
-              if (u.hostname.includes("google.") && u.pathname === "/url") {
-                const q = u.searchParams.get("q");
-                return q || u.href;
-              }
-              return u.href;
-            } catch {
-              return href;
-            }
-          };
+    // Use pre-scraped rating/review count if available (more reliable from listings page)
+    if (preScrapedRating !== null && preScrapedRating !== undefined) {
+      businessData.rating = preScrapedRating;
+    }
+    if (preScrapedReviewCount !== null && preScrapedReviewCount !== undefined) {
+      businessData.rating_count = String(preScrapedReviewCount);
+    }
 
-          // Name (place header)
-          const name = txt(qs("h1.DUwDvf.lfPIob"));
+    logger.info("PRESCRAPED_VALUES_RECEIVED", "Using pre-scraped rating/review count", {
+      googleMapsUrl,
+      businessName: businessData.name,
+      preScrapedRating,
+      preScrapedReviewCount,
+      hasRating: preScrapedRating !== null && preScrapedRating !== undefined,
+      hasReviewCount: preScrapedReviewCount !== null && preScrapedReviewCount !== undefined,
+      finalRating: businessData.rating,
+      finalRatingCount: businessData.rating_count
+    });
 
-          // Category: specifically the category button near the title
-          const category = txt(qs('button[jsaction="pane.wfvdle18.category"]'));
+    // Set search term and location (not available in scraper response)
+    businessData.search_term = searchTerm;
+    businessData.search_location = searchLocation;
 
-          // Rating value from aria-label of the stars beside the rating
-          const ratingEl = qs('.F7nice .ceNzKf[role="img"]');
-          const ratingLabel = ratingEl?.getAttribute("aria-label") || "";
-          const ratingMatch = ratingLabel.match(/(\d+(?:\.\d+)?)/);
-          const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+    // Apply rating filter if provided
+    if (ratingFilter && typeof businessData.rating === "number") {
+      const { operator, value } = ratingFilter;
+      const bad =
+        (operator === "gt" && !(businessData.rating > value)) ||
+        (operator === "gte" && !(businessData.rating >= value)) ||
+        (operator === "lt" && !(businessData.rating < value)) ||
+        (operator === "lte" && !(businessData.rating <= value));
+      if (bad) {
+        logger.info("BUSINESS_FILTERED_BY_RATING", `Business ${businessData.name} filtered out by rating filter`);
+        return null;
+      }
+    }
 
-          // Review count (the little “(123)” with aria-label “123 reviews” or “1 review”)
-          const reviewBadge = qs(
-            '.F7nice [aria-label$="reviews"], .F7nice [aria-label$="review"]'
-          );
-          const reviewCountLabel =
-            reviewBadge?.getAttribute("aria-label") || "";
-          const reviewCountMatch = reviewCountLabel.match(/(\d+)\s+reviews?$/i);
-          const reviewCount = reviewCountMatch
-            ? parseInt(reviewCountMatch[1], 10)
-            : 0;
+    // Apply review count filter if provided
+    if (reviewFilter) {
+      const reviewCount = parseInt(businessData.rating_count || "0", 10);
+      const { operator, value } = reviewFilter;
+      const bad =
+        (operator === "gt" && !(reviewCount > value)) ||
+        (operator === "gte" && !(reviewCount >= value)) ||
+        (operator === "lt" && !(reviewCount < value)) ||
+        (operator === "lte" && !(reviewCount <= value));
+      if (bad) {
+        logger.info("BUSINESS_FILTERED_BY_REVIEWS", `Business ${businessData.name} filtered out by review filter`);
+        return null;
+      }
+    }
+  } catch (error) {
+    logger.error("BUSINESS_DATA_EXTRACTION_ERROR", `Error extracting business data from ${googleMapsUrl}: ${error.message}`);
+    return null;
+  }
 
-          // Optional filters (applied on parsed values)
-          if (ratingFilter && typeof rating === "number") {
-            const { operator, value } = ratingFilter;
-            const bad =
-              (operator === "gt" && !(rating > value)) ||
-              (operator === "gte" && !(rating >= value)) ||
-              (operator === "lt" && !(rating < value)) ||
-              (operator === "lte" && !(rating <= value));
-            if (bad) return null;
-          }
-          if (reviewFilter) {
-            const { operator, value } = reviewFilter;
-            const c = reviewCount;
-            const bad =
-              (operator === "gt" && !(c > value)) ||
-              (operator === "gte" && !(c >= value)) ||
-              (operator === "lt" && !(c < value)) ||
-              (operator === "lte" && !(c <= value));
-            if (bad) return null;
-          }
-
-          // Phone (works)
-          const phoneHref = qs(
-            'a[aria-label="Call phone number"]'
-          )?.getAttribute("href");
-          const phone = phoneHref ? phoneHref.replace("tel:", "") : null;
-
-          // Address (works)
-          const addressBtn = qs('button[aria-label^="Address:"]');
-          const address = addressBtn
-            ? addressBtn
-                .getAttribute("aria-label")
-                .replace(/^Address:\s*/, "")
-                .trim()
-            : null;
-
-          let website = null;
-
-          // 1) Primary: explicit Website row
-          const authorityLink = qs('a[data-item-id="authority"]');
-          if (authorityLink) {
-            website = normalizeWebsiteHref(authorityLink.getAttribute("href"));
-          }
-
-          // 2) Common aria/data-tooltip variants
-          if (!website) {
-            const a = qs(
-              'a[aria-label^="Website"], a[aria-label*="Website"], a[data-tooltip="Open website"]'
-            );
-            website = normalizeWebsiteHref(a?.getAttribute("href"));
-          }
-
-          // 3) Fallback: some places only expose an "action" link (booking/menu) that is the site
-          if (!website) {
-            const actionCandidates = [
-              ...document.querySelectorAll('a[data-item-id^="action:"]'),
-            ];
-            const action = actionCandidates.find((a) => {
-              const href = a.getAttribute("href") || "";
-              const label = (
-                a.getAttribute("aria-label") ||
-                a.textContent ||
-                ""
-              ).trim();
-              // pick http(s) links that look like a site (avoid tel:, mailto:, maps links)
-              return (
-                /^https?:\/\//i.test(href) &&
-                !/google\.[^/]+\/maps/i.test(href) &&
-                /\.[a-z]{2,}/i.test(label || href)
-              ); // has a domain-ish TLD
-            });
-            if (action) {
-              website = normalizeWebsiteHref(action.getAttribute("href"));
-            }
-          }
-
-          // 4) Last-ditch: sometimes owner posts include the site (not 100% reliable)
-          if (!website) {
-            const ownerPostLink = document.querySelector(
-              '[data-section-id="345"] [data-link^="http"]'
-            ); // "From the owner"
-            if (ownerPostLink)
-              website = normalizeWebsiteHref(
-                ownerPostLink.getAttribute("data-link")
-              );
-          }
-
-          return {
-            name,
-            phone,
-            website,
-            email: null,
-            email_status: null,
-            address,
-            // coords set outside (more reliable), we’ll fill them after evaluate
-            latitude: null,
-            longitude: null,
-            rating: typeof rating === "number" ? rating : null,
-            rating_count: String(reviewCount),
-            category: category || null,
-            search_term: searchTerm,
-            search_type: "Google Maps",
-            search_location: searchLocation,
-          };
-        },
-        searchTerm,
-        searchLocation,
-        ratingFilter,
-        reviewFilter
-      ),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Business data extraction timed out")),
-          10000
-        )
-      ),
-    ]);
-
-    if (!businessData) return null;
+  if (!businessData) return null;
 
     // inject reliable coords parsed from the URL
     businessData.latitude = latitude;
@@ -378,13 +260,6 @@ export async function extractBusinessDetails(
         };
       }
     }
-
-    // Initialize timings bucket
-    // businessData.timings = {
-    //   scrape_ms: null,
-    //   verify: { wall_ms: null, sum_email_ms: null, per_email: [] },
-    //   total_ms: null,
-    // };
 
     // Skip email extraction when onlyWithoutWebsite is true
     // (businesses without websites won't have emails to scrape anyway)
@@ -592,11 +467,6 @@ export async function extractBusinessDetails(
     // Note: We no longer filter out businesses with no emails found
     // This allows businesses to be included even if email scraping fails due to technical errors
     // The "no website" filter (line 261-264) still applies when isExtractEmail is true
-  } catch (_) {
-    return null;
-  }
-
-
 
   return businessData;
 }
