@@ -693,14 +693,29 @@ export async function runScraper(
 
   const pushResult = (r) => {
     if (!r) return;
+    
+    // Strict check: Only push if under limit
     if (results.length >= recordLimit) {
       requestStop();
+      logger.info("RESULT_REJECTED", "Result rejected - limit reached", {
+        currentResults: results.length,
+        recordLimit,
+        businessName: r.name || "Unknown"
+      });
       return;
     }
+    
     // Duplicate checking is now handled at URL level during listing scraping
     // No need to check here since we already filtered duplicates before scheduling
     results.push(r);
-    if (results.length >= recordLimit) requestStop();
+    
+    if (results.length >= recordLimit) {
+      requestStop();
+      logger.info("RECORD_LIMIT_REACHED", "Record limit reached", {
+        resultsLength: results.length,
+        recordLimit
+      });
+    }
   };
 
   const country = Country.getCountryByCode(countryCode);
@@ -870,7 +885,20 @@ export async function runScraper(
   // -------- Tier B: detail worker --------
   const detailTasks = [];
   const scheduleDetail = (listing, meta) => {
-    if (shouldStop) return;
+    // Early exit checks
+    if (shouldStop || results.length >= recordLimit) return;
+    
+    // Don't schedule if we're approaching the limit (accounting for in-flight tasks)
+    const pendingTasks = detailTasks.length - results.length;
+    if (results.length + pendingTasks >= recordLimit) {
+      logger.debug("SCHEDULING_STOPPED", "Stopping task scheduling - approaching limit", {
+        resultsLength: results.length,
+        pendingTasks,
+        recordLimit
+      });
+      return;
+    }
+    
     const url = listing.url; // Extract URL from listing object
     
     // Check if we need a browser page (only for review extraction)
@@ -1494,7 +1522,34 @@ export async function runScraper(
           toSchedule,
         });
 
+        // Schedule detail tasks with limit checking
         for (let i = 0; i < toSchedule && !shouldStop; i++) {
+          // Check if we're approaching limit before scheduling
+          if (results.length >= recordLimit) {
+            logger.info("SCHEDULING_STOPPED_AT_LIMIT", "Stopped scheduling - record limit reached", {
+              city: cityName,
+              scheduled: i,
+              toSchedule,
+              resultsLength: results.length,
+              recordLimit
+            });
+            break;
+          }
+          
+          // Additional check: Don't over-schedule
+          const pendingTasks = detailTasks.length - results.length;
+          if (results.length + pendingTasks >= recordLimit) {
+            logger.info("SCHEDULING_STOPPED_PENDING", "Stopped scheduling - pending tasks will meet limit", {
+              city: cityName,
+              scheduled: i,
+              toSchedule,
+              resultsLength: results.length,
+              pendingTasks,
+              recordLimit
+            });
+            break;
+          }
+          
           scheduleDetail(uniqueListings[i], meta);
         }
       });
