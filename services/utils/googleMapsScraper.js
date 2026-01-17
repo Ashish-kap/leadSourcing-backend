@@ -6,6 +6,8 @@ import { Agent } from 'undici';
 const BROWSERLESS_API_BASE = process.env.BROWSERLESS_CONTENT_API_URL || '';
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN || '';
 const SCRAPE_TIMEOUT = Number(process.env.SCRAPE_API_TIMEOUT || 30000);
+const SCRAPE_API_MAX_RETRIES = Number(process.env.SCRAPE_API_MAX_RETRIES || 2);
+const SCRAPE_API_CONCURRENCY = Number(process.env.SCRAPE_API_CONCURRENCY || 3);
 
 // Configure HTTP agent for better connection management
 const httpAgent = new Agent({
@@ -20,11 +22,45 @@ const httpAgent = new Agent({
   }
 });
 
+// Concurrency limiter for business data scraping REST API calls
+function createScrapeLimiter(concurrency) {
+  let active = 0;
+  const q = [];
+  const runNext = () => {
+    if (active >= concurrency) return;
+    const next = q.shift();
+    if (!next) return;
+    active++;
+    const { fn, resolve, reject } = next;
+    Promise.resolve()
+      .then(fn)
+      .then((v) => {
+        active--;
+        resolve(v);
+        runNext();
+      })
+      .catch((err) => {
+        active--;
+        reject(err);
+        runNext();
+      });
+  };
+  return (fn) =>
+    new Promise((resolve, reject) => {
+      q.push({ fn, resolve, reject });
+      runNext();
+    });
+}
+
+// Use SCRAPE_API_CONCURRENCY to control how many business data scraping REST API calls run concurrently
+const limitScrape = createScrapeLimiter(SCRAPE_API_CONCURRENCY);
+
 // Log configuration on module load
 logger.info("GOOGLE_MAPS_SCRAPER_CONFIG", JSON.stringify({
   apiBase: BROWSERLESS_API_BASE,
   hasToken: !!BROWSERLESS_TOKEN,
-  timeout: SCRAPE_TIMEOUT
+  timeout: SCRAPE_TIMEOUT,
+  concurrency: SCRAPE_API_CONCURRENCY
 }));
 
 /**
@@ -203,11 +239,11 @@ function parseScrapeResponse(responseData, googleMapsUrl) {
 }
 
 /**
- * Scrape Google Maps business data using Browserless Scrape API
+ * Internal function to scrape with error tracking for retry logic
  * @param {string} googleMapsUrl - Google Maps URL to scrape
- * @returns {Promise<object|null>} - Parsed business data or null on failure
+ * @returns {Promise<{success: boolean, data: object|null, error: object|null}>}
  */
-export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
+async function scrapeGoogleMapsBusinessInternal(googleMapsUrl) {
   if (!BROWSERLESS_API_BASE || !BROWSERLESS_TOKEN) {
     const errorDetails = {
       url: googleMapsUrl,
@@ -215,7 +251,7 @@ export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
       timestamp: new Date().toISOString()
     };
     logger.error('SCRAPE_API_CONFIG_ERROR', `Configuration error for ${googleMapsUrl}:`, JSON.stringify(errorDetails));
-    return null;
+    return { success: false, data: null, error: { ...errorDetails, isRetryable: false } };
   }
 
   // Build elements array with simplified selectors that work reliably
@@ -288,11 +324,12 @@ export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
         statusText: response.statusText,
         responseBody,
         requestTimeout: SCRAPE_TIMEOUT,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isRetryable: response.status >= 500 || (responseBody && responseBody.includes('ERR_ABORTED'))
       };
 
       logger.error("SCRAPE_API_ERROR", `Failed to scrape ${googleMapsUrl}:`, JSON.stringify(errorDetails));
-      return null;
+      return { success: false, data: null, error: errorDetails };
     }
 
     const responseData = await response.json();
@@ -304,12 +341,13 @@ export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
     
     if (!businessData) {
       logger.warn("SCRAPE_PARSE_FAILED", `Failed to parse business data from ${googleMapsUrl}`);
-      return null;
+      // Parse failures are not retryable
+      return { success: false, data: null, error: { isRetryable: false, message: 'Parse failed' } };
     }
 
     logger.info("SCRAPE_EXTRACTION_SUCCESS", `Extracted business data for ${businessData.name || 'unknown'}`);
     
-    return businessData;
+    return { success: true, data: businessData, error: null };
   } catch (error) {
     if (error.name === 'AbortError') {
       const errorDetails = {
@@ -318,10 +356,11 @@ export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
         statusCode: null,
         statusText: 'Timeout',
         requestTimeout: SCRAPE_TIMEOUT,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isRetryable: true // Timeouts are retryable
       };
       logger.error('SCRAPE_API_TIMEOUT', `Timeout scraping ${googleMapsUrl} after ${SCRAPE_TIMEOUT}ms:`, JSON.stringify(errorDetails));
-      return null;
+      return { success: false, data: null, error: errorDetails };
     }
     
     const errorDetails = {
@@ -330,9 +369,89 @@ export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
       statusCode: null,
       statusText: 'Network Error',
       requestTimeout: SCRAPE_TIMEOUT,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      isRetryable: error.message.includes('ERR_ABORTED') || error.message.includes('timeout') || error.message.includes('ETIMEDOUT')
     };
     logger.error('SCRAPE_API_ERROR', `Failed to scrape ${googleMapsUrl}:`, JSON.stringify(errorDetails));
-    return null;
+    return { success: false, data: null, error: errorDetails };
   }
+}
+
+/**
+ * Scrape Google Maps business data using Browserless Scrape API
+ * @param {string} googleMapsUrl - Google Maps URL to scrape
+ * @returns {Promise<object|null>} - Parsed business data or null on failure
+ */
+export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
+  const result = await scrapeGoogleMapsBusinessInternal(googleMapsUrl);
+  return result.success ? result.data : null;
+}
+
+/**
+ * Scrape Google Maps business data with retry logic for transient errors
+ * @param {string} googleMapsUrl - Google Maps URL to scrape
+ * @param {number} maxRetries - Maximum number of retries (default: SCRAPE_API_MAX_RETRIES)
+ * @returns {Promise<object|null>} - Parsed business data or null on failure
+ */
+export async function scrapeGoogleMapsBusinessWithRetry(googleMapsUrl, maxRetries = SCRAPE_API_MAX_RETRIES) {
+  // Apply concurrency limiter to prevent overwhelming Browserless v2
+  return await limitScrape(async () => {
+    let lastResult = null;
+    
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+      logger.info("SCRAPE_API_ATTEMPT", JSON.stringify({ 
+        url: googleMapsUrl, 
+        attempt, 
+        maxAttempts: maxRetries + 1 
+      }));
+      
+      const result = await scrapeGoogleMapsBusinessInternal(googleMapsUrl);
+      
+      // Success - return the data
+      if (result.success) {
+        if (attempt > 1) {
+          logger.info("SCRAPE_API_RETRY_SUCCESS", JSON.stringify({ 
+            url: googleMapsUrl, 
+            attempt 
+          }));
+        }
+        return result.data;
+      }
+      
+      lastResult = result;
+      
+      // Check if error is retryable
+      const isRetryable = result.error?.isRetryable !== false;
+      
+      // Don't retry if error is not retryable or we've exhausted retries
+      if (!isRetryable || attempt >= maxRetries + 1) {
+        if (!isRetryable) {
+          logger.warn("SCRAPE_API_FAILED_NOT_RETRYABLE", JSON.stringify({ 
+            url: googleMapsUrl, 
+            attempt, 
+            error: result.error?.message 
+          }));
+        } else {
+          logger.warn("SCRAPE_API_FAILED_NO_RETRY", JSON.stringify({ 
+            url: googleMapsUrl, 
+            attempt, 
+            maxAttempts: maxRetries + 1 
+          }));
+        }
+        return null;
+      }
+      
+      // Exponential backoff: 2s, 4s, 8s
+      const delay = Math.pow(2, attempt) * 1000;
+      logger.info("SCRAPE_API_RETRY_DELAY", JSON.stringify({ 
+        url: googleMapsUrl, 
+        attempt, 
+        delayMs: delay,
+        reason: result.error?.message 
+      }));
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    return null;
+  });
 }

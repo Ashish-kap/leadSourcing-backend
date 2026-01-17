@@ -3,11 +3,11 @@ dotenv.config();
 import { verifyEmail } from "./utils/emailVerifier.js";
 import { fetchMultiplePages, fetchPageContentWithRetry } from "./utils/browserlessContentClient.js";
 import { extractEmailsFromHtml, findContactUrls } from "./utils/emailExtractorFromHtml.js";
-import { scrapeGoogleMapsBusiness } from "./utils/googleMapsScraper.js";
+import { scrapeGoogleMapsBusinessWithRetry } from "./utils/googleMapsScraper.js";
 import logger from "./logger.js";
 
 // Email extraction concurrency limiter for Browserless Content API
-const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 5);
+const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 3);
 function createEmailLimiter(concurrency) {
   let active = 0;
   const q = [];
@@ -63,10 +63,10 @@ export async function extractBusinessDetails(
   // --- Parse coords from URL (reliable) ---
   const { latitude, longitude } = getCoordsFromUrl(googleMapsUrl);
 
-  // --- Extract business data using Browserless Scrape API ---
+  // --- Extract business data using Browserless Scrape API with retry logic ---
   let businessData;
   try {
-    businessData = await scrapeGoogleMapsBusiness(googleMapsUrl);
+    businessData = await scrapeGoogleMapsBusinessWithRetry(googleMapsUrl);
     
     if (!businessData) {
       logger.warn("BUSINESS_DATA_EXTRACTION_FAILED", `Failed to extract business data from ${googleMapsUrl}`);

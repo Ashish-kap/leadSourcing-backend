@@ -872,19 +872,29 @@ export async function runScraper(
   const scheduleDetail = (listing, meta) => {
     if (shouldStop) return;
     const url = listing.url; // Extract URL from listing object
-    const p = limitDetail(async () => {
+    
+    // Check if we need a browser page (only for review extraction)
+    // Business data extraction uses Browserless Scrape API - no page needed
+    // Email extraction uses Browserless Content API - no page needed
+    const needsPageForReviews = meta.reviewTimeRange || meta.extractNegativeReviews;
+    
+    // Define the detail extraction task
+    const detailTask = async () => {
       // Re-check stop as soon as the task actually starts
       if (shouldStop) return null;
       try {
-        return await withPage(`detail:${url}`, async (page) => {
-          if (shouldStop) return null;
+        const locationString = [meta.city, meta.state, meta.countryName]
+          .filter(Boolean)
+          .join(", ");
+        
+        let businessData;
+        
+        if (needsPageForReviews) {
+          // Need page for review extraction - use withPage()
+          return await withPage(`detail:${url}`, async (page) => {
+            if (shouldStop) return null;
 
-          // Only navigate to page if we need it for review extraction
-          // Business data extraction uses Browserless Scrape API, so no navigation needed
-          const needsPageForReviews = meta.reviewTimeRange || meta.extractNegativeReviews;
-          
-          if (needsPageForReviews) {
-            // Faster nav with retry logic (only needed for reviews)
+            // Navigate to page for review extraction
             try {
               await page.goto(url, {
                 waitUntil: "domcontentloaded",
@@ -901,36 +911,30 @@ export async function runScraper(
 
             // In case stop was requested during navigation, exit before parsing
             if (shouldStop) return null;
-          }
+            
+            // Extract business data using Browserless Scrape API (no page navigation needed)
+            // Pass rating and reviewCount from listings page to avoid re-scraping
+            businessData = await extractBusinessDetails(
+              url, // Use the URL directly, not page.url()
+              meta.keyword,
+              locationString,
+              null,
+              null,
+              meta.isExtractEmail,
+              meta.isValidate,
+              meta.onlyWithoutWebsite,
+              listing.rating,        // Pre-scraped from listings page
+              listing.reviewCount    // Pre-scraped from listings page
+            );
 
-          const locationString = [meta.city, meta.state, meta.countryName]
-            .filter(Boolean)
-            .join(", ");
-          
-          // Extract business data using Browserless Scrape API (no page navigation needed)
-          // Pass rating and reviewCount from listings page to avoid re-scraping
-          const businessData = await extractBusinessDetails(
-            url, // Use the URL directly, not page.url()
-            meta.keyword,
-            locationString,
-            null,
-            null,
-            meta.isExtractEmail,
-            meta.isValidate,
-            meta.onlyWithoutWebsite,
-            listing.rating,        // Pre-scraped from listings page
-            listing.reviewCount    // Pre-scraped from listings page
-          );
+            if (!businessData) {
+              logger.warn("BUSINESS_DATA_NULL", "Business data is null, skipping Redis mark", {
+                url,
+              });
+              return null;
+            }
 
-          if (!businessData) {
-            logger.warn("BUSINESS_DATA_NULL", "Business data is null, skipping Redis mark", {
-              url,
-            });
-            return null;
-          }
-
-          // Optional review filtering on the same page
-          if (meta.reviewTimeRange || meta.extractNegativeReviews) {
+            // Extract reviews from the page
             try {
               // Check if page is still open
               if (page.isClosed()) {
@@ -966,6 +970,79 @@ export async function runScraper(
               businessData.filtered_reviews = [];
               businessData.filtered_review_count = 0;
             }
+
+            businessData.url = url;
+            pushResult(businessData);
+
+            // Mark URL as scraped in Redis (always tracked, regardless of avoidDuplicate)
+            logger.info("REDIS_MARK_CHECK", "Checking if URL should be marked in Redis", {
+              url,
+              avoidDuplicate,
+              hasUserId: !!finalUserId,
+              userId: finalUserId,
+              hasBusinessData: !!businessData,
+            });
+
+            if (finalUserId && url) {
+              try {
+                logger.info("REDIS_MARK_ATTEMPT", "Attempting to mark URL in Redis", {
+                  url,
+                  userId: finalUserId,
+                });
+                await markUrlAsScraped(finalUserId, url);
+                logger.info("REDIS_MARK_SUCCESS", "Successfully marked URL in Redis after extraction", {
+                  url,
+                  userId: finalUserId,
+                  businessName: businessData.name || "Unknown",
+                });
+              } catch (redisMarkError) {
+                // Non-critical - log but don't fail
+                logger.warn("REDIS_MARK_URL_ERROR", "Error marking URL in Redis", {
+                  error: redisMarkError.message,
+                  url,
+                  userId: finalUserId,
+                  stack: redisMarkError.stack,
+                });
+              }
+            } else {
+              // Log why URL wasn't marked (for debugging)
+              logger.warn("REDIS_MARK_SKIPPED", "Skipping Redis mark - condition not met", {
+                url,
+                avoidDuplicate,
+                hasUserId: !!finalUserId,
+                userId: finalUserId,
+                hasUrl: !!url,
+              });
+            }
+
+            await updateProgress({
+              currentLocation: `${meta.city}, ${meta.state || ""}, ${
+                meta.countryName
+              }`.replace(/,\s*,/g, ","),
+            });
+
+            return businessData;
+          });
+        } else {
+          // No page needed - extract business data directly using REST API
+          businessData = await extractBusinessDetails(
+            url,
+            meta.keyword,
+            locationString,
+            null,
+            null,
+            meta.isExtractEmail,
+            meta.isValidate,
+            meta.onlyWithoutWebsite,
+            listing.rating,        // Pre-scraped from listings page
+            listing.reviewCount    // Pre-scraped from listings page
+          );
+
+          if (!businessData) {
+            logger.warn("BUSINESS_DATA_NULL", "Business data is null, skipping Redis mark", {
+              url,
+            });
+            return null;
           }
 
           businessData.url = url;
@@ -1019,7 +1096,7 @@ export async function runScraper(
           });
 
           return businessData;
-        });
+        }
       } catch (error) {
         logger.error("LISTING_ERROR", "Error processing listing", {
           url,
@@ -1027,7 +1104,14 @@ export async function runScraper(
         });
         return null;
       }
-    });
+    };
+    
+    // Conditionally apply limitDetail: only when reviews are needed (browser pages)
+    // For REST API-only cases, skip the limiter to avoid unnecessary bottleneck
+    const p = needsPageForReviews 
+      ? limitDetail(detailTask)  // Use limiter when browser pages are needed
+      : detailTask();             // Skip limiter for REST API-only cases
+    
     detailTasks.push(p);
   };
 
