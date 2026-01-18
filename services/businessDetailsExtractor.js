@@ -7,7 +7,7 @@ import { scrapeGoogleMapsBusinessWithRetry } from "./utils/googleMapsScraper.js"
 import logger from "./logger.js";
 
 // Email extraction concurrency limiter for Browserless Content API
-const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 3);
+const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 2);
 function createEmailLimiter(concurrency) {
   let active = 0;
   const q = [];

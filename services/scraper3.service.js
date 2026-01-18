@@ -25,8 +25,8 @@ const { STUCK_RECORDS_TIMEOUT_MS, STUCK_PERCENTAGE_TIMEOUT_MS, STUCK_JOB_GRACE_P
 
 // Reduced defaults to minimize memory usage (3-4GB instead of 7-8GB)
 const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 2);
-const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 8);
-const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 10);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 3);
+const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 5);
 const SEARCH_NAV_TIMEOUT_MS = Number(
   process.env.SEARCH_NAV_TIMEOUT_MS || 45000
 );
@@ -43,6 +43,9 @@ const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
 const BROWSER_SESSION_RETRY_LIMIT = Number(
   process.env.BROWSER_SESSION_RETRY_LIMIT || 1
 );
+
+// Task tracking configuration
+const TASK_STUCK_TIMEOUT_MS = Number(process.env.TASK_STUCK_TIMEOUT_MS || 180000); // 3 minutes
 
 // Deep scrape batched zone configuration - Enhanced for better coverage
 const ZONE_BATCH_SIZE = Number(process.env.ZONE_BATCH_SIZE || 50); // Increased from 30 to 50
@@ -883,18 +886,67 @@ export async function runScraper(
   };
 
   // -------- Tier B: detail worker --------
-  const detailTasks = [];
+  // Task tracking system to monitor active vs stuck tasks
+  const detailTasks = []; // Array of { promise, startTime, status, url }
+  
+  /**
+   * Get count of active (non-stuck) tasks
+   * @returns {number} Count of active tasks that are not stuck
+   */
+  const getActiveTaskCount = () => {
+    const now = Date.now();
+    let activeCount = 0;
+    let stuckCount = 0;
+    
+    for (let i = detailTasks.length - 1; i >= 0; i--) {
+      const task = detailTasks[i];
+      
+      // Remove completed/failed tasks (cleanup)
+      if (task.status === 'completed' || task.status === 'failed') {
+        detailTasks.splice(i, 1);
+        continue;
+      }
+      
+      // Check if task is stuck (running longer than timeout)
+      if (task.status === 'active' && (now - task.startTime) > TASK_STUCK_TIMEOUT_MS) {
+        task.status = 'stuck';
+        stuckCount++;
+        logger.warn("TASK_STUCK_DETECTED", "Task detected as stuck", {
+          url: task.url,
+          stuckFor: Math.round((now - task.startTime) / 1000),
+          timeout: TASK_STUCK_TIMEOUT_MS
+        });
+      }
+      
+      // Only count active (non-stuck) tasks
+      if (task.status === 'active') {
+        activeCount++;
+      }
+    }
+    
+    if (stuckCount > 0) {
+      logger.warn("TASK_STUCK_SUMMARY", "Stuck tasks detected", {
+        stuckCount,
+        activeCount,
+        totalTasks: detailTasks.length
+      });
+    }
+    
+    return activeCount;
+  };
+  
   const scheduleDetail = (listing, meta) => {
     // Early exit checks
     if (shouldStop || results.length >= recordLimit) return;
     
-    // Don't schedule if we're approaching the limit (accounting for in-flight tasks)
-    const pendingTasks = detailTasks.length - results.length;
+    // Don't schedule if we're approaching the limit (accounting for active, non-stuck tasks only)
+    const pendingTasks = getActiveTaskCount();
     if (results.length + pendingTasks >= recordLimit) {
       logger.debug("SCHEDULING_STOPPED", "Stopping task scheduling - approaching limit", {
         resultsLength: results.length,
         pendingTasks,
-        recordLimit
+        recordLimit,
+        totalTasks: detailTasks.length
       });
       return;
     }
@@ -1134,13 +1186,40 @@ export async function runScraper(
       }
     };
     
+    // Create task tracking object
+    const taskTracker = {
+      url,
+      startTime: Date.now(),
+      status: 'pending', // pending -> active -> completed/failed/stuck
+      promise: null
+    };
+    
+    // Wrap the task to track status
+    const trackedTask = async () => {
+      taskTracker.status = 'active';
+      try {
+        const result = await detailTask();
+        taskTracker.status = 'completed';
+        return result;
+      } catch (error) {
+        taskTracker.status = 'failed';
+        logger.error("TASK_FAILED", "Task failed with error", {
+          url,
+          error: error.message,
+          stack: error.stack
+        });
+        throw error;
+      }
+    };
+    
     // Conditionally apply limitDetail: only when reviews are needed (browser pages)
     // For REST API-only cases, skip the limiter to avoid unnecessary bottleneck
     const p = needsPageForReviews 
-      ? limitDetail(detailTask)  // Use limiter when browser pages are needed
-      : detailTask();             // Skip limiter for REST API-only cases
+      ? limitDetail(trackedTask)  // Use limiter when browser pages are needed
+      : trackedTask();             // Skip limiter for REST API-only cases
     
-    detailTasks.push(p);
+    taskTracker.promise = p;
+    detailTasks.push(taskTracker);
   };
 
   // -------- Tier A: city discovery --------
@@ -1536,8 +1615,8 @@ export async function runScraper(
             break;
           }
           
-          // Additional check: Don't over-schedule
-          const pendingTasks = detailTasks.length - results.length;
+          // Additional check: Don't over-schedule (only count active, non-stuck tasks)
+          const pendingTasks = getActiveTaskCount();
           if (results.length + pendingTasks >= recordLimit) {
             logger.info("SCHEDULING_STOPPED_PENDING", "Stopped scheduling - pending tasks will meet limit", {
               city: cityName,
@@ -1545,6 +1624,7 @@ export async function runScraper(
               toSchedule,
               resultsLength: results.length,
               pendingTasks,
+              totalTasks: detailTasks.length,
               recordLimit
             });
             break;
@@ -1830,7 +1910,9 @@ export async function runScraper(
     // If we've hit the record limit, don't wait on outstanding detail tasks.
     // Close the browser pool first to force-fast fail any in-flight navigations.
     if (!shouldStop) {
-      await Promise.allSettled(detailTasks);
+      // Extract promises from task tracking objects
+      const taskPromises = detailTasks.map(task => task.promise).filter(Boolean);
+      await Promise.allSettled(taskPromises);
     } else {
       // If job was stopped due to stuck detection, wait for grace period
       const stuckStatus = progressMonitor.getStatus();
@@ -1850,7 +1932,11 @@ export async function runScraper(
       }
       
       // Prevent unhandled rejections for tasks we won't await
-      for (const t of detailTasks) t.catch(() => {});
+      for (const task of detailTasks) {
+        if (task.promise && typeof task.promise.catch === 'function') {
+          task.promise.catch(() => {});
+        }
+      }
     }
   } finally {
     // Clear the cancellation check interval
