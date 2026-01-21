@@ -16,7 +16,7 @@ function isValidEmail(email) {
   if (!localPart || !domain) return false;
   
   const letterCount = (localPart.match(/[a-zA-Z]/g) || []).length;
-  if (letterCount < 3) return false;
+  if (letterCount < 2) return false;
   
   const digitCount = (localPart.match(/\d/g) || []).length;
   if (digitCount > localPart.length * 0.5) return false;
@@ -81,15 +81,83 @@ export function extractEmailsFromHtml(html, websiteUrl) {
       }
     });
     
-    // 2. Extract from visible text
+    // 1.5. Extract from anchor tag text content (even if not mailto)
+    $('a').each((_, el) => {
+      // Check text content
+      const anchorText = $(el).text().trim();
+      if (anchorText) {
+        const textMatches = [...anchorText.matchAll(EMAIL_RE)];
+        textMatches.forEach(match => {
+          const email = match[1];
+          if (email) {
+            if (isValidEmail(email)) {
+              emails.add(email.toLowerCase());
+            } else if (process.env.LOG_EMAIL_FAILURES === "true") {
+              logger.debug('EMAIL_REJECTED_ANCHOR_TEXT', `Email rejected from anchor text: ${email}`, {
+                email,
+                anchorText: anchorText.substring(0, 100),
+                websiteUrl
+              });
+            }
+          }
+        });
+      }
+      
+      // Check href attribute (even if not mailto:)
+      const href = $(el).attr('href') || '';
+      if (href && !href.startsWith('mailto:') && !href.startsWith('http')) {
+        const hrefMatches = [...href.matchAll(EMAIL_RE)];
+        hrefMatches.forEach(match => {
+          const email = match[1];
+          if (email) {
+            if (isValidEmail(email)) {
+              emails.add(email.toLowerCase());
+            } else if (process.env.LOG_EMAIL_FAILURES === "true") {
+              logger.debug('EMAIL_REJECTED_ANCHOR_HREF', `Email rejected from anchor href: ${email}`, {
+                email,
+                href: href.substring(0, 100),
+                websiteUrl
+              });
+            }
+          }
+        });
+      }
+    });
+    
+    // 2. Extract from visible text (two-pass: strict first, then relaxed fallback)
     const bodyText = $('body').text() || '';
+    const RELAXED_EMAIL_RE = /([a-zA-Z0-9][a-zA-Z0-9._%+-]{0,63}@[a-zA-Z0-9][a-zA-Z0-9.-]{0,254}\.[a-zA-Z]{2,})(?=[\s,;()"'<>]|$)/g;
+    
+    // Pass 1: Use strict regex (avoids false positives)
     const textMatches = [...bodyText.matchAll(EMAIL_RE)];
     textMatches.forEach(match => {
       const email = match[1]; // Extract capture group 1
-      if (email && isValidEmail(email)) {
-        emails.add(email.toLowerCase());
+      if (email) {
+        if (isValidEmail(email)) {
+          emails.add(email.toLowerCase());
+        } else if (process.env.LOG_EMAIL_FAILURES === "true") {
+          logger.debug('EMAIL_REJECTED_BODY_TEXT', `Email rejected from body text: ${email}`, {
+            email,
+            websiteUrl
+          });
+        }
       }
     });
+    
+    // Pass 2: Use relaxed regex for emails that might be after emojis/special characters
+    // Only process if we haven't found many emails yet (performance optimization)
+    if (emails.size < 5) {
+      const relaxedMatches = [...bodyText.matchAll(RELAXED_EMAIL_RE)];
+      relaxedMatches.forEach(match => {
+        const email = match[1];
+        if (email && isValidEmail(email)) {
+          // Only add if not already found (Set handles deduplication, but this avoids unnecessary validation)
+          if (!emails.has(email.toLowerCase())) {
+            emails.add(email.toLowerCase());
+          }
+        }
+      });
+    }
     
     // 3. Extract from Cloudflare protected emails
     $('[data-cfemail]').each((_, el) => {

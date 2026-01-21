@@ -64,10 +64,10 @@ export async function fetchPageContent(url, options = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           url,
-          gotoOptions: {
-            waitUntil: 'networkidle2',
-            timeout: 30000
-          }
+          // gotoOptions: {
+          //   waitUntil: 'networkidle2',
+          //   timeout: 30000
+          // }
         }),
         signal: controller.signal,
         dispatcher: httpAgent  // Use custom agent for connection pooling
@@ -180,7 +180,7 @@ export async function fetchPageContent(url, options = {}) {
  * @param {number} maxRetries - Maximum number of retries (default: 2)
  * @returns {Promise<{html?: string, url: string, status?: number, error?: string, details?: object}>}
  */
-export async function fetchPageContentWithRetry(url, maxRetries = 2) {
+export async function fetchPageContentWithRetry(url, maxRetries = 1) {
   let lastError = null;
   
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {

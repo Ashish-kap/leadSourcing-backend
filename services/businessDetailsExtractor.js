@@ -161,7 +161,7 @@ export async function extractBusinessDetails(
         // Wrap in try-catch, use retry for homepage (critical page)
         let homepage = { html: null, error: null };
         try {
-          homepage = await fetchPageContentWithRetry(websiteUrl, 2); // Retry 2 times
+          homepage = await fetchPageContentWithRetry(websiteUrl, 1); // Retry 1 time
           if (homepage.error) {
             logger.warn("HOMEPAGE_FETCH_FAILED", `Homepage failed for ${websiteUrl}: ${homepage.error}`);
           }
@@ -280,23 +280,83 @@ export async function extractBusinessDetails(
           return await extractEmailsViaBrowserlessAPI(businessData.website);
         });
 
-        let emailResult = await Promise.race([
-          emailPromise,
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Email scraping timeout")),
-              emailTimeout
-            )
-          ),
-        ]).catch(async (err) => {
-          // Log timeout/error
-          if (process.env.LOG_EMAIL_FAILURES === "true") {
-            logger.warn("EMAIL_API_ERROR", `Timeout/error for ${businessData.website}: ${err.message}`);
-          }
-          
-          // Return empty on error
-          return { emails: [], errors: [{ type: 'timeout', message: err.message }] };
+        // Create timeout promise that rejects after timeout
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error("Email scraping timeout")),
+            emailTimeout
+          );
         });
+
+        let emailResult;
+
+        try {
+          // Fast path: race between extraction and timeout
+          emailResult = await Promise.race([
+            emailPromise,
+            timeoutPromise
+          ]);
+          
+          // Extraction completed first - clear timeout and return immediately
+          clearTimeout(timeoutId);
+          
+          logger.info("EMAIL_EXTRACTION_COMPLETED", "Email extraction completed", {
+            website: businessData.website,
+            emailCount: emailResult?.emails?.length || 0,
+            timeoutFired: false,
+            extractionStatus: 'success'
+          });
+          
+        } catch (timeoutError) {
+          // Timeout fired first - check if extraction completed shortly after
+          clearTimeout(timeoutId);
+          
+          // Wait a short grace period (2 seconds) to see if extraction completes
+          const GRACE_PERIOD_MS = 2000;
+          const [extractionSettled] = await Promise.allSettled([
+            emailPromise,
+            new Promise(resolve => setTimeout(resolve, GRACE_PERIOD_MS))
+          ]);
+          
+          if (extractionSettled.status === 'fulfilled' && extractionSettled.value) {
+            // Extraction completed during grace period - use the result
+            emailResult = extractionSettled.value;
+            
+            logger.warn("EMAIL_EXTRACTION_TIMEOUT_RECOVERED", 
+              `Email extraction completed after timeout for ${businessData.website}`, {
+              website: businessData.website,
+              emailCount: emailResult?.emails?.length || 0,
+              gracePeriodMs: GRACE_PERIOD_MS
+            });
+          } else if (extractionSettled.status === 'rejected') {
+            // Extraction failed
+            const errorMessage = extractionSettled.reason?.message || 'Unknown extraction error';
+            emailResult = { 
+              emails: [], 
+              errors: [{ type: 'extraction_error', message: errorMessage }] 
+            };
+            
+            logger.warn("EMAIL_EXTRACTION_FAILED", `Email extraction failed for ${businessData.website}`, {
+              website: businessData.website,
+              error: errorMessage,
+              timeoutFired: true
+            });
+          } else {
+            // Timeout fired and extraction didn't complete during grace period
+            emailResult = { 
+              emails: [], 
+              errors: [{ type: 'timeout', message: 'Email scraping timeout' }] 
+            };
+            
+            if (process.env.LOG_EMAIL_FAILURES === "true") {
+              logger.warn("EMAIL_EXTRACTION_TIMEOUT", 
+                `Email extraction timeout for ${businessData.website}`, {
+                website: businessData.website
+              });
+            }
+          }
+        }
 
         let { emails: rawEmails = [], errors: scrapingErrors = [] } = emailResult;
         // businessData.timings.scrape_ms = Math.round(
