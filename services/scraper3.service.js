@@ -655,7 +655,7 @@ export async function runScraper(
         }
       );
     }
-  }, 30000); // Check every 30 seconds for stuck detection
+  }, 5000); // Check every 5 seconds for faster cancellation detection
 
   const withPage = async (context, fn) => {
     let attempt = 0;
@@ -1003,7 +1003,8 @@ export async function runScraper(
               meta.isValidate,
               meta.onlyWithoutWebsite,
               listing.rating,        // Pre-scraped from listings page
-              listing.reviewCount    // Pre-scraped from listings page
+              listing.reviewCount,   // Pre-scraped from listings page
+              () => shouldStop       // Pass cancellation checker
             );
 
             if (!businessData) {
@@ -1015,8 +1016,15 @@ export async function runScraper(
 
             // Extract reviews from the page
             try {
-              // Check if page is still open
-              if (page.isClosed()) {
+              // Check if job was cancelled before review extraction
+              if (shouldStop) {
+                logger.info("REVIEW_EXTRACTION_CANCELLED", "Review extraction cancelled", {
+                  url,
+                  businessName: businessData.name
+                });
+                businessData.filtered_reviews = [];
+                businessData.filtered_review_count = 0;
+              } else if (page.isClosed()) {
                 logger.warn("REVIEW_EXTRACTION_SKIPPED", "Page closed before review extraction", {
                   url,
                   businessName: businessData.name
@@ -1114,7 +1122,8 @@ export async function runScraper(
             meta.isValidate,
             meta.onlyWithoutWebsite,
             listing.rating,        // Pre-scraped from listings page
-            listing.reviewCount    // Pre-scraped from listings page
+            listing.reviewCount,   // Pre-scraped from listings page
+            () => shouldStop       // Pass cancellation checker
           );
 
           if (!businessData) {
@@ -1284,6 +1293,9 @@ export async function runScraper(
           waitUntil: "domcontentloaded", // faster than networkidle2
           timeout: SEARCH_NAV_TIMEOUT_MS,
         });
+
+        // Check if job was cancelled after navigation
+        if (shouldStop) return;
 
         // How many listings do we still need overall?
         const remaining = recordLimit - results.length;
@@ -1467,6 +1479,9 @@ export async function runScraper(
           }
         }
 
+        // Check if job was cancelled after scrolling
+        if (shouldStop) return;
+
         // NEW: Wait for listing elements to fully load after scrolling
         // Google Maps loads rating/review data asynchronously
         try {
@@ -1497,6 +1512,9 @@ export async function runScraper(
           // Still add a small delay before extraction
           await new Promise(resolve => setTimeout(resolve, 500));
         }
+
+        // Check if job was cancelled before extracting listings
+        if (shouldStop) return;
 
         const listingsData = await getListingsData(
           page,
@@ -1633,6 +1651,9 @@ export async function runScraper(
 
         // Schedule detail tasks with limit checking
         for (let i = 0; i < toSchedule && !shouldStop; i++) {
+          // Check if job was cancelled at start of each iteration
+          if (shouldStop) break;
+          
           // Check if we're approaching limit before scheduling
           if (results.length >= recordLimit) {
             logger.info("SCHEDULING_STOPPED_AT_LIMIT", "Stopped scheduling - record limit reached", {

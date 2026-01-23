@@ -57,16 +57,25 @@ export async function extractBusinessDetails(
   isValidate = false,
   onlyWithoutWebsite = false,
   preScrapedRating = null,
-  preScrapedReviewCount = null
+  preScrapedReviewCount = null,
+  shouldCancel = null // Callback that returns true if job was cancelled
 ) {
 
   // --- Parse coords from URL (reliable) ---
   const { latitude, longitude } = getCoordsFromUrl(googleMapsUrl);
 
+  // Check if job was cancelled before making API call
+  if (shouldCancel && shouldCancel()) {
+    logger.debug("EXTRACTION_CANCELLED", "Business extraction cancelled before API call", { 
+      url: googleMapsUrl 
+    });
+    return null;
+  }
+
   // --- Extract business data using Browserless Scrape API with retry logic ---
   let businessData;
   try {
-    businessData = await scrapeGoogleMapsBusinessWithRetry(googleMapsUrl);
+    businessData = await scrapeGoogleMapsBusinessWithRetry(googleMapsUrl, undefined, shouldCancel);
     
     if (!businessData) {
       logger.warn("BUSINESS_DATA_EXTRACTION_FAILED", `Failed to extract business data from ${googleMapsUrl}`);
@@ -152,6 +161,14 @@ export async function extractBusinessDetails(
      */
     async function extractEmailsViaBrowserlessAPI(websiteUrl) {
       try {
+        // Check if job was cancelled before starting email extraction
+        if (shouldCancel && shouldCancel()) {
+          logger.debug("EMAIL_CANCELLED", "Email extraction cancelled", {
+            website: websiteUrl
+          });
+          return { emails: [], pagesVisited: 0, visited: [], errors: [] };
+        }
+
         const allEmails = [];
         const visitedPages = [];
         
@@ -201,6 +218,12 @@ export async function extractBusinessDetails(
             // Extract emails from each priority page
             // Track ALL pages, not just successful ones
             for (const page of priorityPages) {
+              // Check cancellation during priority pages loop
+              if (shouldCancel && shouldCancel()) {
+                logger.debug("EMAIL_CANCELLED_PRIORITY", "Email extraction cancelled during priority pages");
+                break;
+              }
+              
               visitedPages.push(page.url); // Move OUTSIDE the if block
               
               if (page.html && !page.error) {
