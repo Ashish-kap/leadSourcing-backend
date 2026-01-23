@@ -1,12 +1,13 @@
 import dotenv from "dotenv";
 dotenv.config();
 import { verifyEmail } from "./utils/emailVerifier.js";
-import { scrapeEmails } from "./utils/emailScraper.js";
-import { performance } from "perf_hooks";
+import { fetchMultiplePages, fetchPageContentWithRetry } from "./utils/browserlessContentClient.js";
+import { extractEmailsFromHtml, findContactUrls } from "./utils/emailExtractorFromHtml.js";
+import { scrapeGoogleMapsBusinessWithRetry } from "./utils/googleMapsScraper.js";
 import logger from "./logger.js";
 
-// Email scraping concurrency limiter (dedicated small pool)
-const EMAIL_PAGES_MAX = Number(process.env.EMAIL_PAGES_MAX || 4);
+// Email extraction concurrency limiter for Browserless Content API
+const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 2);
 function createEmailLimiter(concurrency) {
   let active = 0;
   const q = [];
@@ -35,7 +36,8 @@ function createEmailLimiter(concurrency) {
       runNext();
     });
 }
-const limitEmail = createEmailLimiter(EMAIL_PAGES_MAX);
+// Use EMAIL_API_CONCURRENCY to control how many email extractions run concurrently
+const limitEmail = createEmailLimiter(EMAIL_API_CONCURRENCY);
 
 function getCoordsFromUrl(u) {
   // matches ...!3d24.379259!4d91.4136279...
@@ -46,208 +48,88 @@ function getCoordsFromUrl(u) {
 }
 
 export async function extractBusinessDetails(
-  page,
-  browser,
+  googleMapsUrl,
   searchTerm,
   searchLocation,
   ratingFilter = null,
   reviewFilter = null,
   isExtractEmail = false,
   isValidate = false,
-  onlyWithoutWebsite = false
+  onlyWithoutWebsite = false,
+  preScrapedRating = null,
+  preScrapedReviewCount = null
 ) {
-  // const T_OVERALL_START = performance.now();
 
-  // --- NEW: wait for the header & rating cluster to render (don’t hard-fail if rating is missing) ---
-  try {
-    await page.waitForSelector("h1.DUwDvf.lfPIob", {
-      visible: true,
-      timeout: 7000,
-    });
-  } catch (_) {} // some places have slow paint; we’ll still attempt evaluate
+  // --- Parse coords from URL (reliable) ---
+  const { latitude, longitude } = getCoordsFromUrl(googleMapsUrl);
 
-  try {
-    await page.waitForSelector('.F7nice .ceNzKf[role="img"]', {
-      visible: true,
-      timeout: 7000,
-    });
-  } catch (_) {}
-
-  try {
-    await page.waitForSelector(
-      'a[data-item-id="authority"], a[aria-label^="Website"], a[aria-label="Open website"], button[aria-label*="Website"]',
-      { visible: true, timeout: 7000 }
-    );
-  } catch (_) {}
-
-  // --- NEW: parse coords from page.url() (reliable) ---
-  const { latitude, longitude } = getCoordsFromUrl(page.url());
-
+  // --- Extract business data using Browserless Scrape API with retry logic ---
   let businessData;
   try {
-    businessData = await Promise.race([
-      page.evaluate(
-        (searchTerm, searchLocation, ratingFilter, reviewFilter) => {
-          const qs = (sel) => document.querySelector(sel);
-          const txt = (el) => el?.textContent?.trim() || null;
+    businessData = await scrapeGoogleMapsBusinessWithRetry(googleMapsUrl);
+    
+    if (!businessData) {
+      logger.warn("BUSINESS_DATA_EXTRACTION_FAILED", `Failed to extract business data from ${googleMapsUrl}`);
+      return null;
+    }
 
-          const normalizeWebsiteHref = (href) => {
-            if (!href) return null;
-            try {
-              const u = new URL(href, location.href);
-              // Google redirector used by Maps sometimes
-              if (u.hostname.includes("google.") && u.pathname === "/url") {
-                const q = u.searchParams.get("q");
-                return q || u.href;
-              }
-              return u.href;
-            } catch {
-              return href;
-            }
-          };
+    // Use pre-scraped rating/review count if available (more reliable from listings page)
+    if (preScrapedRating !== null && preScrapedRating !== undefined) {
+      businessData.rating = preScrapedRating;
+    }
+    if (preScrapedReviewCount !== null && preScrapedReviewCount !== undefined) {
+      businessData.rating_count = String(preScrapedReviewCount);
+    }
 
-          // Name (place header)
-          const name = txt(qs("h1.DUwDvf.lfPIob"));
+    logger.info("PRESCRAPED_VALUES_RECEIVED", "Using pre-scraped rating/review count", {
+      googleMapsUrl,
+      businessName: businessData.name,
+      preScrapedRating,
+      preScrapedReviewCount,
+      hasRating: preScrapedRating !== null && preScrapedRating !== undefined,
+      hasReviewCount: preScrapedReviewCount !== null && preScrapedReviewCount !== undefined,
+      finalRating: businessData.rating,
+      finalRatingCount: businessData.rating_count
+    });
 
-          // Category: specifically the category button near the title
-          const category = txt(qs('button[jsaction="pane.wfvdle18.category"]'));
+    // Set search term and location (not available in scraper response)
+    businessData.search_term = searchTerm;
+    businessData.search_location = searchLocation;
 
-          // Rating value from aria-label of the stars beside the rating
-          const ratingEl = qs('.F7nice .ceNzKf[role="img"]');
-          const ratingLabel = ratingEl?.getAttribute("aria-label") || "";
-          const ratingMatch = ratingLabel.match(/(\d+(?:\.\d+)?)/);
-          const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+    // Apply rating filter if provided
+    if (ratingFilter && typeof businessData.rating === "number") {
+      const { operator, value } = ratingFilter;
+      const bad =
+        (operator === "gt" && !(businessData.rating > value)) ||
+        (operator === "gte" && !(businessData.rating >= value)) ||
+        (operator === "lt" && !(businessData.rating < value)) ||
+        (operator === "lte" && !(businessData.rating <= value));
+      if (bad) {
+        logger.info("BUSINESS_FILTERED_BY_RATING", `Business ${businessData.name} filtered out by rating filter`);
+        return null;
+      }
+    }
 
-          // Review count (the little “(123)” with aria-label “123 reviews” or “1 review”)
-          const reviewBadge = qs(
-            '.F7nice [aria-label$="reviews"], .F7nice [aria-label$="review"]'
-          );
-          const reviewCountLabel =
-            reviewBadge?.getAttribute("aria-label") || "";
-          const reviewCountMatch = reviewCountLabel.match(/(\d+)\s+reviews?$/i);
-          const reviewCount = reviewCountMatch
-            ? parseInt(reviewCountMatch[1], 10)
-            : 0;
+    // Apply review count filter if provided
+    if (reviewFilter) {
+      const reviewCount = parseInt(businessData.rating_count || "0", 10);
+      const { operator, value } = reviewFilter;
+      const bad =
+        (operator === "gt" && !(reviewCount > value)) ||
+        (operator === "gte" && !(reviewCount >= value)) ||
+        (operator === "lt" && !(reviewCount < value)) ||
+        (operator === "lte" && !(reviewCount <= value));
+      if (bad) {
+        logger.info("BUSINESS_FILTERED_BY_REVIEWS", `Business ${businessData.name} filtered out by review filter`);
+        return null;
+      }
+    }
+  } catch (error) {
+    logger.error("BUSINESS_DATA_EXTRACTION_ERROR", `Error extracting business data from ${googleMapsUrl}: ${error.message}`);
+    return null;
+  }
 
-          // Optional filters (applied on parsed values)
-          if (ratingFilter && typeof rating === "number") {
-            const { operator, value } = ratingFilter;
-            const bad =
-              (operator === "gt" && !(rating > value)) ||
-              (operator === "gte" && !(rating >= value)) ||
-              (operator === "lt" && !(rating < value)) ||
-              (operator === "lte" && !(rating <= value));
-            if (bad) return null;
-          }
-          if (reviewFilter) {
-            const { operator, value } = reviewFilter;
-            const c = reviewCount;
-            const bad =
-              (operator === "gt" && !(c > value)) ||
-              (operator === "gte" && !(c >= value)) ||
-              (operator === "lt" && !(c < value)) ||
-              (operator === "lte" && !(c <= value));
-            if (bad) return null;
-          }
-
-          // Phone (works)
-          const phoneHref = qs(
-            'a[aria-label="Call phone number"]'
-          )?.getAttribute("href");
-          const phone = phoneHref ? phoneHref.replace("tel:", "") : null;
-
-          // Address (works)
-          const addressBtn = qs('button[aria-label^="Address:"]');
-          const address = addressBtn
-            ? addressBtn
-                .getAttribute("aria-label")
-                .replace(/^Address:\s*/, "")
-                .trim()
-            : null;
-
-          let website = null;
-
-          // 1) Primary: explicit Website row
-          const authorityLink = qs('a[data-item-id="authority"]');
-          if (authorityLink) {
-            website = normalizeWebsiteHref(authorityLink.getAttribute("href"));
-          }
-
-          // 2) Common aria/data-tooltip variants
-          if (!website) {
-            const a = qs(
-              'a[aria-label^="Website"], a[aria-label*="Website"], a[data-tooltip="Open website"]'
-            );
-            website = normalizeWebsiteHref(a?.getAttribute("href"));
-          }
-
-          // 3) Fallback: some places only expose an "action" link (booking/menu) that is the site
-          if (!website) {
-            const actionCandidates = [
-              ...document.querySelectorAll('a[data-item-id^="action:"]'),
-            ];
-            const action = actionCandidates.find((a) => {
-              const href = a.getAttribute("href") || "";
-              const label = (
-                a.getAttribute("aria-label") ||
-                a.textContent ||
-                ""
-              ).trim();
-              // pick http(s) links that look like a site (avoid tel:, mailto:, maps links)
-              return (
-                /^https?:\/\//i.test(href) &&
-                !/google\.[^/]+\/maps/i.test(href) &&
-                /\.[a-z]{2,}/i.test(label || href)
-              ); // has a domain-ish TLD
-            });
-            if (action) {
-              website = normalizeWebsiteHref(action.getAttribute("href"));
-            }
-          }
-
-          // 4) Last-ditch: sometimes owner posts include the site (not 100% reliable)
-          if (!website) {
-            const ownerPostLink = document.querySelector(
-              '[data-section-id="345"] [data-link^="http"]'
-            ); // "From the owner"
-            if (ownerPostLink)
-              website = normalizeWebsiteHref(
-                ownerPostLink.getAttribute("data-link")
-              );
-          }
-
-          return {
-            name,
-            phone,
-            website,
-            email: null,
-            email_status: null,
-            address,
-            // coords set outside (more reliable), we’ll fill them after evaluate
-            latitude: null,
-            longitude: null,
-            rating: typeof rating === "number" ? rating : null,
-            rating_count: String(reviewCount),
-            category: category || null,
-            search_term: searchTerm,
-            search_type: "Google Maps",
-            search_location: searchLocation,
-          };
-        },
-        searchTerm,
-        searchLocation,
-        ratingFilter,
-        reviewFilter
-      ),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Business data extraction timed out")),
-          10000
-        )
-      ),
-    ]);
-
-    if (!businessData) return null;
+  if (!businessData) return null;
 
     // inject reliable coords parsed from the URL
     businessData.latitude = latitude;
@@ -263,12 +145,121 @@ export async function extractBusinessDetails(
       return null; // Skip businesses without websites when email extraction is required
     }
 
-    // Initialize timings bucket
-    // businessData.timings = {
-    //   scrape_ms: null,
-    //   verify: { wall_ms: null, sum_email_ms: null, per_email: [] },
-    //   total_ms: null,
-    // };
+    /**
+     * Extract emails using Browserless Content API with Smart Prioritization
+     * Fetches homepage + priority pages (contact, about, team) concurrently
+     * This avoids creating new Puppeteer pages, eliminating frame detachment issues
+     */
+    async function extractEmailsViaBrowserlessAPI(websiteUrl) {
+      try {
+        const allEmails = [];
+        const visitedPages = [];
+        
+        // Step 1: Fetch homepage first to find priority pages
+        logger.info("EMAIL_API_START", `Fetching homepage for ${websiteUrl}`);
+        
+        // Wrap in try-catch, use retry for homepage (critical page)
+        let homepage = { html: null, error: null };
+        try {
+          homepage = await fetchPageContentWithRetry(websiteUrl, 1); // Retry 1 time
+          if (homepage.error) {
+            logger.warn("HOMEPAGE_FETCH_FAILED", `Homepage failed for ${websiteUrl}: ${homepage.error}`);
+          }
+        } catch (error) {
+          logger.error("HOMEPAGE_FETCH_ERROR", `Critical error fetching homepage ${websiteUrl}: ${error.message}`);
+        }
+        
+        // Continue even if homepage fails
+        if (homepage.html) {
+          const homepageEmails = extractEmailsFromHtml(homepage.html, websiteUrl);
+          allEmails.push(...homepageEmails);
+          visitedPages.push(websiteUrl);
+          logger.info("EMAIL_API_HOMEPAGE", `Homepage: found ${homepageEmails.length} emails for ${websiteUrl}`);
+        } else {
+          visitedPages.push(websiteUrl); // Still track as visited
+          logger.warn("HOMEPAGE_NO_HTML", `Skipping homepage email extraction for ${websiteUrl}`);
+        }
+        
+        // Step 2: Find priority pages (contact, about, team) from homepage
+        // Only if homepage HTML is available AND no emails found on homepage
+        const shouldFetchPriorityPages = homepage.html && allEmails.length === 0;
+        
+        if (shouldFetchPriorityPages) {
+          const priorityUrls = findContactUrls(homepage.html, websiteUrl);
+          
+          // Step 3: Fetch priority pages concurrently
+          if (priorityUrls.length > 0) {
+            logger.info("EMAIL_API_PRIORITY_PAGES", `No emails on homepage, fetching ${priorityUrls.length} priority pages for ${websiteUrl}`);
+            
+            // Fetch up to 5 priority pages concurrently
+            const maxPriorityPages = 5;
+            const pagesToFetch = priorityUrls.slice(0, maxPriorityPages);
+            const priorityConcurrency = Math.min(3, maxPriorityPages); // Max 3 concurrent priority pages
+            
+            const priorityPages = await fetchMultiplePages(pagesToFetch, priorityConcurrency);
+            
+            // Extract emails from each priority page
+            // Track ALL pages, not just successful ones
+            for (const page of priorityPages) {
+              visitedPages.push(page.url); // Move OUTSIDE the if block
+              
+              if (page.html && !page.error) {
+                const pageEmails = extractEmailsFromHtml(page.html, websiteUrl);
+                if (pageEmails.length > 0) {
+                  logger.info("EMAIL_API_PAGE_SUCCESS", `Found ${pageEmails.length} emails on ${page.url}`);
+                  allEmails.push(...pageEmails);
+                }
+              } else if (page.error) {
+                logger.warn("EMAIL_API_PAGE_ERROR", `Failed to fetch ${page.url}: ${page.error}`);
+              }
+            }
+          } else {
+            logger.info("EMAIL_API_NO_PRIORITY_URLS", `No priority URLs found for ${websiteUrl}`);
+          }
+        } else if (homepage.html && allEmails.length > 0) {
+          logger.info("EMAIL_API_SKIP_PRIORITY", `Found ${allEmails.length} emails on homepage for ${websiteUrl}, skipping priority pages`);
+        }
+        
+        // Step 4: Dedupe and sort emails (prefer domain emails first)
+        const uniqueEmails = [...new Set(allEmails)];
+        
+        // Sort: prefer emails from the website's domain
+        const siteDomain = (() => {
+          try {
+            return new URL(websiteUrl).hostname.replace(/^www\./, '').toLowerCase();
+          } catch {
+            return null;
+          }
+        })();
+        
+        if (siteDomain) {
+          uniqueEmails.sort((a, b) => {
+            const aDomain = a.split('@')[1]?.toLowerCase() || '';
+            const bDomain = b.split('@')[1]?.toLowerCase() || '';
+            const aMatch = aDomain.includes(siteDomain) ? 1 : 0;
+            const bMatch = bDomain.includes(siteDomain) ? 1 : 0;
+            return bMatch - aMatch;
+          });
+        }
+        
+        logger.info("EMAIL_API_COMPLETE", `Extracted ${uniqueEmails.length} unique emails from ${visitedPages.length} pages for ${websiteUrl}`);
+        
+        return {
+          emails: uniqueEmails,
+          pagesVisited: visitedPages.length,
+          visited: visitedPages,
+          errors: []
+        };
+      } catch (error) {
+        logger.error("BROWSERLESS_API_EMAIL_ERROR", `Error extracting emails via API for ${websiteUrl}: ${error.message}`);
+        return { 
+          emails: [], 
+          pagesVisited: 0,
+          visited: [],
+          errors: [{ type: "api_error", message: error.message }] 
+        };
+      }
+    }
 
     // Skip email extraction when onlyWithoutWebsite is true
     // (businesses without websites won't have emails to scrape anyway)
@@ -284,143 +275,90 @@ export async function extractBusinessDetails(
         // const T_SCRAPE_START = performance.now();
         const emailTimeout = Number(process.env.EMAIL_TIMEOUT_MS || 65000); // 65s to accommodate 60s budget + buffer
 
-        // Add timeout wrapper to prevent hanging
-        const emailPromise = limitEmail(() =>
-          scrapeEmails({
-            browser,
-            startUrl: businessData.website,
-            options: {
-            depth: 1,
-            max: 5, // Visit 5 pages total (homepage + 4 priority pages)
-            timeout: 35000, // 35s - accommodates slow sites like sunlightdigitech.com
-            delay: 500, // Delay between pages - let content load
-            wait: "dom",
-            budget: 60000, // 60s budget (5 pages × 10-12s avg)
-            perPageLinks: 12, // Top links per page
-            firstOnly: false,
-            restrictDomain: false, // allow gmail/outlook etc.
-            noDeobfuscate: true,
-              blockThirdParty: true,
-            },
-          })
-        );
-
-        let emailResult = await Promise.race([
-          emailPromise,
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Email scraping timeout")),
-              emailTimeout
-            )
-          ),
-        ]).catch(async (err) => {
-          // Log timeout/error but don't discard emails if found before error
-          const isBrowserError = err.message.includes("Target closed") || 
-                                 err.message.includes("Protocol error") ||
-                                 err.message.includes("Session closed") ||
-                                 err.message.includes("frame was detached");
-          
-          if (process.env.LOG_EMAIL_FAILURES === "true" || isBrowserError) {
-            logger.warn("EMAIL_SCRAPER_ERROR", `${isBrowserError ? 'Browser closed' : 'Timeout'} for ${businessData.website}: ${err.message}`);
-          }
-          
-          // Return empty - retry will be handled after checking the result
-          return { emails: [], errors: [{ type: isBrowserError ? 'browser_closed' : 'timeout', message: err.message }] };
+        // Use Browserless Content API - eliminates frame detachment issues
+        const emailPromise = limitEmail(async () => {
+          return await extractEmailsViaBrowserlessAPI(businessData.website);
         });
 
-        let { emails: rawEmails = [], errors: scrapingErrors = [] } = emailResult;
-        
-        // Helper function to detect browser closure errors
-        const hasBrowserClosureError = (errors) => {
-          if (!errors || errors.length === 0) return false;
-          return errors.some(err => 
-            err.type === 'browser_closed' ||
-            err.type === 'TimeoutError' ||
-            (err.message && (
-              err.message.includes("Target closed") ||
-              err.message.includes("Protocol error") ||
-              err.message.includes("Session closed") ||
-              err.message.includes("frame was detached") ||
-              err.message.includes("detached Frame") ||
-              err.message.includes("Execution context was destroyed") ||
-              err.message.includes("Navigation timeout")
-            ))
+        // Create timeout promise that rejects after timeout
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error("Email scraping timeout")),
+            emailTimeout
           );
-        };
-        
-        // Helper function to check if browser pool is ready
-        const waitForBrowserReady = async (maxWaitMs = 15000) => {
-          const startTime = Date.now();
-          let lastError = null;
+        });
+
+        let emailResult;
+
+        try {
+          // Fast path: race between extraction and timeout
+          emailResult = await Promise.race([
+            emailPromise,
+            timeoutPromise
+          ]);
           
-          while (Date.now() - startTime < maxWaitMs) {
-            try {
-              // Try to acquire a test page to verify browser is ready
-              const testPage = await browser.acquirePage();
-              if (testPage) {
-                await browser.releasePage(testPage);
-                return true; // Browser is ready
-              }
-            } catch (err) {
-              lastError = err;
-              // Wait 2 seconds before next attempt
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-          }
+          // Extraction completed first - clear timeout and return immediately
+          clearTimeout(timeoutId);
           
-          // Timeout reached
-          logger.warn("BROWSER_POOL_NOT_READY", `Browser pool not ready after ${maxWaitMs}ms: ${lastError?.message || 'unknown'}`);
-          return false;
-        };
-        
-        // Retry logic: Check result AFTER promise completes
-        // Retry if: (1) no emails found AND (2) browser closure detected
-        if (rawEmails.length === 0 && hasBrowserClosureError(scrapingErrors)) {
-          logger.info("EMAIL_SCRAPER_RETRY", `Retrying ${businessData.website} after browser closure (0 emails found)...`);
+          logger.info("EMAIL_EXTRACTION_COMPLETED", "Email extraction completed", {
+            website: businessData.website,
+            emailCount: emailResult?.emails?.length || 0,
+            timeoutFired: false,
+            extractionStatus: 'success'
+          });
           
-          // Wait for browser pool to be ready (with 15s timeout)
-          const isReady = await waitForBrowserReady(15000);
+        } catch (timeoutError) {
+          // Timeout fired first - check if extraction completed shortly after
+          clearTimeout(timeoutId);
           
-          if (!isReady) {
-            logger.warn("EMAIL_SCRAPER_RETRY_SKIPPED", `Skipping retry for ${businessData.website} - browser pool not ready`);
-            // Keep original empty result, don't attempt retry
+          // Wait a short grace period (2 seconds) to see if extraction completes
+          const GRACE_PERIOD_MS = 2000;
+          const [extractionSettled] = await Promise.allSettled([
+            emailPromise,
+            new Promise(resolve => setTimeout(resolve, GRACE_PERIOD_MS))
+          ]);
+          
+          if (extractionSettled.status === 'fulfilled' && extractionSettled.value) {
+            // Extraction completed during grace period - use the result
+            emailResult = extractionSettled.value;
+            
+            logger.warn("EMAIL_EXTRACTION_TIMEOUT_RECOVERED", 
+              `Email extraction completed after timeout for ${businessData.website}`, {
+              website: businessData.website,
+              emailCount: emailResult?.emails?.length || 0,
+              gracePeriodMs: GRACE_PERIOD_MS
+            });
+          } else if (extractionSettled.status === 'rejected') {
+            // Extraction failed
+            const errorMessage = extractionSettled.reason?.message || 'Unknown extraction error';
+            emailResult = { 
+              emails: [], 
+              errors: [{ type: 'extraction_error', message: errorMessage }] 
+            };
+            
+            logger.warn("EMAIL_EXTRACTION_FAILED", `Email extraction failed for ${businessData.website}`, {
+              website: businessData.website,
+              error: errorMessage,
+              timeoutFired: true
+            });
           } else {
-          
-          try {
-            // Retry with fresh browser
-            const retryResult = await limitEmail(() =>
-              scrapeEmails({
-                browser,
-                startUrl: businessData.website,
-                options: {
-                  depth: 1,
-                  max: 5,
-                  timeout: 35000,
-                  delay: 500,
-                  wait: "dom",
-                  budget: 60000,
-                  perPageLinks: 12,
-                  firstOnly: false,
-                  restrictDomain: false,
-                  noDeobfuscate: true,
-                  blockThirdParty: true,
-                },
-              })
-            );
+            // Timeout fired and extraction didn't complete during grace period
+            emailResult = { 
+              emails: [], 
+              errors: [{ type: 'timeout', message: 'Email scraping timeout' }] 
+            };
             
-            logger.info("EMAIL_SCRAPER_RETRY_COMPLETE", `Retry completed for ${businessData.website}: ${retryResult.emails?.length || 0} emails found`);
-            
-            // Use retry result if successful
-            if (retryResult.emails && retryResult.emails.length > 0) {
-              rawEmails = retryResult.emails;
-              scrapingErrors = retryResult.errors || [];
+            if (process.env.LOG_EMAIL_FAILURES === "true") {
+              logger.warn("EMAIL_EXTRACTION_TIMEOUT", 
+                `Email extraction timeout for ${businessData.website}`, {
+                website: businessData.website
+              });
             }
-          } catch (retryErr) {
-            logger.warn("EMAIL_SCRAPER_RETRY_FAILED", `Retry failed for ${businessData.website}: ${retryErr.message}`);
-            // Keep original empty result
-          }
           }
         }
+
+        let { emails: rawEmails = [], errors: scrapingErrors = [] } = emailResult;
         // businessData.timings.scrape_ms = Math.round(
         //   performance.now() - T_SCRAPE_START
         // );
@@ -589,11 +527,6 @@ export async function extractBusinessDetails(
     // Note: We no longer filter out businesses with no emails found
     // This allows businesses to be included even if email scraping fails due to technical errors
     // The "no website" filter (line 261-264) still applies when isExtractEmail is true
-  } catch (_) {
-    return null;
-  }
-
-
 
   return businessData;
 }

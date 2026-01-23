@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>ROI MAKERS - YOUR ROI OUR TOP PRIORITY</title>
+    <!-- Stylesheets -->
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&amp;family=Teko:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/fontawesome-all.css" rel="stylesheet">
+    <link href="css/owl.css" rel="stylesheet">
+    <link href="css/flaticon.css" rel="stylesheet">
+    <!--    <link href="css/linoor-icons-2.css" rel="stylesheet">-->
+    <link href="css/animate.css" rel="stylesheet">
+    <link href="css/jquery-ui.css" rel="stylesheet">
+    <!--    <link href="css/jquery.fancybox.min.css" rel="stylesheet">-->
+    <!--    <link href="css/hover.css" rel="stylesheet">-->
+    <!--    <link rel="stylesheet" href="css/jarallax.css">-->
+    <!--    <link href="css/custom-animate.css" rel="stylesheet">-->
+    <link href="css/style.css" rel="stylesheet">
+    <!-- rtl css -->
+    <!--    <link href="css/rtl.css" rel="stylesheet">-->
+    <!-- Responsive File -->
+    <link href="css/responsive.css" rel="stylesheet">
+
+    <!-- Color css -->
+    <link rel="stylesheet" id="jssDefault" href="css/colors/color-default.css">
+
+    <link rel="shortcut icon" href="images/roi-favicon.png" id="fav-shortcut" type="image/x-icon">
+    <link rel="icon" href="images/roi-favicon.png" id="fav-icon" type="image/x-icon">
+
+    <!-- Responsive Settings -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <!--[if lt IE 9]><script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.js"></script><![endif]-->
+    <!--[if lt IE 9]><script src="js/respond.js"></script><![endif]-->
+
+
+
+
+
+
+
+    <style type="text/css" id="jarallax-clip-1">
+        #jarallax-container-1 {
+            clip: rect(0 800px 468px 0);
+            clip: rect(0, 800px, 468px, 0);
+            -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        }
+    </style>
+</head>
+
+<body class="page-loaded">
+
+    <div class="page-wrapper">
+
+
+        <!-- Preloader -->
+        <div class="preloader" style="opacity: 0; display: none;">
+            <div class="icon"></div>
+        </div>
+
+        <!-- Main Header -->
+        <header class="main-header header-style-one">
+
+            <!-- Header Upper -->
+            <div class="header-upper">
+                <div class="inner-container clearfix">
+                    <!--Logo-->
+                    <div class="logo-box">
+                        <div class="logo"><a href="index"
+                                title="ROI MAKERS - YOUR ROI OUR TOP PRIORITY"><img src="images/ROI%20MAKERS%20whiteLOGO.png" id="thm-logo" alt="ROI MAKERS - YOUR ROI OUR TOP PRIORITY" title=" ROI MAKERS - YOUR ROI OUR TOP PRIORITY"></a>
+                        </div>
+                    </div>
+                    <div class="nav-outer clearfix">
+                        <!--Mobile Navigation Toggler-->
+                        <div class="mobile-nav-toggler">
+                            <span class="icon flaticon-menu-2"></span><span class="txt">Menu</span></div>
+
+                        <!-- Main Menu -->
+                        <nav class="main-menu navbar-expand-md navbar-light">
+                            <div class="collapse navbar-collapse show clearfix" id="navbarSupportedContent">
+                                <ul class="navigation clearfix">
+                                    <li class="current"><a href="index">Home</a>
+
+                                    </li>
+
+
+                                    <li class="dropdown">
+                                        <a href="#">About Us<div class="dropdown-btn">
+                                                <span class="fa fa-angle-right"></span></div></a>
+                                        <ul>
+
+                                            <li><a href="about-us">About Me </a></li>
+                                            <li><a href="our-mission">Our Mission </a></li>
+                                            <li><a href="our-history    ">Our History </a></li>
+                                            <li><a href="our-vision    ">Our vision</a></li>
+
+                                            <li><a href="our-team    ">Our Team </a></li>
+
+                                            <li><a href="our-partners    ">Our Partners</a></li>
+                                        </ul>
+                                    </li>
+
+                                    <li class=""><a href="career">Career</a>
+
+                                    </li>
+
+                                    <li class="dropdown"><a href="#">Services<div class="dropdown-btn">
+                                                <span class="fa fa-angle-right"></span></div></a>
+                                        <ul>
+
+                                            <li><a href="digital-marketing    ">Digital Marketing</a></li>
+
+                                            <li><a href="performance-marketing    ">Performance Marketing</a></li>
+                                            <li><a href="website-development    ">Website Development</a></li>
+                                            <li><a href="e-commerce    ">E-Commerce</a></li>
+                                            <li><a href="shopify-development    ">Shopify Development</a></li>
+
+                                            <li><a href="social-media-marketing    ">Social Media Marketing</a></li>
+                                            <li><a href="seo    ">SEO</a></li>
+                                            <li><a href="virtual-tours    ">Virtual Tours</a></li>
+                                        </ul>
+                                    </li>
+                                    <!--                                     <li class="dropdown"><a href="portfolio-masonary    ">Portfolio</a></li>-->
+
+                                    <li><a href="blog    ">Blog</a>
+
+                                    </li>
+                                    <li>
+                                        <a href="contact    ">Contact</a>
+
+                                    </li>
+                                </ul>
+                            </div>
+                        </nav>
+                    </div>
+
+                    <div class="other-links clearfix">
+
+
+                        <div class="link-box">
+                            <div class="call-us">
+                                <a class="link" href="tel:9009500202">
+                                    <span class="icon"></span>
+                                    <span class="sub-text">Call Anytime</span>
+                                    <span class="number">9009500202</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <!--End Header Upper-->
+
+        </header>
+        <!-- End Main Header -->
+
+        <!--Mobile Menu-->
+        <div class="side-menu__block">
+
+
+            <div class="side-menu__block-overlay custom-cursor__overlay">
+                <div class="cursor" style="top: 0px; left: 0px;"></div>
+                <div class="cursor-follower" style="top: -22px; left: -22px;"></div>
+            </div><!-- /.side-menu__block-overlay -->
+            <div class="side-menu__block-inner ">
+                <div class="side-menu__top justify-content-end">
+
+                    <a href="#"
+                        class="side-menu__toggler side-menu__close-btn"><img src="images/icons/close-1-1.png" alt=""></a>
+                </div><!-- /.side-menu__top -->
+
+
+                <nav class="mobile-nav__container">
+                    <!-- content is loading via js -->
+
+                    <div class="collapse navbar-collapse show clearfix" id="navbarSupportedContent">
+                        <ul class="navigation clearfix">
+                            <li class="current"><a href="index">Home</a>
+
+                            </li>
+
+
+                            <li class="dropdown">
+                                <a href="#">About Us<div class="dropdown-btn"><span class="fa fa-angle-right"></span>
+                                    </div></a>
+                                <ul>
+
+                                    <li><a href="about-us">About Me </a></li>
+                                    <li><a href="our-mission">Our Mission </a></li>
+                                    <li><a href="our-history    ">Our History </a></li>
+                                    <li><a href="our-vision    ">Our vision</a></li>
+
+                                    <li><a href="our-team    ">Our Team </a></li>
+
+                                    <li><a href="our-partners    ">Our Partners</a></li>
+                                </ul>
+                            </li>
+
+                            <li class=""><a href="career">Career</a>
+
+                            </li>
+
+                            <li class="dropdown"><a href="#">Services<div class="dropdown-btn">
+                                        <span class="fa fa-angle-right"></span></div></a>
+                                <ul>
+
+                                    <li><a href="digital-marketing    ">Digital Marketing</a></li>
+
+                                    <li><a href="performance-marketing    ">Performance Marketing</a></li>
+                                    <li><a href="website-development    ">Website Development</a></li>
+                                    <li><a href="e-commerce    ">E-Commerce</a></li>
+                                    <li><a href="shopify-development    ">Shopify Development</a></li>
+
+                                    <li><a href="social-media-marketing    ">Social Media Marketing</a></li>
+                                    <li><a href="seo    ">SEO</a></li>
+                                    <li><a href="virtual-tours    ">Virtual Tours</a></li>
+                                </ul>
+                            </li>
+                            <!--                                     <li class="dropdown"><a href="portfolio-masonary    ">Portfolio</a></li>-->
+
+                            <li><a href="blog    ">Blog</a>
+
+                            </li>
+                            <li>
+                                <a href="contact    ">Contact</a>
+
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+                <div class="side-menu__sep"></div><!-- /.side-menu__sep -->
+                <div class="side-menu__content">
+                    <p>ROI Makers helps businesses improve their online presence and achieve their marketing goals.</p>
+                    <p><a href="mailto:support@roimakers.in">support@roimakers.in</a> <br> <a
+                            href="tel:9009500202">9009500202</a></p>
+                    <div class="side-menu__social">
+                        <a href="https://www.youtube.com/@roimakers"><i class="fab fa-youtube"></i></a>
+                        <a href="https://www.facebook.com/roimakersin"><i class="fab fa-facebook-square"></i></a>
+                        <a href="https://x.com/roimakers"><i class="fab fa-twitter"></i></a>
+                        <a href="https://www.instagram.com/roimakers/"><i class="fab fa-instagram"></i></a>
+                        <a href="https://www.linkedin.com/company/roimakers/"><i class="fab fa-linkedin"></i></a>
+
+                    </div>
+                </div><!-- /.side-menu__content -->
+            </div><!-- /.side-menu__block-inner -->
+        </div><!-- /.side-menu__block -->
+
+        <!--Search Popup-->
+        <div class="search-popup">
+            <div class="search-popup__overlay custom-cursor__overlay">
+                <div class="cursor" style="top: 0px; left: 0px;"></div>
+                <div class="cursor-follower" style="top: -22px; left: -22px;"></div>
+            </div><!-- /.search-popup__overlay -->
+            <div class="search-popup__inner">
+                <form action="#" class="search-popup__form">
+                    <input type="text" name="search" placeholder="Type here to Search....">
+                    <button type="submit"><i class="fa fa-search"></i></button>
+                </form>
+            </div><!-- /.search-popup__inner -->
+        </div><!-- /.search-popup -->
+
+
+        <!-- Banner Section -->
+        <section class="banner-section banner-one">
+
+            <div class="left-based-text">
+                <div class="base-inner">
+                    <div class="hours">
+                        <ul class="clearfix">
+                            <li><span>mon - fri</span></li>
+                            <li><span>9am - 7pm</span></li>
+                        </ul>
+                    </div>
+                    <div class="social-links">
+                        <ul class="clearfix">
+                            <li><a href="https://x.com/roimakers"><span>Twitter</span></a></li>
+                            <li><a href="https://www.facebook.com/roimakersin"><span>Facebook</span></a></li>
+                            <li><a href="https://www.youtube.com/@roimakers"><span>Youtube</span></a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="banner-carousel owl-theme owl-carousel owl-loaded owl-drag">
+                <!-- Slide Item -->
+
+
+                <!-- Slide Item -->
+
+
+                <div class="owl-stage-outer">
+                    <div class="owl-stage"
+                        style="transform: translate3d(-1600px, 0px, 0px); transition: all; width: 4800px;">
+                        <div class="owl-item cloned" style="width: 800px;">
+                            <div class="banner-carousel owl-theme owl-carousel owl-loading">
+                                <!-- Slide Item -->
+
+                                <div class="owl-stage-outer">
+                                    <div class="owl-stage"
+                                        style="transform: translate3d(0px, 0px, 0px); transition: all;">
+                                        <div class="owl-item">
+                                            <div class="slide-item">
+                                                <div class="image-layer"
+                                                    style="background-image: url(images/main-slider/roi%20founder.jpg);">
+                                                </div>
+                                                <div class="left-top-line"></div>
+                                                <div class="right-bottom-curve"></div>
+                                                <div class="right-top-curve"></div>
+                                                <div class="auto-container">
+                                                    <div class="content-box">
+                                                        <div class="content">
+                                                            <div class="inner">
+                                                                <div class="sub-title">welcome to ROI MAKERS</div>
+                                                                <h1>digital agency for <br>your business</h1>
+                                                                <div class="link-box">
+                                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                                        <i class="btn-curve"></i>
+                                                                        <span class="btn-title">Discover More</span>
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="owl-item cloned" style="width: 800px;">
+                            <div class="slide-item">
+                                <div class="image-layer" style="background-image: url(images/main-slider/slider1.jpg);">
+                                </div>
+                                <div class="left-top-line"></div>
+                                <div class="right-bottom-curve"></div>
+                                <div class="right-top-curve"></div>
+                                <div class="auto-container">
+                                    <div class="content-box">
+                                        <div class="content">
+                                            <div class="inner">
+                                                <div class="sub-title">welcome to Roi makers</div>
+                                                <h1>Your performace <br> Marketing Agency</h1>
+                                                <div class="link-box">
+                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                        <i class="btn-curve"></i>
+                                                        <span class="btn-title">Discover More</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="owl-item active" style="width: 800px;">
+                            <div class="banner-carousel owl-theme owl-carousel owl-loaded owl-drag">
+                                <!-- Slide Item -->
+
+                                <div class="owl-stage-outer">
+                                    <div class="owl-stage"
+                                        style="transform: translate3d(-1600px, 0px, 0px); transition: all; width: 4000px;">
+                                        <div class="owl-item cloned" style="width: 800px;">
+                                            <div class="slide-item">
+                                                <div class="image-layer"
+                                                    style="background-image: url(images/main-slider/roi%20founder.jpg);">
+                                                </div>
+                                                <div class="left-top-line"></div>
+                                                <div class="right-bottom-curve"></div>
+                                                <div class="right-top-curve"></div>
+                                                <div class="auto-container">
+                                                    <div class="content-box">
+                                                        <div class="content">
+                                                            <div class="inner">
+                                                                <div class="sub-title">welcome to ROI MAKERS</div>
+                                                                <h1>digital agency for <br>your business</h1>
+                                                                <div class="link-box">
+                                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                                        <i class="btn-curve"></i>
+                                                                        <span class="btn-title">Discover More</span>
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="owl-item cloned" style="width: 800px;">
+                                            <div class="slide-item">
+                                                <div class="image-layer"
+                                                    style="background-image: url(images/main-slider/roi%20founder.jpg);">
+                                                </div>
+                                                <div class="left-top-line"></div>
+                                                <div class="right-bottom-curve"></div>
+                                                <div class="right-top-curve"></div>
+                                                <div class="auto-container">
+                                                    <div class="content-box">
+                                                        <div class="content">
+                                                            <div class="inner">
+                                                                <div class="sub-title">welcome to ROI MAKERS</div>
+                                                                <h1>digital agency for <br>your business</h1>
+                                                                <div class="link-box">
+                                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                                        <i class="btn-curve"></i>
+                                                                        <span class="btn-title">Discover More</span>
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="owl-item active" style="width: 800px;">
+                                            <div class="slide-item">
+                                                <div class="image-layer"
+                                                    style="background-image: url(images/main-slider/roi%20founder.jpg);">
+                                                </div>
+                                                <div class="left-top-line"></div>
+                                                <div class="right-bottom-curve"></div>
+                                                <div class="right-top-curve"></div>
+                                                <div class="auto-container">
+                                                    <div class="content-box">
+                                                        <div class="content">
+                                                            <div class="inner">
+                                                                <div class="sub-title">welcome to ROI MAKERS</div>
+                                                                <h1>digital agency for <br>your business</h1>
+                                                                <div class="link-box">
+                                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                                        <i class="btn-curve"></i>
+                                                                        <span class="btn-title">Discover More</span>
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="owl-item cloned" style="width: 800px;">
+                                            <div class="slide-item">
+                                                <div class="image-layer"
+                                                    style="background-image: url(images/main-slider/roi%20founder.jpg);">
+                                                </div>
+                                                <div class="left-top-line"></div>
+                                                <div class="right-bottom-curve"></div>
+                                                <div class="right-top-curve"></div>
+                                                <div class="auto-container">
+                                                    <div class="content-box">
+                                                        <div class="content">
+                                                            <div class="inner">
+                                                                <div class="sub-title">welcome to ROI MAKERS</div>
+                                                                <h1>digital agency for <br>your business</h1>
+                                                                <div class="link-box">
+                                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                                        <i class="btn-curve"></i>
+                                                                        <span class="btn-title">Discover More</span>
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="owl-item cloned" style="width: 800px;">
+                                            <div class="slide-item">
+                                                <div class="image-layer"
+                                                    style="background-image: url(images/main-slider/roi%20founder.jpg);">
+                                                </div>
+                                                <div class="left-top-line"></div>
+                                                <div class="right-bottom-curve"></div>
+                                                <div class="right-top-curve"></div>
+                                                <div class="auto-container">
+                                                    <div class="content-box">
+                                                        <div class="content">
+                                                            <div class="inner">
+                                                                <div class="sub-title">welcome to ROI MAKERS</div>
+                                                                <h1>digital agency for <br>your business</h1>
+                                                                <div class="link-box">
+                                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                                        <i class="btn-curve"></i>
+                                                                        <span class="btn-title">Discover More</span>
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="owl-nav disabled">
+                                    <button type="button" role="presentation" class="owl-prev"><span class="icon fa fa-angle-left"></span></button><button type="button" role="presentation" class="owl-next"><span class="icon fa fa-angle-right"></span></button>
+                                </div>
+                                <div class="owl-dots disabled">
+                                    <button role="button" class="owl-dot active"><span></span></button></div>
+                            </div>
+                        </div>
+                        <div class="owl-item" style="width: 800px;">
+                            <div class="slide-item">
+                                <div class="image-layer" style="background-image: url(images/main-slider/slider1.jpg);">
+                                </div>
+                                <div class="left-top-line"></div>
+                                <div class="right-bottom-curve"></div>
+                                <div class="right-top-curve"></div>
+                                <div class="auto-container">
+                                    <div class="content-box">
+                                        <div class="content">
+                                            <div class="inner">
+                                                <div class="sub-title">welcome to Roi makers</div>
+                                                <h1>Your performace <br> Marketing Agency</h1>
+                                                <div class="link-box">
+                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                        <i class="btn-curve"></i>
+                                                        <span class="btn-title">Discover More</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="owl-item cloned" style="width: 800px;">
+                            <div class="banner-carousel owl-theme owl-carousel owl-loading">
+                                <!-- Slide Item -->
+
+                                <div class="owl-stage-outer">
+                                    <div class="owl-stage"
+                                        style="transform: translate3d(0px, 0px, 0px); transition: all;">
+                                        <div class="owl-item">
+                                            <div class="slide-item">
+                                                <div class="image-layer"
+                                                    style="background-image: url(images/main-slider/roi%20founder.jpg);">
+                                                </div>
+                                                <div class="left-top-line"></div>
+                                                <div class="right-bottom-curve"></div>
+                                                <div class="right-top-curve"></div>
+                                                <div class="auto-container">
+                                                    <div class="content-box">
+                                                        <div class="content">
+                                                            <div class="inner">
+                                                                <div class="sub-title">welcome to ROI MAKERS</div>
+                                                                <h1>digital agency for <br>your business</h1>
+                                                                <div class="link-box">
+                                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                                        <i class="btn-curve"></i>
+                                                                        <span class="btn-title">Discover More</span>
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="owl-item cloned" style="width: 800px;">
+                            <div class="slide-item">
+                                <div class="image-layer" style="background-image: url(images/main-slider/slider1.jpg);">
+                                </div>
+                                <div class="left-top-line"></div>
+                                <div class="right-bottom-curve"></div>
+                                <div class="right-top-curve"></div>
+                                <div class="auto-container">
+                                    <div class="content-box">
+                                        <div class="content">
+                                            <div class="inner">
+                                                <div class="sub-title">welcome to Roi makers</div>
+                                                <h1>Your performace <br> Marketing Agency</h1>
+                                                <div class="link-box">
+                                                    <a class="theme-btn btn-style-one" href="about-us">
+                                                        <i class="btn-curve"></i>
+                                                        <span class="btn-title">Discover More</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="owl-nav">
+                    <button type="button" role="presentation" class="owl-prev"><span class="icon fa fa-angle-left"></span></button><button type="button" role="presentation" class="owl-next"><span class="icon fa fa-angle-right"></span></button>
+                </div>
+                <div class="owl-dots">
+                    <button role="button" class="owl-dot active"><span></span></button><button role="button" class="owl-dot"><span></span></button>
+                </div>
+            </div>
+        </section>
+        <!--End Banner Section -->
+
+        <!--Services Section-->
+        <section class="services-section">
+            <div class="auto-container">
+                <div class="row clearfix">
+                    <!--Title Block-->
+                    <div class="title-block col-xl-6 col-lg-12 col-md-12 col-sm-12">
+                        <div class="inner">
+                            <div class="sec-title">
+                                <h2 class="sec-title-heading">We Shape the Perfect Solutions<span class="dot">.</span>
+                                </h2>
+                                <div class="lower-text   sec-para">We are committed to providing our customers with
+                                    exceptional
+                                    service while offering our employees the best training.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--Service Block-->
+                    <div class="service-block col-xl-3 col-lg-6 col-md-6 col-sm-12 wow fadeInLeft" data-wow-delay="0ms"
+                        data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 0ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="bottom-curve"></div>
+                            <div class="icon-box"><span class="flaticon-responsive"></span></div>
+                            <h6><a href="digital-marketing    ">Digital <br>Marketing Consulting</a></h6>
+                        </div>
+                    </div>
+                    <!--Service Block-->
+                    <div class="service-block col-xl-3 col-lg-6 col-md-6 col-sm-12 wow fadeInLeft"
+                        data-wow-delay="300ms" data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 300ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="bottom-curve"></div>
+                            <div class="icon-box"><span class="flaticon-computer"></span></div>
+                            <h6><a href="website-development">Website <br>Development</a></h6>
+                        </div>
+                    </div>
+                    <!--Service Block-->
+                    <div class="service-block col-xl-3 col-lg-6 col-md-6 col-sm-12 wow fadeInLeft" data-wow-delay="0ms"
+                        data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 0ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="bottom-curve"></div>
+                            <div class="icon-box"><span class="flaticon-digital-marketing"></span></div>
+                            <h6><a href="e-commerce ">E - Commerce</a></h6>
+                        </div>
+                    </div>
+                    <!--Service Block-->
+                    <div class="service-block col-xl-3 col-lg-6 col-md-6 col-sm-12 wow fadeInLeft"
+                        data-wow-delay="300ms" data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 300ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="bottom-curve"></div>
+                            <div class="icon-box"><span class="flaticon-development"></span></div>
+                            <h6><a href="shopify-development   ">Shopify <br> Development</a></h6>
+                        </div>
+                    </div>
+                    <!--Service Block-->
+                    <div class="service-block col-xl-3 col-lg-6 col-md-6 col-sm-12 wow fadeInLeft"
+                        data-wow-delay="600ms" data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 600ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="bottom-curve"></div>
+                            <div class="icon-box"><span class="flaticon-app-development"></span></div>
+                            <h6><a href="social-media-marketing   ">Social <br>Media Marketing</a></h6>
+                        </div>
+                    </div>
+                    <!--Service Block-->
+                    <div class="service-block col-xl-3 col-lg-6 col-md-6 col-sm-12 wow fadeInLeft"
+                        data-wow-delay="900ms" data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 900ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="bottom-curve"></div>
+                            <div class="icon-box"><span class="flaticon-ui"></span></div>
+                            <h6><a href="virtual-tours    ">Virtual <br>Tours</a></h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--About Section-->
+        <section class="about-section">
+            <div class="auto-container">
+                <div class="row clearfix">
+                    <!--Image Column-->
+                    <div class="image-column col-xl-6 col-lg-12 col-md-12 col-sm-12">
+                        <div class="inner">
+                            <div class="image-block wow fadeInLeft" data-wow-delay="0ms" data-wow-duration="1500ms"
+                                style="visibility: hidden; animation-duration: 1500ms; animation-delay: 0ms; animation-name: none;">
+                                <img src="images/resource/IMAGE1.jpg" alt=""></div>
+                            <div class="image-block wow fadeInUp image-block2" data-wow-delay="300ms"
+                                data-wow-duration="1500ms"
+                                style="visibility: hidden; animation-duration: 1500ms; animation-delay: 300ms; animation-name: none;">
+                                <img src="images/resource/IMAGE2.jpg" alt=""></div>
+                        </div>
+                    </div>
+                    <!--Text Column-->
+                    <div class="text-column col-xl-6 col-lg-12 col-md-12 col-sm-12">
+                        <div class="inner">
+                            <div class="sec-title">
+                                <h2>We’re the best agency <br>in downtown<span class="dot">.</span></h2>
+                                <div class="lower-text">The professional approach to development.</div>
+                            </div>
+                            <div class="text">
+                                <p>Unlock the Power of Digital Marketing: Boost Your Business and Reach Your Target
+                                    Audience Today.</p>
+                            </div>
+                            <div class="text clearfix">
+                                <ul>
+                                    <li>Accelerate Your Online Growth.</li>
+                                    <li>Drive Sales Through Digitally.</li>
+                                    <li>Boost Your Online Presences.</li>
+                                </ul>
+                                <div class="since">
+                                    <div class="border-box">
+                                        <div class="icon-and-number">
+
+                                            <span class="experience-number">8+</span>
+                                            <img src="images/thumbs-up.png" alt="Experience Icon" class="experience-icon">
+
+                                        </div>
+                                        <div class="experience-text">Years of Experience</div>
+                                    </div>
+                                </div>
+
+
+                            </div>
+
+
+                            <div class="link-box">
+                                <a class="theme-btn btn-style-one" href="our-history ">
+                                    <i class="btn-curve"></i>
+                                    <span class="btn-title">Explore now</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--Live Section-->
+
+
+        <!--
+        <section class="live-section">
+            <div class="auto-container">
+                <div class="sec-title centered">
+                    <h2>Experience us live<span class="dot">.</span></h2>
+                </div>
+                <div class="main-image-box">
+                    <div class="image-layer" style="background-image: url(images/resource/featured-image-3.jpg);"></div>
+                    <div class="inner clearfix">
+                        <div class="round-box wow fadeInUp" data-wow-delay="0ms" data-wow-duration="1500ms">
+                            <div class="round-inner">
+                                <div class="vid-link">
+                                    <a href="https://www.youtube.com/watch?v=Get7rqXYrbQ" class="lightbox-image">
+                                        <div class="icon"><span class="flaticon-play-button-1"></span><i
+                                                class="ripple"></i></div>
+                                    </a>
+                                </div>
+                                <div class="title">
+                                    <h3>agency that gets <br>excited about</h3>
+                                </div>
+                                <div class="more-link"><a href="about    ">Read More</a></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+-->
+
+
+
+
+
+
+        <!--We DO Section-->
+        <section class="we-do-section">
+            <div class="auto-container">
+                <div class="row clearfix">
+                    <!--Left Column-->
+                    <div class="left-col col-lg-6 col-md-12 col-sm-12">
+                        <div class="inner">
+                            <div class="sec-title">
+                                <h2>We do more then ever <br>platforms<span class="dot">.</span></h2>
+                            </div>
+                            <div class="featured-block clearfix">
+                                <div class="image"><img src="images/resource/featured-img.jpg" alt=""></div>
+                                <div class="text">There are many variatns of passages the majority have suffered
+                                    alteration in some foor randomised words believable.</div>
+                            </div>
+                            <div class="progress-box">
+                                <div class="bar-title">Performance Marketing</div>
+                                <div class="bar">
+                                    <div class="bar-inner count-bar" data-percent="70%">
+                                        <div class="count-box">
+                                            <span class="count-text" data-stop="70" data-speed="1500">29</span>%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--Right Column-->
+                    <div class="right-col col-lg-6 col-md-12 col-sm-12">
+                        <div class="inner">
+                            <div class="faq-box">
+                                <ul class="accordion-box clearfix">
+                                    <!--Block-->
+                                    <li class="accordion block active-block">
+                                        <div class="acc-btn active"><span class="count">1.</span> Boost Your Brand with
+                                            Performance Marketing</div>
+                                        <div class="acc-content current">
+                                            <div class="content">
+                                                <div class="text">Drive real results with data-driven performance
+                                                    marketing. Optimize ads, boost conversions, and maximize ROI
+                                                    efficiently!</div>
+                                            </div>
+                                        </div>
+                                    </li>
+
+                                    <!--Block-->
+                                    <li class="accordion block">
+                                        <div class="acc-btn"><span class="count">2.</span> Build Your Business with
+                                            Website Development
+                                        </div>
+                                        <div class="acc-content">
+                                            <div class="content">
+                                                <div class="text">A fast, responsive, and user-friendly website is the
+                                                    foundation of your online success. We create custom websites that
+                                                    enhance user experience, boost engagement, and drive conversions.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+
+                                    <!--Block-->
+                                    <li class="accordion block">
+                                        <div class="acc-btn"><span class="count">3.</span> Maximize Sales with Shopify
+                                            Development</div>
+                                        <div class="acc-content">
+                                            <div class="content">
+                                                <div class="text">Turn your Shopify store into a powerful sales machine.
+                                                    From seamless design to smooth checkout experiences, we build
+                                                    high-performing eCommerce stores that attract and retain customers.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+
+
+
+
+
+
+
+
+
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gallery Section -->
+        <!--
+        <section class="gallery-section">
+            <div class="auto-container">
+                MixitUp Galery
+                <div class="mixitup-gallery">
+                    <div class="upper-row clearfix">
+                        <div class="sec-title">
+                            <h2>work showcase<span class="dot">.</span></h2>
+                        </div>
+                        
+                        <div class="filters clearfix">
+                            <ul class="filter-tabs filter-btns clearfix">
+                                <li class="active filter" data-role="button" data-filter="all">All<sup>[6]</sup></li>
+                                <li class="filter" data-role="button" data-filter=".branding">Branding<sup>[3]</sup>
+                                </li>
+                                <li class="filter" data-role="button" data-filter=".illustration">
+                                    illustration<sup>[3]</sup></li>
+                                <li class="filter" data-role="button" data-filter=".photography">
+                                    Photography<sup>[3]</sup></li>
+                                <li class="filter" data-role="button" data-filter=".web-design">Web Design<sup>[4]</sup>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="filter-list row">
+                      
+                        <div class="gallery-item mix all web-design col-lg-4 col-md-6 col-sm-12">
+                            <div class="inner-box">
+                                <figure class="image"><img src="images/gallery/1.jpg" alt=""></figure>
+                                <a href="images/gallery/1.jpg" class="lightbox-image overlay-box"
+                                    data-fancybox="gallery"></a>
+                                <div class="cap-box">
+                                    <div class="cap-inner">
+                                        <div class="cat"><span>Graphic</span></div>
+                                        <div class="title">
+                                            <h5><a href="portfolio-single    ">Fimlor Experience</a></h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                       
+                        <div class="gallery-item mix all photography web-design col-lg-4 col-md-6 col-sm-12">
+                            <div class="inner-box">
+                                <figure class="image"><img src="images/gallery/2.jpg" alt=""></figure>
+                                <a href="images/gallery/2.jpg" class="lightbox-image overlay-box"
+                                    data-fancybox="gallery"></a>
+                                <div class="cap-box">
+                                    <div class="cap-inner">
+                                        <div class="cat"><span>Graphic</span></div>
+                                        <div class="title">
+                                            <h5><a href="portfolio-single    ">Fimlor Experience</a></h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    
+                        <div class="gallery-item mix all branding web-design col-lg-4 col-md-6 col-sm-12">
+                            <div class="inner-box">
+                                <figure class="image"><img src="images/gallery/3.jpg" alt=""></figure>
+                                <a href="images/gallery/3.jpg" class="lightbox-image overlay-box"
+                                    data-fancybox="gallery"></a>
+                                <div class="cap-box">
+                                    <div class="cap-inner">
+                                        <div class="cat"><span>Graphic</span></div>
+                                        <div class="title">
+                                            <h5><a href="portfolio-single    ">Fimlor Experience</a></h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                        <div class="gallery-item mix all branding illustration col-lg-4 col-md-6 col-sm-12">
+                            <div class="inner-box">
+                                <figure class="image"><img src="images/gallery/4.jpg" alt=""></figure>
+                                <a href="images/gallery/4.jpg" class="lightbox-image overlay-box"
+                                    data-fancybox="gallery"></a>
+                                <div class="cap-box">
+                                    <div class="cap-inner">
+                                        <div class="cat"><span>Graphic</span></div>
+                                        <div class="title">
+                                            <h5><a href="portfolio-single    ">Fimlor Experience</a></h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                   
+                        <div
+                            class="gallery-item mix all branding illustration photography web-design col-lg-4 col-md-6 col-sm-12">
+                            <div class="inner-box">
+                                <figure class="image"><img src="images/gallery/5.jpg" alt=""></figure>
+                                <a href="images/gallery/5.jpg" class="lightbox-image overlay-box"
+                                    data-fancybox="gallery"></a>
+                                <div class="cap-box">
+                                    <div class="cap-inner">
+                                        <div class="cat"><span>Graphic</span></div>
+                                        <div class="title">
+                                            <h5><a href="portfolio-single    ">Fimlor Experience</a></h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                       
+                        <div class="gallery-item mix all illustration photography col-lg-4 col-md-6 col-sm-12">
+                            <div class="inner-box">
+                                <figure class="image"><img src="images/gallery/6.jpg" alt=""></figure>
+                                <a href="images/gallery/6.jpg" class="lightbox-image overlay-box"
+                                    data-fancybox="gallery"></a>
+                                <div class="cap-box">
+                                    <div class="cap-inner">
+                                        <div class="cat"><span>Graphic</span></div>
+                                        <div class="title">
+                                            <h5><a href="portfolio-single    ">Fimlor Experience</a></h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+-->
+        <!-- Funfacts Section -->
+        <section class="facts-section jarallax" data-jarallax="" data-speed="0.3" data-imgposition="50% 80%">
+            <!--    <img src="images/" alt="" class="jarallax-img">-->
+            <div class="auto-container">
+                <div class="inner-container">
+
+                    <!-- Fact Counter -->
+                    <div class="fact-counter">
+                        <div class="row clearfix">
+
+                            <!-- Column -->
+                            <div class="column counter-column col-lg-3 col-md-6 col-sm-12">
+                                <div class="inner">
+                                    <div class="content">
+                                        <div class="count-outer count-box">
+                                            <span class="count-text count-project" data-speed="4000" data-stop="1200">0</span>
+                                        </div>
+                                        <div class="counter-title">Campaigns Executed</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Column -->
+                            <div class="column counter-column col-lg-3 col-md-6 col-sm-12">
+                                <div class="inner">
+                                    <div class="content">
+                                        <div class="count-outer count-box alternate">
+                                            <span class="count-text" data-speed="3000" data-stop="250">0</span>
+                                        </div>
+                                        <div class="counter-title">Active Clients</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Column -->
+                            <div class="column counter-column col-lg-3 col-md-6 col-sm-12">
+                                <div class="inner">
+                                    <div class="content">
+                                        <div class="count-outer count-box">
+                                            <span class="count-text" data-speed="3000" data-stop="626000">0</span>
+                                        </div>
+                                        <div class="counter-title">Leads Generated</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Column -->
+                            <div class="column counter-column col-lg-3 col-md-6 col-sm-12">
+                                <div class="inner">
+                                    <div class="content">
+                                        <div class="count-outer count-box">
+                                            <span class="count-text" data-speed="4000" data-stop="500">0</span>
+                                        </div>
+                                        <div class="counter-title">Businesses Scaled</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- End Funfacts Section -->
+
+        <!-- Trusted Section -->
+        <section class="trusted-section">
+            <div class="auto-container">
+                <div class="outer-container">
+                    <div class="row clearfix">
+                        <div class="left-col col-xl-5 col-lg-6 col-md-12 col-sm-12">
+                            <div class="inner">
+                                <div class="col-header">
+                                    <div class="header-inner">
+                                        <span>We’re Committed To Deliver High Quality Projects .</span>
+                                    </div>
+                                </div>
+                                <div class="features">
+                                    <div class="feature">
+                                        <div class="count"><span>01</span></div>
+                                        <h5>TOTAL DESIGN FREEDOM FOR EVERYONE</h5>
+                                        <div class="sub-text">core features</div>
+                                    </div>
+                                    <div class="feature">
+                                        <div class="count"><span>02</span></div>
+                                        <h5>BASIC RULES OF RUNNING WEB AGENCY</h5>
+                                        <div class="sub-text">core features</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="right-col col-xl-7 col-lg-6 col-md-12 col-sm-12">
+                            <div class="inner">
+                                <div class="sec-title">
+                                    <h2>We’re trusted by more <br>than 1200 clients<span class="dot">.</span></h2>
+                                    <div class="lower-text">Building trust in the digital age isn't easy, but we've
+                                        mastered it. With the loyalty of over 1,200 clients across India, we have
+                                        established a strong presence by consistently delivering reliable, transparent,
+                                        and client-focused services. Our unwavering commitment to excellence and
+                                        dedication to meeting client needs set us apart, making us a trusted partner in
+                                        the Indian market.</div>
+                                </div>
+                                <div class="featured-block-two clearfix">
+                                    <div class="image"><img src="images/resource/featured-1.jpg" t=""></div>
+                                    <div class="text">
+                                        <ul>
+                                            <li> Committed to client satisfaction.</li>
+                                            <li>Adapting to global standards.</li>
+                                            <li>Reliable and transparent services.</li>
+                                            <li>Trusted partner for growth.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--Team Section-->
+        <section class="team-section no-padd-top">
+            <div class="auto-container">
+                <div class="sec-title centered">
+                    <h2>Meet the expert team<span class="dot">.</span></h2>
+                </div>
+            </div>
+            <div class="carousel-box">
+                <div class="team-carousel owl-theme owl-carousel owl-loaded owl-drag">
+
+
+                    <!--Team-->
+
+
+                    <!--Team-->
+
+
+                    <!--Team-->
+
+
+
+
+                    <!--Team-->
+
+
+
+
+                    <!--Team-->
+
+
+
+
+                    <!--Team-->
+
+
+                    <!--Team-->
+                    <!--
+
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-5.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Mike Hardson</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-1.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Kevin martin</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-2.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Jessica Brown</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-3.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">John Albert</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-4.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Rose ford</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-5.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Mike Hardson</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-1.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Kevin martin</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-2.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Jessica Brown</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-3.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">John Albert</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-4.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Rose ford</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <!--Team-->
+                    <!--
+                    <div class="team-block">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="about    "><img src="images/resource/team-5.jpg" alt=""></a>
+                                <ul class="social-links clearfix">
+                                    <li><a href="#"><span class="fab fa-facebook-square"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-twitter"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-instagram"></span></a></li>
+                                    <li><a href="#"><span class="fab fa-pinterest-p"></span></a></li>
+                                </ul>
+                            </div>
+                            <div class="lower-box">
+                                <h5><a href="#">Mike Hardson</a></h5>
+                                <div class="designation">Designer</div>
+                            </div>
+                        </div>
+                    </div>
+-->
+
+                    <div class="owl-stage-outer">
+                        <div class="owl-stage"
+                            style="transform: translate3d(-1200px, 0px, 0px); transition: all; width: 4800px;">
+                            <div class="owl-item cloned" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/vijay%20vishawakarma.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Vijay Vishwakarma</a></h5>
+                                            <div class="designation">Senior Motion Graphic Designer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item cloned" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/sankesh%20pate.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Sankesh Pate</a></h5>
+                                            <div class="designation">Senior Graphic Designer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item cloned" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/pankaj%20vishwakarma.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Pankaj Vishwakarma</a></h5>
+                                            <div class="designation">Wordpress &amp; Shopify Developer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item active" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/Rajat.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Rajat Gupta</a></h5>
+                                            <div class="designation">Performance Marketing&nbsp;Manager </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item active" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/tripti%20ray.jpg" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Tripti Ray</a></h5>
+                                            <div class="designation">Digital Marketing Strategist</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/harshita.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Harshita Sharma</a></h5>
+                                            <div class="designation">Social Media Strategist</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/vijay%20vishawakarma.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Vijay Vishwakarma</a></h5>
+                                            <div class="designation">Senior Motion Graphic Designer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/sankesh%20pate.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Sankesh Pate</a></h5>
+                                            <div class="designation">Senior Graphic Designer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/pankaj%20vishwakarma.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Pankaj Vishwakarma</a></h5>
+                                            <div class="designation">Wordpress &amp; Shopify Developer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item cloned" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/Rajat.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Rajat Gupta</a></h5>
+                                            <div class="designation">Performance Marketing&nbsp;Manager </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item cloned" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/tripti%20ray.jpg" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Tripti Ray</a></h5>
+                                            <div class="designation">Digital Marketing Strategist</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="owl-item cloned" style="width: 370px; margin-right: 30px;">
+                                <div class="team-block">
+                                    <div class="inner-box">
+                                        <div class="image-box">
+                                            <a><img src="images/resource/harshita.png" alt=""></a>
+
+                                        </div>
+                                        <div class="lower-box">
+                                            <h5><a>Harshita Sharma</a></h5>
+                                            <div class="designation">Social Media Strategist</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="owl-nav">
+                        <button type="button" role="presentation" class="owl-prev"><span class="icon fa fa-angle-left"></span></button><button type="button" role="presentation" class="owl-next"><span class="icon fa fa-angle-right"></span></button>
+                    </div>
+                    <div class="owl-dots">
+                        <button role="button" class="owl-dot active"><span></span></button><button role="button" class="owl-dot"><span></span></button><button role="button" class="owl-dot"><span></span></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Parallax Section -->
+        <section class="parallax-section jarallax" data-jarallax="" data-speed="0.3" data-imgposition="50% 80%">
+            <!-- <div class="image-layer" style="background-image: url(images/background/image-2.jpg);"></div> -->
+
+            <div class="auto-container">
+                <div class="content-box">
+                    <div class="icon-box"><span class="flaticon-app-development"></span></div>
+                    <h2>Great things in business are never done by one person. <span>They’re done by a team of
+                            people.</span></h2>
+                </div>
+            </div>
+            <div id="jarallax-container-1"
+                style="position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; overflow: hidden; z-index: -100;">
+                <img src="images/background/team.jpg" alt="" class="jarallax-img" style="object-fit: cover; object-position: 50% 50%; max-width: none; position: fixed; top: 0px; left: 0px; width: 800px; height: 560.4px; overflow: hidden; pointer-events: none; transform-style: preserve-3d; backface-visibility: hidden; will-change: transform, opacity; margin-top: 19.8px; transform: translate3d(0px, 1745.94px, 0px);">
+            </div>
+        </section>
+        <!-- End Funfacts Section -->
+
+        <!--Sponsors Section-->
+        <section class="sponsors-section">
+            <div class="sponsors-outer">
+                <!--Sponsors-->
+                <div class="auto-container">
+                    <!--Sponsors Carousel-->
+                    <div class="client-section">
+                        <p class="client-brand">Brands</p>
+                        <h3 class="client-heading">Our Clients</h3>
+                    </div>
+
+
+
+
+                    <div class="sponsors-carousel owl-theme owl-carousel owl-loaded owl-drag">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                        <div class="owl-stage-outer">
+                            <div class="owl-stage"
+                                style="transform: translate3d(-2533px, 0px, 0px); transition: all; width: 10134px;">
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/15.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/17.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/18.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/21.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/22.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/25.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/26.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/28.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/31.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/32.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item active" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/2.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item active" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/3.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item active" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/6.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/8.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/9.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/10.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/11.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/12.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/13.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/14.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/15.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/17.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/18.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/21.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/22.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/25.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/26.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/28.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/31.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/32.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/2.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/3.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/6.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/8.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/9.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/10.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/11.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/12.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/13.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                                <div class="owl-item cloned" style="width: 223.333px; margin-right: 30px;">
+                                    <div class="slide-item">
+                                        <figure class="image-box"><a><img src="images/clients/14.png" alt=""></a>
+                                        </figure>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="owl-nav">
+                            <button type="button" role="presentation" class="owl-prev"><span class="icon fa fa-angle-left"></span></button><button type="button" role="presentation" class="owl-next"><span class="icon fa fa-angle-right"></span></button>
+                        </div>
+                        <div class="owl-dots">
+                            <button role="button" class="owl-dot active"><span></span></button><button role="button" class="owl-dot"><span></span></button><button role="button" class="owl-dot"><span></span></button><button role="button" class="owl-dot"><span></span></button><button role="button" class="owl-dot"><span></span></button><button role="button" class="owl-dot"><span></span></button><button role="button" class="owl-dot"><span></span></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--Agency Section-->
+        <section class="agency-section">
+            <div class="auto-container">
+                <div class="row clearfix">
+                    <!--Left Column-->
+                    <div class="left-col col-xl-6 col-lg-12 col-md-12 col-sm-12">
+                        <div class="inner">
+                            <div class="sec-title">
+                                <h2>Best design Agency <br>solutions<span class="dot">.</span></h2>
+                            </div>
+
+                            <!--Default Tabs-->
+                            <div class="default-tabs tabs-box">
+
+                                <!--Tab Btns-->
+                                <ul class="tab-btns tab-buttons clearfix">
+                                    <li data-tab="#tab-1" class="tab-btn active-btn"><span>Our Mission</span></li>
+                                    <li data-tab="#tab-2" class="tab-btn"><span>Our Vision</span></li>
+                                    <li data-tab="#tab-3" class="tab-btn"><span>Our History</span></li>
+                                </ul>
+
+                                <!--Tabs Container-->
+                                <div class="tabs-content">
+
+                                    <!--Tab-->
+                                    <div class="tab active-tab" id="tab-1">
+                                        <div class="content">
+                                            <div class="text">
+                                                Our mission is to empower businesses with expert digital marketing
+                                                solutions, train people in digital marketing, and become the best agency
+                                                for maximizing ROI and digital growth.... <a href="our-mission">Read
+                                                    more</a></div>
+                                        </div>
+                                    </div>
+
+                                    <!--Tab-->
+                                    <div class="tab" id="tab-2">
+                                        <div class="content">
+                                            <div class="text">
+                                                At ROI Makers, we aim to be a top digital agency, helping businesses
+                                                grow with tailored solutions, maximizing ROI, and staying ahead in
+                                                digital trends through innovation and expertise.... <a
+                                                    href="our-vision">Read more</a></div>
+                                        </div>
+                                    </div>
+
+                                    <!--Tab-->
+                                    <div class="tab" id="tab-3">
+                                        <div class="content">
+                                            <div class="text">After 7 years in Digital Marketing, I founded ROI Makers
+                                                in 2023 to help businesses grow with tailored strategies, driving
+                                                traffic, leads, and a strong digital presence across industries.....<a
+                                                    href="our-history">Read more</a></div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--Right Column-->
+                    <div class="right-col col-xl-6 col-lg-12 col-md-12 col-sm-12">
+                        <div class="inner">
+                            <div class="text">There are many variations of passages of available but the majority have
+                                suffered alteration in some form, by injected humou or randomised words which don't look
+                                even slightly believable.</div>
+                            <div class="featured-block-two clearfix">
+                                <div class="image"><img src="images/resource/agency.png" alt=""></div>
+                                <div class="text">
+                                    <ul>
+                                        <li> Overcome business losses.</li>
+                                        <li> Maximize ROI and digital growth.</li>
+                                        <li> Educate in digital marketing.</li>
+                                        <li> Strive for excellence in services.</li>
+
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- News Section -->
+        <section class="news-section">
+            <div class="auto-container">
+                <div class="sec-title centered">
+                    <h2>Latest news &amp; articles<span class="dot">.</span></h2>
+                </div>
+
+                <div class="row clearfix">
+                    <!--News Block-->
+                    <div class="news-block col-lg-4 col-md-6 col-sm-12 wow fadeInUp" data-wow-delay="0ms"
+                        data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 0ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="blog-2    "><img src="images/resource/blog1.webp" alt=""></a>
+                            </div>
+                            <div class="lower-box">
+                                <div class="post-meta">
+                                    <ul class="clearfix">
+                                        <li><span class="far fa-clock"></span> 05 oct 2024</li>
+                                        <li><span class="far fa-user-circle"></span> roimakers</li>
+                                        <li><span class="far fa-comments"></span> 2 Comments</li>
+                                    </ul>
+                                </div>
+                                <h5><a href="blog-2    ">Introducing the ROI Makers 2024 Indian Calendar for
+                                        Performance-driven Strategies</a></h5>
+
+                                <div class="link-box"><a class="theme-btn"
+                                        href="blog-2    "><span class="flaticon-next-1"></span></a></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--News Block-->
+                    <div class="news-block col-lg-4 col-md-6 col-sm-12 wow fadeInUp" data-wow-delay="300ms"
+                        data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 300ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="blog-3 "><img src="images/resource/blog2.webp" alt=""></a>
+                            </div>
+                            <div class="lower-box">
+                                <div class="post-meta">
+                                    <ul class="clearfix">
+                                        <li><span class="far fa-clock"></span> 01 oct 2024</li>
+                                        <li><span class="far fa-user-circle"></span> roimakers</li>
+                                        <li><span class="far fa-comments"></span> 2 Comments</li>
+                                    </ul>
+                                </div>
+                                <h5><a href="blog-3 ">Your Business Website’s About to Disappear Take Action Now</a>
+                                </h5>
+
+                                <div class="link-box"><a class="theme-btn"
+                                        href="blog-3"><span class="flaticon-next-1"></span></a></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--News Block-->
+                    <div class="news-block col-lg-4 col-md-6 col-sm-12 wow fadeInUp" data-wow-delay="600ms"
+                        data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 600ms; animation-name: none;">
+                        <div class="inner-box">
+                            <div class="image-box">
+                                <a href="blog-4    "><img src="images/resource/blog3.webp" alt=""></a>
+                            </div>
+                            <div class="lower-box">
+                                <div class="post-meta">
+                                    <ul class="clearfix">
+                                        <li><span class="far fa-clock"></span> 09 June 2023</li>
+                                        <li><span class="far fa-user-circle"></span> roimakers</li>
+                                        <li><span class="far fa-comments"></span> 2 Comments</li>
+                                    </ul>
+                                </div>
+                                <h5><a href="blog-4    ">Meta’s Paid Versions of Facebook and Instagram in Europe:
+                                        Ad-Free Experience for Users</a></h5>
+
+                                <div class="link-box"><a class="theme-btn"
+                                        href="blog-4    "><span class="flaticon-next-1"></span></a></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call To Section -->
+        <section class="call-to-section">
+            <div class="auto-container">
+                <div class="inner clearfix">
+                    <div class="shape-1 wow slideInRight" data-wow-delay="0ms" data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 0ms; animation-name: none;">
+                    </div>
+                    <div class="shape-2 wow fadeInDown" data-wow-delay="0ms" data-wow-duration="1500ms"
+                        style="visibility: hidden; animation-duration: 1500ms; animation-delay: 0ms; animation-name: none;">
+                    </div>
+                    <h2>Let's Get Your Project <br>Started!</h2>
+                    <div class="link-box">
+                        <a class="theme-btn btn-style-two" href="contact    ">
+                            <i class="btn-curve"></i>
+                            <span class="btn-title">Contact with us</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Footer -->
+        <footer class="main-footer normal-padding">
+            <div class="auto-container">
+                <!-- Widgets Section -->
+                <div class="widgets-section">
+                    <div class="row clearfix">
+
+                        <!-- Logo & Social Links Column -->
+                        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12">
+                            <div class="footer-widget logo-widget">
+                                <div class="widget-content">
+                                    <div class="logo">
+                                        <a
+                                            href="index    "><img id="fLogo" src="images/ROI.png" alt="ROI Makers Logo"></a>
+                                    </div>
+                                    <div class="text">ROI Makers helps businesses improve their online presence and
+                                        achieve their marketing goals.</div>
+                                    <ul class="social-links clearfix">
+                                        <li><a
+                                                href="https://www.facebook.com/roimakersin"><span class="fab fa-facebook-square"></span></a>
+                                        </li>
+                                        <li><a href="https://x.com/roimakers"><span class="fab fa-twitter"></span></a>
+                                        </li>
+                                        <li><a
+                                                href="https://www.instagram.com/roimakers/"><span class="fab fa-instagram"></span></a>
+                                        </li>
+                                        <li><a
+                                                href="https://www.youtube.com/@roimakers"><span class="fab fa-youtube"></span></a>
+                                        </li>
+                                        <li><a
+                                                href="https://www.linkedin.com/company/roimakers/"><span class="fab fa-linkedin"></span></a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Explore Links Column -->
+                        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12">
+                            <div class="footer-widget links-widget">
+                                <div class="widget-content">
+                                    <h6>Explore</h6>
+                                    <div class="row clearfix footer-links">
+                                        <div class="col-md-6 col-sm-12 footer-link">
+                                            <ul>
+
+
+                                                <li><a href="digital-marketing    ">Digital Marketing</a></li>
+                                                <li><a href="performance-marketing    ">Performance Marketing</a></li>
+                                                <li><a href="website-development    ">Website Development</a></li>
+                                                <li><a href="e-commerce    ">E-Commerce</a></li>
+                                                <li><a href="shopify-development    ">Shopify Development</a></li>
+                                                <li><a href="social-media-marketing    ">Social Media Marketing</a></li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6 col-sm-12 footer-link">
+                                            <ul>
+                                                <li><a href="virtual-tours    ">Virtual Tours</a></li>
+                                                <li><a href="seo    ">SEO</a></li>
+                                                <li><a href="contact    ">Contact</a></li>
+
+                                                <li><a href="privacy    ">Privacy Policy</a></li>
+                                                <li><a href="terms    ">Terms and Conditions</a></li>
+
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contact Information Column -->
+                        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12">
+                            <div class="footer-widget info-widget">
+                                <div class="widget-content">
+                                    <h6>Contact</h6>
+                                    <ul class="contact-info">
+                                        <li class="address"><span class="icon flaticon-pin-1"></span> 213-B, 18, Trade
+                                            Centre, South Tukoganj, Indore, Madhya</li>
+                                        <li><span class="icon flaticon-call"></span> <a
+                                                href="tel:9009500202">9009500202</a></li>
+                                        <li><span class="icon flaticon-email-2"></span> <a
+                                                href="mailto:info@roimakers.in">info@roimakers.in</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!--
+              <hr>
+
+            <div class="row clearfix">
+                
+                <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12">
+                    <div class="footer-widget links-widget">
+                        <div class="widget-content">
+                            <h6>Digital Marketing</h6>
+                            <ul>
+                                <li><a href="digital-marketing    ">SEO Services</a></li>
+                                <li><a href="web-development    ">Website Development</a></li>
+                                <li><a href="e-commerce    ">E-Commerce Solutions</a></li>
+                                <li><a href="shopify    ">Shopify Development</a></li>
+                                <li><a href="social-media    ">Social Media Marketing</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12">
+                    <div class="footer-widget links-widget">
+                        <div class="widget-content">
+                            <h6>Data Science</h6>
+                            <ul>
+                                <li><a href="data-analytics    ">Data Analytics</a></li>
+                                <li><a href="machine-learning    ">Machine Learning</a></li>
+                                <li><a href="big-data    ">Big Data</a></li>
+                                <li><a href="data-visualization    ">Data Visualization</a></li>
+                                <li><a href="ai-solutions    ">AI Solutions</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12">
+                    <div class="footer-widget links-widget">
+                        <div class="widget-content">
+                            <h6>Artificial Intelligence</h6>
+                            <ul>
+                                <li><a href="ai-development    ">AI Development</a></li>
+                                <li><a href="chatbots    ">Chatbot Solutions</a></li>
+                                <li><a href="nlp    ">Natural Language Processing</a></li>
+                                <li><a href="computer-vision    ">Computer Vision</a></li>
+                                <li><a href="automation    ">AI Automation</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+              
+                <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12">
+                    <div class="footer-widget links-widget">
+                        <div class="widget-content">
+                            <h6>Machine Learning</h6>
+                            <ul>
+                                <li><a href="ml-models    ">ML Model Development</a></li>
+                                <li><a href="deep-learning    ">Deep Learning</a></li>
+                                <li><a href="predictive-analytics    ">Predictive Analytics</a></li>
+                                <li><a href="tensorflow    ">TensorFlow Projects</a></li>
+                                <li><a href="ml-research    ">ML Research</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+-->
+                    <!-- Footer Bottom -->
+                    <div class="footer-bottom">
+                        <div class="auto-container">
+                            <div class="inner clearfix">
+                                <div class="copyright " style="text-align: center;">
+                                    © Copyright 2025 by <a href="https://roimakers.in/" target="_blank"
+                                        rel="noopener noreferrer">roimakers.in</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </footer>
+
+        <div></div>
+    </div>
+
+
+    <!--End pagewrapper-->
+
+    <a href="index    " data-target="html" class="scroll-to-target scroll-to-top"><i class="fa fa-angle-up"></i></a>
+
+
+
+    <script src="js/jquery.js"></script>
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/TweenMax.js"></script>
+    <script src="js/jquery-ui.js"></script>
+    <script src="js/jquery.fancybox.js"></script>
+    <script src="js/owl.js"></script>
+    <script src="js/mixitup.js"></script>
+    <script src="js/appear.js"></script>
+    <script src="js/wow.js"></script>
+    <script src="js/jQuery.style.switcher.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/3.0.5/js.cookie.min.js">
+    </script>
+    <script src="js/jquery.easing.min.js"></script>
+    <script src="js/jarallax.min.js"></script>
+    <script src="js/custom-script.js"></script>
+
+    <!--
+    <script src="js/lang.js"></script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <script src="js/color-switcher.js"></script>
+-->
+
+
+    <!-- WhatsApp Floating Button -->
+    <style>
+        .whatsapp-float {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: #25d366;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            overflow: hidden;
+            animation: fadeInZoom 1s ease, ripple 3s infinite;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .whatsapp-float img {
+            width: 22px;
+            height: 22px;
+            z-index: 2;
+            animation: shimmer 3s infinite linear;
+        }
+
+        /* Tooltip */
+        .whatsapp-float::after {
+            content: "Chat on WhatsApp 💬";
+            position: absolute;
+            left: 55px;
+            background: #25d366;
+            color: white;
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            opacity: 0;
+            transform: translateY(5px);
+            pointer-events: none;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Hover Effects */
+        .whatsapp-float:hover {
+            transform: scale(1.2) rotate(10deg);
+            box-shadow: 0 0 25px rgba(37, 211, 102, 0.8);
+        }
+
+        .whatsapp-float:hover::after {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Ripple Animation */
+        @keyframes ripple {
+            0% {
+                box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5),
+                    0 0 0 8px rgba(37, 211, 102, 0.3),
+                    0 0 0 15px rgba(37, 211, 102, 0.1);
+            }
+
+            100% {
+                box-shadow: 0 0 0 10px rgba(37, 211, 102, 0),
+                    0 0 0 20px rgba(37, 211, 102, 0),
+                    0 0 0 30px rgba(37, 211, 102, 0);
+            }
+        }
+
+        /* Shimmer Animation */
+        @keyframes shimmer {
+            0% {
+                filter: brightness(1);
+            }
+
+            50% {
+                filter: brightness(1.4);
+            }
+
+            100% {
+                filter: brightness(1);
+            }
+        }
+
+        /* Entry Animation */
+        @keyframes fadeInZoom {
+            0% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+
+    <a href="https://wa.me/919009500202?text=Hi%20ROI%20Makers%2C%20I%27m%20interested%20in%20digital%20marketing%20services"
+        class="whatsapp-float" target="_blank" aria-label="Chat on WhatsApp">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp Chat">
+    </a>
+
+
+
+
+</body>
+
+</html>
