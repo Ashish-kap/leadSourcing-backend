@@ -76,17 +76,17 @@ const emit = (level, step, message, extra) => {
 const logger = {
   debug: (step, message, data = null) => {
     // Keep debug silent in production as before
-    // if (isProduction) return;
+    if (isProduction) return;
     emit("DEBUG", step, message, data);
   },
   info: (step, message, data = null) => {
     // Keep info silent in production as before
-    // if (isProduction) return;
+    if (isProduction) return;
     emit("INFO", step, message, data);
   },
   warn: (step, message, data = null) => {
     // Keep warn silent in production as before
-    // if (isProduction) return;
+    if (isProduction) return;
     emit("WARN", step, message, data);
   },
   error: (step, message, error = null) => {
