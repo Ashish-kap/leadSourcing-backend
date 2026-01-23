@@ -391,14 +391,27 @@ export async function scrapeGoogleMapsBusiness(googleMapsUrl) {
  * Scrape Google Maps business data with retry logic for transient errors
  * @param {string} googleMapsUrl - Google Maps URL to scrape
  * @param {number} maxRetries - Maximum number of retries (default: SCRAPE_API_MAX_RETRIES)
+ * @param {Function|null} shouldCancel - Callback that returns true if job was cancelled
  * @returns {Promise<object|null>} - Parsed business data or null on failure
  */
-export async function scrapeGoogleMapsBusinessWithRetry(googleMapsUrl, maxRetries = SCRAPE_API_MAX_RETRIES) {
+export async function scrapeGoogleMapsBusinessWithRetry(googleMapsUrl, maxRetries = SCRAPE_API_MAX_RETRIES, shouldCancel = null) {
   // Apply concurrency limiter to prevent overwhelming Browserless v2
   return await limitScrape(async () => {
+    // Check cancellation when task starts (after being dequeued from limiter)
+    if (shouldCancel && shouldCancel()) {
+      logger.debug("SCRAPE_API_CANCELLED", "Scrape cancelled before starting", { url: googleMapsUrl });
+      return null;
+    }
+    
     let lastResult = null;
     
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+      // Check cancellation before each retry attempt
+      if (shouldCancel && shouldCancel()) {
+        logger.debug("SCRAPE_API_CANCELLED_RETRY", "Scrape cancelled during retry", { url: googleMapsUrl, attempt });
+        return null;
+      }
+      
       logger.info("SCRAPE_API_ATTEMPT", JSON.stringify({ 
         url: googleMapsUrl, 
         attempt, 
@@ -449,6 +462,13 @@ export async function scrapeGoogleMapsBusinessWithRetry(googleMapsUrl, maxRetrie
         delayMs: delay,
         reason: result.error?.message 
       }));
+      
+      // Check cancellation before waiting for retry delay
+      if (shouldCancel && shouldCancel()) {
+        logger.debug("SCRAPE_API_CANCELLED_DELAY", "Scrape cancelled before retry delay", { url: googleMapsUrl, attempt });
+        return null;
+      }
+      
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     
