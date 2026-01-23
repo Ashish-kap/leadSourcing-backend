@@ -285,7 +285,6 @@ async function getListingsData(page, ratingFilter, reviewFilter) {
 
           const ratingElement = listing.querySelector('.ZkP5Je[role="img"]');
           const ratingText = ratingElement?.getAttribute("aria-label") || "";
-          
           // Extract rating (first number before "stars")
           const ratingMatch = ratingText.match(/(\d+\.?\d*)\s+stars?/i);
           const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
@@ -1466,6 +1465,37 @@ export async function runScraper(
               // Continue with whatever results we have
             }
           }
+        }
+
+        // NEW: Wait for listing elements to fully load after scrolling
+        // Google Maps loads rating/review data asynchronously
+        try {
+          logger.info("WAITING_FOR_LISTINGS_TO_LOAD", "Waiting for listing elements to fully load", {
+            city: cityName,
+          });
+          
+          // Wait for rating elements (more universal than review count elements)
+          // Rating elements exist for all listings, unlike review count elements
+          await page.waitForSelector('.ZkP5Je[role="img"]', { 
+            timeout: 3000 
+          });
+          
+          // Additional delay to ensure review counts finish rendering
+          // This gives time for both aria-label updates and .UY7F9 elements to appear
+          await new Promise(resolve => setTimeout(resolve, 1200));
+          
+          logger.info("LISTINGS_LOADED", "Listing elements loaded successfully", {
+            city: cityName,
+          });
+        } catch (waitError) {
+          // If elements don't appear within timeout, log warning and continue
+          logger.warn("LISTINGS_WAIT_TIMEOUT", "Listing elements didn't appear within timeout", {
+            city: cityName,
+            error: waitError.message,
+            note: "Continuing with extraction anyway"
+          });
+          // Still add a small delay before extraction
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         const listingsData = await getListingsData(

@@ -7,7 +7,7 @@ const BROWSERLESS_API_BASE = process.env.BROWSERLESS_CONTENT_API_URL || '';
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN || '';
 const SCRAPE_TIMEOUT = Number(process.env.SCRAPE_API_TIMEOUT || 30000);
 const SCRAPE_API_MAX_RETRIES = Number(process.env.SCRAPE_API_MAX_RETRIES || 1);
-const SCRAPE_API_CONCURRENCY = Number(process.env.SCRAPE_API_CONCURRENCY || 5);
+const SCRAPE_API_CONCURRENCY = Number(process.env.SCRAPE_API_CONCURRENCY || 2);
 
 // Configure HTTP agent for better connection management
 const httpAgent = new Agent({

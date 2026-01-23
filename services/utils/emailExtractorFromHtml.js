@@ -134,7 +134,7 @@ export function extractEmailsFromHtml(html, websiteUrl) {
       const email = match[1]; // Extract capture group 1
       if (email) {
         if (isValidEmail(email)) {
-          emails.add(email.toLowerCase());
+        emails.add(email.toLowerCase());
         } else if (process.env.LOG_EMAIL_FAILURES === "true") {
           logger.debug('EMAIL_REJECTED_BODY_TEXT', `Email rejected from body text: ${email}`, {
             email,
