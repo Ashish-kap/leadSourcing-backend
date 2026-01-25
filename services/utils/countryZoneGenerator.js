@@ -49,26 +49,22 @@ export function getOptimalCountryGridSpacing(bounds, population = null) {
 
     // Smart spacing strategy: Vary spacing based on country size
     // For very small countries, use city-like spacing; for large countries, use wider spacing
-    if (areaKm2 < 1000) {
-        // Very small country (< 1000 km²) - use city-like spacing for dense coverage
+    if (areaKm2 < 25) {
+        // Very small area (< 25 km²) - dense grid for maximum coverage
+        return 1;
+      } else if (areaKm2 < 50) {
+        // Small area (< 50 km²) - tight grid
         return 2;
-    } else if (areaKm2 < 10000) {
-        // Small country (< 10,000 km²) - medium grid
+      } else if (areaKm2 < 200) {
+        // Medium area (50-200 km²) - medium grid
+        return 3;
+      } else if (areaKm2 < 1000) {
+        // Large area (200-1000 km²) - balanced grid
+        return 4;
+      } else {
+        // Very large area (> 1000 km²) - wider grid to avoid excessive overlap
         return 5;
-    } else if (areaKm2 < 50000) {
-        // Medium country (10,000-50,000 km²) - balanced grid
-        return 8;
-    } else if (areaKm2 < 200000) {
-        // Large country (50,000-200,000 km²) - wider grid
-        return 10;
-    } else if (areaKm2 < 500000) {
-        // Very large country (200,000-500,000 km²) - very wide grid
-        return 15;
-    } else {
-        // Extremely large country (> 500,000 km²) - extremely wide grid to avoid excessive zones
-        // For massive countries like USA, Russia, China, etc.
-        return 20;
-    }
+      }
 }
 
 /**
