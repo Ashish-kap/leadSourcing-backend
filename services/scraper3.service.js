@@ -32,9 +32,9 @@ const { STUCK_RECORDS_TIMEOUT_MS, STUCK_PERCENTAGE_TIMEOUT_MS, STUCK_JOB_GRACE_P
 // const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 10);
 
 // Reduced defaults to minimize memory usage (3-4GB instead of 7-8GB)
-const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 1);
-const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 4);
-const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 6);
+const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 2);
+const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 3);
+const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 5);
 const SEARCH_NAV_TIMEOUT_MS = Number(
   process.env.SEARCH_NAV_TIMEOUT_MS || 45000
 );
@@ -51,6 +51,9 @@ const BROWSER_SESSION_DRAIN_TIMEOUT_MS = Number(
 const BROWSER_SESSION_RETRY_LIMIT = Number(
   process.env.BROWSER_SESSION_RETRY_LIMIT || 1
 );
+
+// Task tracking configuration
+const TASK_STUCK_TIMEOUT_MS = Number(process.env.TASK_STUCK_TIMEOUT_MS || 180000); // 3 minutes
 
 // Deep scrape batched zone configuration - Enhanced for better coverage
 const ZONE_BATCH_SIZE = Number(process.env.ZONE_BATCH_SIZE || 50); // Increased from 30 to 50
@@ -290,22 +293,48 @@ async function getListingsData(page, ratingFilter, reviewFilter) {
 
           const ratingElement = listing.querySelector('.ZkP5Je[role="img"]');
           const ratingText = ratingElement?.getAttribute("aria-label") || "";
-          const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
+          // Extract rating (first number before "stars")
+          const ratingMatch = ratingText.match(/(\d+\.?\d*)\s+stars?/i);
           const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
 
-          const reviewLabelElement = listing.querySelector(
-            '[aria-label*="reviews"], [aria-label*="Reviews"]'
-          );
-          const reviewLabelText =
-            reviewLabelElement?.getAttribute("aria-label") || "";
-          const reviewMatch = reviewLabelText.match(/(\d+)\s+[Rr]eviews?/);
-          const reviewCount = reviewMatch ? parseInt(reviewMatch[1], 10) : 0;
+          // Extract review count - try aria-label first (old format: "5.0 stars 4 Reviews")
+          // Handle comma-separated numbers like "4,078"
+          const reviewMatch = ratingText.match(/(\d{1,3}(?:,\d{3})*|\d+)\s+[Rr]eviews?/);
+          let reviewCount = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, ''), 10) : 0;
+          let reviewCountSource = reviewMatch ? "aria-label" : null;
+
+          // If not found in aria-label, try the separate element (new format: <span class="UY7F9">(4)</span>)
+          if (reviewCount === 0) {
+            const reviewCountElement = listing.querySelector('.UY7F9[aria-hidden="true"]');
+            const reviewCountText = reviewCountElement?.textContent?.trim() || "";
+            // Extract number from parentheses: "(4)" or "(4,078)"
+            const parenMatch = reviewCountText.match(/\((\d{1,3}(?:,\d{3})*|\d+)\)/);
+            if (parenMatch) {
+              reviewCount = parseInt(parenMatch[1].replace(/,/g, ''), 10);
+              reviewCountSource = "separate-element";
+            }
+          }
 
           const nameElement = listing.querySelector(".qBF1Pd");
           const businessName =
             nameElement?.textContent?.trim() || "Unknown Business";
 
-          return { url, rating, reviewCount, businessName };
+          return { 
+            url, 
+            rating, 
+            reviewCount, 
+            businessName,
+            // DEBUG: Include extraction details
+            _debug: {
+              ratingText,
+              ratingMatch: ratingMatch ? ratingMatch[0] : null,
+              reviewMatch: reviewMatch ? reviewMatch[0] : null,
+              reviewCountSource,
+              reviewCountElementText: reviewCountSource === "separate-element" 
+                ? listing.querySelector('.UY7F9[aria-hidden="true"]')?.textContent?.trim() || null
+                : null
+            }
+          };
         })
         .filter(Boolean)
         .filter((item) => {
@@ -634,7 +663,7 @@ export async function runScraper(
         }
       );
     }
-  }, 30000); // Check every 30 seconds for stuck detection
+  }, 5000); // Check every 5 seconds for faster cancellation detection
 
   const withPage = async (context, fn) => {
     let attempt = 0;
@@ -674,14 +703,29 @@ export async function runScraper(
 
   const pushResult = (r) => {
     if (!r) return;
+    
+    // Strict check: Only push if under limit
     if (results.length >= recordLimit) {
       requestStop();
+      logger.info("RESULT_REJECTED", "Result rejected - limit reached", {
+        currentResults: results.length,
+        recordLimit,
+        businessName: r.name || "Unknown"
+      });
       return;
     }
+    
     // Duplicate checking is now handled at URL level during listing scraping
     // No need to check here since we already filtered duplicates before scheduling
     results.push(r);
-    if (results.length >= recordLimit) requestStop();
+    
+    if (results.length >= recordLimit) {
+      requestStop();
+      logger.info("RECORD_LIMIT_REACHED", "Record limit reached", {
+        resultsLength: results.length,
+        recordLimit
+      });
+    }
   };
 
   const country = Country.getCountryByCode(countryCode);
@@ -849,47 +893,244 @@ export async function runScraper(
   };
 
   // -------- Tier B: detail worker --------
-  const detailTasks = [];
-  const scheduleDetail = (url, meta) => {
-    if (shouldStop) return;
-    const p = limitDetail(async () => {
+  // Task tracking system to monitor active vs stuck tasks
+  const detailTasks = []; // Array of { promise, startTime, status, url }
+  
+  /**
+   * Get count of active (non-stuck) tasks
+   * @returns {number} Count of active tasks that are not stuck
+   */
+  const getActiveTaskCount = () => {
+    const now = Date.now();
+    let activeCount = 0;
+    let stuckCount = 0;
+    
+    for (let i = detailTasks.length - 1; i >= 0; i--) {
+      const task = detailTasks[i];
+      
+      // Remove completed/failed tasks (cleanup)
+      if (task.status === 'completed' || task.status === 'failed') {
+        detailTasks.splice(i, 1);
+        continue;
+      }
+      
+      // Check if task is stuck (running longer than timeout)
+      if (task.status === 'active' && (now - task.startTime) > TASK_STUCK_TIMEOUT_MS) {
+        task.status = 'stuck';
+        stuckCount++;
+        logger.warn("TASK_STUCK_DETECTED", "Task detected as stuck", {
+          url: task.url,
+          stuckFor: Math.round((now - task.startTime) / 1000),
+          timeout: TASK_STUCK_TIMEOUT_MS
+        });
+      }
+      
+      // Only count active (non-stuck) tasks
+      if (task.status === 'active') {
+        activeCount++;
+      }
+    }
+    
+    if (stuckCount > 0) {
+      logger.warn("TASK_STUCK_SUMMARY", "Stuck tasks detected", {
+        stuckCount,
+        activeCount,
+        totalTasks: detailTasks.length
+      });
+    }
+    
+    return activeCount;
+  };
+  
+  const scheduleDetail = (listing, meta) => {
+    // Early exit checks
+    if (shouldStop || results.length >= recordLimit) return;
+    
+    // Don't schedule if we're approaching the limit (accounting for active, non-stuck tasks only)
+    const pendingTasks = getActiveTaskCount();
+    if (results.length + pendingTasks >= recordLimit) {
+      logger.debug("SCHEDULING_STOPPED", "Stopping task scheduling - approaching limit", {
+        resultsLength: results.length,
+        pendingTasks,
+        recordLimit,
+        totalTasks: detailTasks.length
+      });
+      return;
+    }
+    
+    const url = listing.url; // Extract URL from listing object
+    
+    // Check if we need a browser page (only for review extraction)
+    // Business data extraction uses Browserless Scrape API - no page needed
+    // Email extraction uses Browserless Content API - no page needed
+    const needsPageForReviews = meta.reviewTimeRange || meta.extractNegativeReviews;
+    
+    // Define the detail extraction task
+    const detailTask = async () => {
       // Re-check stop as soon as the task actually starts
       if (shouldStop) return null;
       try {
-        return await withPage(`detail:${url}`, async (page) => {
-          if (shouldStop) return null;
+        const locationString = [meta.city, meta.state, meta.countryName]
+          .filter(Boolean)
+          .join(", ");
+        
+        let businessData;
+        
+        if (needsPageForReviews) {
+          // Need page for review extraction - use withPage()
+          return await withPage(`detail:${url}`, async (page) => {
+            if (shouldStop) return null;
 
-          // Faster nav with retry logic
-          try {
-            await page.goto(url, {
-              waitUntil: "domcontentloaded",
-              timeout: DETAIL_NAV_TIMEOUT_MS,
+            // Navigate to page for review extraction
+            try {
+              await page.goto(url, {
+                waitUntil: "domcontentloaded",
+                timeout: DETAIL_NAV_TIMEOUT_MS,
+              });
+            } catch (navError) {
+              // If navigation fails, try once more with longer timeout
+              logger.warn("NAVIGATION_RETRY", `Retrying navigation for ${url}`);
+              await page.goto(url, {
+                waitUntil: "networkidle2",
+                timeout: DETAIL_NAV_TIMEOUT_MS + 10000,
+              });
+            }
+
+            // In case stop was requested during navigation, exit before parsing
+            if (shouldStop) return null;
+            
+            // Extract business data using Browserless Scrape API (no page navigation needed)
+            // Pass rating and reviewCount from listings page to avoid re-scraping
+            businessData = await extractBusinessDetails(
+              url, // Use the URL directly, not page.url()
+              meta.keyword,
+              locationString,
+              null,
+              null,
+              meta.isExtractEmail,
+              meta.isValidate,
+              meta.onlyWithoutWebsite,
+              listing.rating,        // Pre-scraped from listings page
+              listing.reviewCount,   // Pre-scraped from listings page
+              () => shouldStop       // Pass cancellation checker
+            );
+
+            if (!businessData) {
+              logger.warn("BUSINESS_DATA_NULL", "Business data is null, skipping Redis mark", {
+                url,
+              });
+              return null;
+            }
+
+            // Extract reviews from the page
+            try {
+              // Check if job was cancelled before review extraction
+              if (shouldStop) {
+                logger.info("REVIEW_EXTRACTION_CANCELLED", "Review extraction cancelled", {
+                  url,
+                  businessName: businessData.name
+                });
+                businessData.filtered_reviews = [];
+                businessData.filtered_review_count = 0;
+              } else if (page.isClosed()) {
+                logger.warn("REVIEW_EXTRACTION_SKIPPED", "Page closed before review extraction", {
+                  url,
+                  businessName: businessData.name
+                });
+                businessData.filtered_reviews = [];
+                businessData.filtered_review_count = 0;
+              } else {
+                const filteredReviews = await extractFilteredReviews(page, {
+                  reviewTimeRange: meta.reviewTimeRange,
+                  ratingFilter: meta.extractNegativeReviews ? "negative" : null,
+                });
+                businessData.filtered_reviews = filteredReviews;
+                businessData.filtered_review_count = filteredReviews.length;
+                
+                logger.info("REVIEWS_EXTRACTED", "Successfully extracted reviews", {
+                  url,
+                  businessName: businessData.name,
+                  reviewCount: filteredReviews.length,
+                  reviewTimeRange: meta.reviewTimeRange
+                });
+              }
+            } catch (err) {
+              logger.warn("REVIEW_EXTRACTION_ERROR", "Failed to extract reviews", {
+                url,
+                businessName: businessData.name,
+                error: err.message,
+                errorType: err.constructor.name,
+                stack: err.stack
+              });
+              businessData.filtered_reviews = [];
+              businessData.filtered_review_count = 0;
+            }
+
+            businessData.url = url;
+            pushResult(businessData);
+
+            // Mark URL as scraped in Redis (always tracked, regardless of avoidDuplicate)
+            logger.info("REDIS_MARK_CHECK", "Checking if URL should be marked in Redis", {
+              url,
+              avoidDuplicate,
+              hasUserId: !!finalUserId,
+              userId: finalUserId,
+              hasBusinessData: !!businessData,
             });
-          } catch (navError) {
-            // If navigation fails, try once more with longer timeout
-            logger.warn("NAVIGATION_RETRY", `Retrying navigation for ${url}`);
-            await page.goto(url, {
-              waitUntil: "networkidle2",
-              timeout: DETAIL_NAV_TIMEOUT_MS + 10000,
+
+            if (finalUserId && url) {
+              try {
+                logger.info("REDIS_MARK_ATTEMPT", "Attempting to mark URL in Redis", {
+                  url,
+                  userId: finalUserId,
+                });
+                await markUrlAsScraped(finalUserId, url);
+                logger.info("REDIS_MARK_SUCCESS", "Successfully marked URL in Redis after extraction", {
+                  url,
+                  userId: finalUserId,
+                  businessName: businessData.name || "Unknown",
+                });
+              } catch (redisMarkError) {
+                // Non-critical - log but don't fail
+                logger.warn("REDIS_MARK_URL_ERROR", "Error marking URL in Redis", {
+                  error: redisMarkError.message,
+                  url,
+                  userId: finalUserId,
+                  stack: redisMarkError.stack,
+                });
+              }
+            } else {
+              // Log why URL wasn't marked (for debugging)
+              logger.warn("REDIS_MARK_SKIPPED", "Skipping Redis mark - condition not met", {
+                url,
+                avoidDuplicate,
+                hasUserId: !!finalUserId,
+                userId: finalUserId,
+                hasUrl: !!url,
+              });
+            }
+
+            await updateProgress({
+              currentLocation: `${meta.city}, ${meta.state || ""}, ${meta.countryName
+                }`.replace(/,\s*,/g, ","),
             });
-          }
 
-          // In case stop was requested during navigation, exit before parsing
-          if (shouldStop) return null;
-
-          const locationString = [meta.city, meta.state, meta.countryName]
-            .filter(Boolean)
-            .join(", ");
-          const businessData = await extractBusinessDetails(
-            page,
-            page.browser(),
+            return businessData;
+          });
+        } else {
+          // No page needed - extract business data directly using REST API
+          businessData = await extractBusinessDetails(
+            url,
             meta.keyword,
             locationString,
             null,
             null,
             meta.isExtractEmail,
             meta.isValidate,
-            meta.onlyWithoutWebsite
+            meta.onlyWithoutWebsite,
+            listing.rating,        // Pre-scraped from listings page
+            listing.reviewCount,   // Pre-scraped from listings page
+            () => shouldStop       // Pass cancellation checker
           );
 
           if (!businessData) {
@@ -897,20 +1138,6 @@ export async function runScraper(
               url,
             });
             return null;
-          }
-
-          // Optional review filtering on the same page
-          if (meta.reviewTimeRange || meta.extractNegativeReviews) {
-            try {
-              const filteredReviews = await extractFilteredReviews(page, {
-                reviewTimeRange: meta.reviewTimeRange,
-                ratingFilter: meta.extractNegativeReviews ? "negative" : null,
-              });
-              businessData.filtered_reviews = filteredReviews;
-              businessData.filtered_review_count = filteredReviews.length;
-            } catch (err) {
-              // non-fatal
-            }
           }
 
           businessData.url = url;
@@ -963,7 +1190,7 @@ export async function runScraper(
           });
 
           return businessData;
-        });
+        }
       } catch (error) {
         logger.error("LISTING_ERROR", "Error processing listing", {
           url,
@@ -971,8 +1198,42 @@ export async function runScraper(
         });
         return null;
       }
-    });
-    detailTasks.push(p);
+    };
+    
+    // Create task tracking object
+    const taskTracker = {
+      url,
+      startTime: Date.now(),
+      status: 'pending', // pending -> active -> completed/failed/stuck
+      promise: null
+    };
+    
+    // Wrap the task to track status
+    const trackedTask = async () => {
+      taskTracker.status = 'active';
+      try {
+        const result = await detailTask();
+        taskTracker.status = 'completed';
+        return result;
+      } catch (error) {
+        taskTracker.status = 'failed';
+        logger.error("TASK_FAILED", "Task failed with error", {
+          url,
+          error: error.message,
+          stack: error.stack
+        });
+        throw error;
+      }
+    };
+    
+    // Conditionally apply limitDetail: only when reviews are needed (browser pages)
+    // For REST API-only cases, skip the limiter to avoid unnecessary bottleneck
+    const p = needsPageForReviews 
+      ? limitDetail(trackedTask)  // Use limiter when browser pages are needed
+      : trackedTask();             // Skip limiter for REST API-only cases
+    
+    taskTracker.promise = p;
+    detailTasks.push(taskTracker);
   };
 
   // -------- Tier A: city discovery --------
@@ -990,6 +1251,7 @@ export async function runScraper(
       ? `${locationKey(countryCode, stateCode, cityName)}-${coords.lat}-${coords.lng
       }`
       : locationKey(countryCode, stateCode, cityName);
+
 
     if (processedLocations.has(zoneKey)) {
       logger.info("LOCATION_SKIP", "Skipping already processed zone", {
@@ -1039,6 +1301,9 @@ export async function runScraper(
           waitUntil: "domcontentloaded", // faster than networkidle2
           timeout: SEARCH_NAV_TIMEOUT_MS,
         });
+
+        // Check if job was cancelled after navigation
+        if (shouldStop) return;
 
         // How many listings do we still need overall?
         const remaining = recordLimit - results.length;
@@ -1222,11 +1487,60 @@ export async function runScraper(
           }
         }
 
+        // Check if job was cancelled after scrolling
+        if (shouldStop) return;
+
+        // NEW: Wait for listing elements to fully load after scrolling
+        // Google Maps loads rating/review data asynchronously
+        try {
+          logger.info("WAITING_FOR_LISTINGS_TO_LOAD", "Waiting for listing elements to fully load", {
+            city: cityName,
+          });
+          
+          // Wait for rating elements (more universal than review count elements)
+          // Rating elements exist for all listings, unlike review count elements
+          await page.waitForSelector('.ZkP5Je[role="img"]', { 
+            timeout: 3000 
+          });
+          
+          // Additional delay to ensure review counts finish rendering
+          // This gives time for both aria-label updates and .UY7F9 elements to appear
+          await new Promise(resolve => setTimeout(resolve, 1200));
+          
+          logger.info("LISTINGS_LOADED", "Listing elements loaded successfully", {
+            city: cityName,
+          });
+        } catch (waitError) {
+          // If elements don't appear within timeout, log warning and continue
+          logger.warn("LISTINGS_WAIT_TIMEOUT", "Listing elements didn't appear within timeout", {
+            city: cityName,
+            error: waitError.message,
+            note: "Continuing with extraction anyway"
+          });
+          // Still add a small delay before extraction
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        // Check if job was cancelled before extracting listings
+        if (shouldStop) return;
+
         const listingsData = await getListingsData(
           page,
           ratingFilter,
           reviewFilter
         );
+
+        // DEBUG: Log first listing extraction details
+        if (listingsData && listingsData.length > 0 && listingsData[0]._debug) {
+          logger.info("DEBUG_LISTING_EXTRACTION", "First listing extraction details", {
+            city: cityName,
+            businessName: listingsData[0].businessName,
+            url: listingsData[0].url,
+            rating: listingsData[0].rating,
+            reviewCount: listingsData[0].reviewCount,
+            debug: listingsData[0]._debug
+          });
+        }
 
         // IMMEDIATE Redis check (if avoidDuplicate is true)
         let filteredListingsData = listingsData;
@@ -1309,20 +1623,20 @@ export async function runScraper(
         if (listingsDataToProcess.length === 0) return;
 
         // Filter out duplicate URLs before scheduling details (Tier B)
-        const allUrls = listingsDataToProcess.map((x) => x.url);
-        const uniqueUrls = allUrls.filter(url => {
-          if (seenBusinessUrls.has(url)) {
+        // Keep full listing objects to preserve rating and reviewCount
+        const uniqueListings = listingsDataToProcess.filter(listing => {
+          if (seenBusinessUrls.has(listing.url)) {
             logger.info("DUPLICATE_URL_FILTERED", "Skipping duplicate URL at listing level", {
-              url,
+              url: listing.url,
               city: cityName,
             });
             return false;
           }
-          seenBusinessUrls.add(url);
+          seenBusinessUrls.add(listing.url);
           return true;
         });
 
-        const toSchedule = Math.min(uniqueUrls.length, remaining);
+        const toSchedule = Math.min(uniqueListings.length, remaining);
         const meta = {
           keyword,
           city: cityName,
@@ -1337,14 +1651,45 @@ export async function runScraper(
 
         logger.info("URL_DEDUPLICATION", "Filtered duplicate URLs at listing level", {
           city: cityName,
-          totalUrls: allUrls.length,
-          uniqueUrls: uniqueUrls.length,
-          duplicatesFiltered: allUrls.length - uniqueUrls.length,
+          totalUrls: listingsDataToProcess.length,
+          uniqueUrls: uniqueListings.length,
+          duplicatesFiltered: listingsDataToProcess.length - uniqueListings.length,
           toSchedule,
         });
 
+        // Schedule detail tasks with limit checking
         for (let i = 0; i < toSchedule && !shouldStop; i++) {
-          scheduleDetail(uniqueUrls[i], meta);
+          // Check if job was cancelled at start of each iteration
+          if (shouldStop) break;
+          
+          // Check if we're approaching limit before scheduling
+          if (results.length >= recordLimit) {
+            logger.info("SCHEDULING_STOPPED_AT_LIMIT", "Stopped scheduling - record limit reached", {
+              city: cityName,
+              scheduled: i,
+              toSchedule,
+              resultsLength: results.length,
+              recordLimit
+            });
+            break;
+          }
+          
+          // Additional check: Don't over-schedule (only count active, non-stuck tasks)
+          const pendingTasks = getActiveTaskCount();
+          if (results.length + pendingTasks >= recordLimit) {
+            logger.info("SCHEDULING_STOPPED_PENDING", "Stopped scheduling - pending tasks will meet limit", {
+              city: cityName,
+              scheduled: i,
+              toSchedule,
+              resultsLength: results.length,
+              pendingTasks,
+              totalTasks: detailTasks.length,
+              recordLimit
+            });
+            break;
+          }
+          
+          scheduleDetail(uniqueListings[i], meta);
         }
       });
     } catch (error) {
@@ -1976,7 +2321,9 @@ export async function runScraper(
     // If we've hit the record limit, don't wait on outstanding detail tasks.
     // Close the browser pool first to force-fast fail any in-flight navigations.
     if (!shouldStop) {
-      await Promise.allSettled(detailTasks);
+      // Extract promises from task tracking objects
+      const taskPromises = detailTasks.map(task => task.promise).filter(Boolean);
+      await Promise.allSettled(taskPromises);
     } else {
       // If job was stopped due to stuck detection, wait for grace period
       const stuckStatus = progressMonitor.getStatus();
