@@ -1,86 +1,87 @@
 import logger from "../logger.js";
-import { 
-  getBoundingBox, 
-  generateGridBatch, 
+import {
+  getBoundingBox,
+  generateGridBatch,
   calculateTotalPossibleZones,
-  calculateAreaKm2 
+  calculateAreaKm2
 } from "./zoneGeneratorCommon.js";
 
 /**
- * Get city boundaries from OpenStreetMap Nominatim API (free, no API key needed)
- * Returns bounding box coordinates
+ * Get state boundaries from OpenStreetMap Nominatim API
+ * @param {string} stateName - Name of the state
+ * @param {string} stateCode - State code
+ * @param {string} countryCode - Country code
+ * @returns {Object|null} Bounding box {north, south, east, west, center} or null
  */
-export async function getCityBoundingBox(cityName, stateCode, countryCode) {
-  return getBoundingBox(cityName, stateCode, countryCode, "city");
+export async function getStateBoundingBox(stateName, stateCode, countryCode) {
+  return getBoundingBox(stateName, stateCode, countryCode, "state");
 }
 
 /**
- * Generate a batch of grid points for a specific range with overlap strategy
+ * Generate a batch of grid points for state zones
  * @param {Object} bounds - {north, south, east, west}
  * @param {number} gridSpacingKm - Distance between grid points in kilometers
  * @param {number} startIndex - Starting zone index
  * @param {number} endIndex - Ending zone index (exclusive)
  * @param {boolean} enableOverlap - Whether to add overlapping zones for better coverage
- * @returns {Array} Array of {lat, lng, label} objects for this batch
+ * @returns {Array} Array of {lat, lng, label, type} objects for this batch
  */
-export function generateCityGridBatch(
+export function generateStateGridBatch(
   bounds,
   gridSpacingKm,
   startIndex,
   endIndex,
   enableOverlap = true
 ) {
-  return generateGridBatch(bounds, gridSpacingKm, startIndex, endIndex, enableOverlap, "zone");
+  return generateGridBatch(bounds, gridSpacingKm, startIndex, endIndex, enableOverlap, "state-zone");
 }
 
-// Re-export for backward compatibility
-export { calculateTotalPossibleZones };
-
 /**
- * Determine optimal grid spacing based on city size and population
- * @param {Object} bounds - City bounding box
- * @param {number|null} population - City population (optional)
+ * Determine optimal grid spacing based on state size
+ * States are larger than cities, so we use wider spacing
+ * @param {Object} bounds - State bounding box
+ * @param {number|null} population - State population (optional)
  * @returns {number} Recommended grid spacing in km
  */
-export function getOptimalGridSpacing(bounds, population = null) {
-  if (!bounds) return 2; // default reduced for better coverage
+export function getOptimalStateGridSpacing(bounds, population = null) {
+  if (!bounds) return 2; // default - use city-like spacing for better coverage
 
   const areaKm2 = calculateAreaKm2(bounds);
 
-  // Smart spacing strategy: Balance coverage vs efficiency
+  // Smart spacing strategy: Use city-like spacing for maximum coverage
+  // This matches the city zone generator to ensure dense grids and more records
   if (areaKm2 < 25) {
-    // Very small city (< 25 km²) - dense grid for maximum coverage
+    // Very small area (< 25 km²) - dense grid for maximum coverage
     return 1;
   } else if (areaKm2 < 50) {
-    // Small city (< 50 km²) - tight grid
+    // Small area (< 50 km²) - tight grid
     return 2;
   } else if (areaKm2 < 200) {
-    // Medium city (50-200 km²) - medium grid
+    // Medium area (50-200 km²) - medium grid
     return 3;
   } else if (areaKm2 < 1000) {
-    // Large city (200-1000 km²) - balanced grid
+    // Large area (200-1000 km²) - balanced grid
     return 4;
   } else {
-    // Very large city (> 1000 km²) - wider grid to avoid excessive overlap
-    // Mumbai: ~4000 km² gets 5km spacing = ~800 zones (good coverage, manageable duplicates)
+    // Very large area (> 1000 km²) - wider grid to avoid excessive overlap
     return 5;
   }
 }
 
 /**
- * Create zone generator for batched city scraping
+ * Create zone generator for batched state scraping
  * Returns configuration for generating zones in batches
- * @param {string} cityName
+ * @param {string} stateName
  * @param {string} stateCode
  * @param {string} countryCode
  * @param {number|null} population
- * @param {boolean} enableDeepScrape - If false, only return city center
- * @param {number} batchSize - Zones per batch (default 30)
- * @param {number} maxTotalZones - Maximum total zones across all batches (default 300)
+ * @param {boolean} enableDeepScrape - If false, only return state center
+ * @param {number} batchSize - Zones per batch (default 50)
+ * @param {number} maxTotalZones - Maximum total zones across all batches (default 2000)
  * @returns {Object} Zone generation configuration
  */
-export async function createCityZones(
-  cityName,
+export async function createStateZones(
+  stateName,
   stateCode,
   countryCode,
   population = null,
@@ -88,16 +89,16 @@ export async function createCityZones(
   batchSize = 50,
   maxTotalZones = 2000
 ) {
-  // City center zone (always included)
+  // State center zone (always included)
   const centerZone = {
-    type: "city",
-    cityName,
+    type: "state",
+    stateName,
     stateCode,
-    label: "city-center",
+    label: "state-center",
     coords: null,
   };
 
-  // If deep scrape disabled, return just the city center
+  // If deep scrape disabled, return just the state center
   if (!enableDeepScrape) {
     return {
       centerZone,
@@ -109,15 +110,15 @@ export async function createCityZones(
     };
   }
 
-  // Get city boundaries
-  const bounds = await getCityBoundingBox(cityName, stateCode, countryCode);
+  // Get state boundaries
+  const bounds = await getStateBoundingBox(stateName, stateCode, countryCode);
 
   if (!bounds) {
     logger.warn(
-      "ZONE_GENERATION_FALLBACK",
-      "Could not get boundaries, using city center only",
+      "STATE_ZONE_GENERATION_FALLBACK",
+      "Could not get state boundaries, using state center only",
       {
-        city: cityName,
+        state: stateName,
       }
     );
     return {
@@ -130,14 +131,14 @@ export async function createCityZones(
     };
   }
 
-  // Determine optimal grid spacing
-  const gridSpacing = getOptimalGridSpacing(bounds, population);
+  // Determine optimal grid spacing for state
+  const gridSpacing = getOptimalStateGridSpacing(bounds, population);
 
   // Calculate total possible zones
   const totalPossibleZones = calculateTotalPossibleZones(bounds, gridSpacing);
 
-  logger.info("CITY_ZONES_CONFIG", "Prepared batched zone generation", {
-    city: cityName,
+  logger.info("STATE_ZONES_CONFIG", "Prepared batched state zone generation", {
+    state: stateName,
     gridSpacingKm: gridSpacing,
     totalPossibleZones,
     batchSize,
@@ -154,19 +155,19 @@ export async function createCityZones(
     totalPossibleZones,
     batchSize,
     maxTotalZones,
-    cityName,
+    stateName,
     stateCode,
   };
 }
 
 /**
- * Generate a batch of zones
- * @param {Object} zoneConfig - Configuration from createCityZones
+ * Generate a batch of state zones
+ * @param {Object} zoneConfig - Configuration from createStateZones
  * @param {number} batchNumber - Which batch to generate (0-indexed)
  * @returns {Array} Array of zone objects for this batch
  */
-export function generateZoneBatch(zoneConfig, batchNumber) {
-  const { bounds, gridSpacing, batchSize, maxTotalZones, cityName, stateCode } =
+export function generateStateZoneBatch(zoneConfig, batchNumber) {
+  const { bounds, gridSpacing, batchSize, maxTotalZones, stateName, stateCode } =
     zoneConfig;
 
   if (!bounds || !gridSpacing) return [];
@@ -176,10 +177,10 @@ export function generateZoneBatch(zoneConfig, batchNumber) {
 
   if (startIndex >= maxTotalZones) return [];
 
-  // Enable overlap for better coverage (especially for small cities)
+  // Enable overlap for better coverage (especially for smaller states)
   const enableOverlap = gridSpacing <= 3; // Enable overlap for tighter grids
 
-  const gridPoints = generateCityGridBatch(
+  const gridPoints = generateStateGridBatch(
     bounds,
     gridSpacing,
     startIndex,
@@ -190,7 +191,7 @@ export function generateZoneBatch(zoneConfig, batchNumber) {
   // Convert grid points to zone objects
   const zones = gridPoints.map((point) => ({
     type: point.type, // "grid" or "grid-overlap"
-    cityName,
+    stateName,
     stateCode,
     label: point.label,
     coords: { lat: point.lat, lng: point.lng },
@@ -199,8 +200,8 @@ export function generateZoneBatch(zoneConfig, batchNumber) {
   const primaryZones = zones.filter(z => z.type === "grid").length;
   const overlapZones = zones.filter(z => z.type === "grid-overlap").length;
 
-  logger.info("ZONE_BATCH_GENERATED", "Generated zone batch with overlap strategy", {
-    city: cityName,
+  logger.info("STATE_ZONE_BATCH_GENERATED", "Generated state zone batch with overlap strategy", {
+    state: stateName,
     batchNumber,
     totalZones: zones.length,
     primaryZones,

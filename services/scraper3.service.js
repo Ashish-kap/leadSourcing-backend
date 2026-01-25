@@ -10,6 +10,14 @@ import {
   createCityZones,
   generateZoneBatch,
 } from "./utils/cityZoneGenerator.js";
+import {
+  createStateZones,
+  generateStateZoneBatch,
+} from "./utils/stateZoneGenerator.js";
+import {
+  createCountryZones,
+  generateCountryZoneBatch,
+} from "./utils/countryZoneGenerator.js";
 import { ProgressMonitor, getStuckJobConfig } from "./stuckJobDetector.js";
 import { batchCheckUrls, markUrlAsScraped } from "./redisUrlTracker.js";
 
@@ -137,7 +145,7 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
   await page.evaluate(
     async (minCount, maxSteps) => {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-      
+
       // Try multiple selectors for the scrollable container based on actual Google Maps structure
       const scroller =
         document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]') ||
@@ -148,30 +156,30 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
         document.querySelector('.m6QErb') ||
         document.querySelector('.m6QEr') ||
         document.body;
-      
-  
-      
+
+
+
       let steps = 0;
       let lastCount = 0;
       let stagnantCount = 0;
-      
+
       while (steps < maxSteps) {
         const cards = document.querySelectorAll(".Nv2PK");
         const count = cards.length;
-        
+
         if (count >= minCount) {
           break;
         }
-        
+
         // Enhanced scrolling with larger distances
         scroller.scrollBy(0, 2000); // Increased from 1200
         await sleep(500); // Increased from 250ms
         steps++;
-        
+
         // Check if we're getting new results
         if (count === lastCount) {
           stagnantCount++;
-          
+
           // Try different scroll patterns to trigger loading
           if (stagnantCount % 3 === 0) {
             scroller.scrollBy(0, -500);
@@ -189,9 +197,9 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
         } else {
           stagnantCount = 0; // Reset if we got new results
         }
-        
+
         lastCount = count;
-        
+
         // If we've been stagnant for too long, try a different approach
         if (stagnantCount >= 5) {
           // Scroll to very bottom to trigger "show more" or similar
@@ -202,12 +210,12 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
           scroller.scrollBy(0, 3000);
           stagnantCount = 0;
         }
-        
+
         // Try to trigger "load more" by scrolling to absolute bottom
         if (stagnantCount >= 4) {
           // Scroll to absolute bottom of the feed
           const feedElement = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]') ||
-                             document.querySelector('.m6QErb[role="feed"]');
+            document.querySelector('.m6QErb[role="feed"]');
           if (feedElement) {
             feedElement.scrollTop = feedElement.scrollHeight;
             await sleep(1000);
@@ -216,42 +224,42 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
             await sleep(500);
           }
         }
-        
+
         // Try alternative scroll methods if normal scrolling isn't working
         if (stagnantCount >= 3) {
-          
+
           // Method 1: Try scrolling the window
           window.scrollBy(0, 2000);
           await sleep(300);
-          
+
           // Method 2: Try scrolling the document
           document.documentElement.scrollBy(0, 2000);
           await sleep(300);
-          
+
           // Method 3: Try scrolling the main container
-          const mainContainer = document.querySelector('.m6QErb[role="feed"]') || 
-                               document.querySelector('[role="feed"]') ||
-                               document.querySelector('.m6QErb') ||
-                               document.querySelector('div[role="main"]');
+          const mainContainer = document.querySelector('.m6QErb[role="feed"]') ||
+            document.querySelector('[role="feed"]') ||
+            document.querySelector('.m6QErb') ||
+            document.querySelector('div[role="main"]');
           if (mainContainer) {
             mainContainer.scrollBy(0, 2000);
             await sleep(300);
           }
-          
+
           // Method 4: Try scrolling the specific feed container from your HTML
           const feedContainer = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]');
           if (feedContainer) {
             feedContainer.scrollBy(0, 2000);
             await sleep(300);
           }
-          
+
           // Method 5: Try scrolling the exact container with all classes
           const exactContainer = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd');
           if (exactContainer && exactContainer !== feedContainer) {
             exactContainer.scrollBy(0, 2000);
             await sleep(300);
           }
-          
+
           // Method 6: Try scrolling the parent container
           const parentContainer = document.querySelector('.m6QErb.WNBkOb.XiKgde[role="main"]');
           if (parentContainer) {
@@ -260,7 +268,7 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
           }
         }
       }
-      
+
     },
     minCount,
     maxSteps
@@ -359,7 +367,7 @@ export async function runScraper(
 ) {
   // Extract userId from job.data if not provided in parameters
   const finalUserId = userId || job?.data?.userId || null;
-  
+
   // Log Redis deduplication configuration
   if (avoidDuplicate) {
     logger.info("REDIS_DEDUP_ENABLED", "Redis URL deduplication enabled", {
@@ -543,7 +551,7 @@ export async function runScraper(
         typeof page.close === "function" &&
         !(typeof page.isClosed === "function" && page.isClosed())
       ) {
-        await page.close().catch(() => {});
+        await page.close().catch(() => { });
       }
     } catch (_) {
       // ignore release errors
@@ -587,7 +595,7 @@ export async function runScraper(
         ? 100
         : calculatePercentage(results.length, recordLimit);
       const stuckStatus = progressMonitor.updateProgress(results.length, percentage);
-      
+
       if (stuckStatus.isStuck && !shouldStop) {
         logger.warn(
           "JOB_STUCK_DETECTED_INTERVAL",
@@ -778,10 +786,10 @@ export async function runScraper(
       results.length >= recordLimit
         ? 100
         : calculatePercentage(results.length, recordLimit);
-    
+
     // Check for stuck job conditions
     const stuckStatus = progressMonitor.updateProgress(results.length, percentage);
-    
+
     // If job is stuck, trigger graceful termination
     if (stuckStatus.isStuck && !shouldStop) {
       logger.warn(
@@ -794,10 +802,10 @@ export async function runScraper(
           stuckFor: Math.round(stuckStatus.stuckFor / 1000),
         }
       );
-      
+
       // Set stop flag to begin graceful shutdown
       requestStop();
-      
+
       // Update job status in database to indicate stuck timeout
       try {
         const { default: JobModel } = await import("../models/jobModel.js");
@@ -822,7 +830,7 @@ export async function runScraper(
         });
       }
     }
-    
+
     try {
       await job.progress({
         percentage,
@@ -950,9 +958,8 @@ export async function runScraper(
           }
 
           await updateProgress({
-            currentLocation: `${meta.city}, ${meta.state || ""}, ${
-              meta.countryName
-            }`.replace(/,\s*,/g, ","),
+            currentLocation: `${meta.city}, ${meta.state || ""}, ${meta.countryName
+              }`.replace(/,\s*,/g, ","),
           });
 
           return businessData;
@@ -980,9 +987,8 @@ export async function runScraper(
 
     // Create unique key for this zone (includes coordinates if present)
     const zoneKey = coords
-      ? `${locationKey(countryCode, stateCode, cityName)}-${coords.lat}-${
-          coords.lng
-        }`
+      ? `${locationKey(countryCode, stateCode, cityName)}-${coords.lat}-${coords.lng
+      }`
       : locationKey(countryCode, stateCode, cityName);
 
     if (processedLocations.has(zoneKey)) {
@@ -1016,13 +1022,15 @@ export async function runScraper(
       searchUrl = `${searchUrlBase}${query}?hl=en`;
     }
 
-    logger.info("CITY_SCRAPE_START", "Scraping city zone (discovery only)", {
+    const locationType = cityName ? "city" : "state";
+    logger.info("CITY_SCRAPE_START", `Scraping ${locationType} zone (discovery only)`, {
       url: searchUrl,
-      city: cityName,
+      city: cityName || null,
       state: stateName,
       country: countryName,
       zone: zoneLabel || "center",
       coords: coords || "N/A",
+      locationType,
     });
 
     try {
@@ -1042,7 +1050,7 @@ export async function runScraper(
         // Enhanced scroll: aim for more results to ensure good coverage
         const neededForCity = Math.min(remaining, 50); // Increased from 30
         const targetCount = Math.ceil(neededForCity * 2.0); // Increased multiplier from 1.5
-        
+
         logger.info("ENHANCED_SCROLL_START", "Starting enhanced scrolling for better coverage", {
           city: cityName,
           neededForCity,
@@ -1050,7 +1058,7 @@ export async function runScraper(
           remaining,
           currentResults: results.length,
         });
-        
+
         // Debug: Check initial card count
         const initialCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
         logger.info("SCROLL_DEBUG", "Initial card count before scrolling", {
@@ -1058,7 +1066,7 @@ export async function runScraper(
           initialCards,
           targetCount,
         });
-        
+
         // Try the enhanced scroll function first
         try {
           if (page.isClosed() || !page.target()) {
@@ -1078,7 +1086,7 @@ export async function runScraper(
           });
           // Continue with whatever results we have
         }
-        
+
         // Check results after scrolling
         let cardsAfterScroll = 0;
         try {
@@ -1101,8 +1109,8 @@ export async function runScraper(
           }
         } catch (evalError) {
           if (evalError.message.includes('Execution context was destroyed') ||
-              evalError.message.includes('Target closed') ||
-              evalError.message.includes('detached Frame')) {
+            evalError.message.includes('Target closed') ||
+            evalError.message.includes('detached Frame')) {
             logger.warn("SCROLL_EVAL_CONTEXT_DESTROYED", "Card evaluation failed due to destroyed context", {
               city: cityName,
               error: evalError.message,
@@ -1117,7 +1125,7 @@ export async function runScraper(
           // Use initial cards count as fallback
           cardsAfterScroll = initialCards;
         }
-        
+
         // If that didn't work well, try the autoScroll function as fallback
         if (cardsAfterScroll < targetCount * 0.5) { // If we got less than half the target
           // Check if we should skip autoScroll due to browser session issues
@@ -1135,7 +1143,7 @@ export async function runScraper(
               cardsAfterScroll,
               targetCount,
             });
-            
+
             try {
               // Check if page is still valid before attempting autoScroll
               if (page.isClosed() || !page.target()) {
@@ -1146,63 +1154,63 @@ export async function runScraper(
                 });
                 return;
               }
-            
-            // Import and use the autoScroll function with timeout protection
-            const autoScroll = (await import("./autoScroll.js")).default;
-            
-            // Wrap autoScroll in additional error handling for target close errors
-            await Promise.race([
-              autoScroll(page).catch(error => {
-                if (error.message.includes('Target closed') || 
+
+              // Import and use the autoScroll function with timeout protection
+              const autoScroll = (await import("./autoScroll.js")).default;
+
+              // Wrap autoScroll in additional error handling for target close errors
+              await Promise.race([
+                autoScroll(page).catch(error => {
+                  if (error.message.includes('Target closed') ||
                     error.message.includes('detached Frame') ||
                     error.message.includes('Execution context was destroyed') ||
                     error.message.includes('Protocol error')) {
-                  logger.warn("AUTO_SCROLL_TARGET_CLOSED", "AutoScroll failed due to closed target or destroyed context", {
+                    logger.warn("AUTO_SCROLL_TARGET_CLOSED", "AutoScroll failed due to closed target or destroyed context", {
+                      city: cityName,
+                      error: error.message,
+                      errorType: error.constructor.name,
+                    });
+                    return; // Don't throw, just return gracefully
+                  }
+                  throw error; // Re-throw other errors
+                }),
+                new Promise((_, reject) =>
+                  setTimeout(() => reject(new Error("AutoScroll timeout")), 15000)
+                )
+              ]);
+
+              // Check final results
+              try {
+                if (!page.isClosed() && page.target()) {
+                  const finalCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
+                  logger.info("FALLBACK_SCROLL_RESULTS", "Cards after fallback scroll", {
                     city: cityName,
-                    error: error.message,
-                    errorType: error.constructor.name,
+                    finalCards,
+                    improvement: finalCards - cardsAfterScroll,
                   });
-                  return; // Don't throw, just return gracefully
+                } else {
+                  logger.warn("FALLBACK_EVAL_SKIPPED", "Page is closed or disconnected, skipping final evaluation", {
+                    city: cityName,
+                    isClosed: page.isClosed(),
+                    hasTarget: !!page.target(),
+                  });
                 }
-                throw error; // Re-throw other errors
-              }),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("AutoScroll timeout")), 15000)
-              )
-            ]);
-            
-            // Check final results
-            try {
-              if (!page.isClosed() && page.target()) {
-                const finalCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
-                logger.info("FALLBACK_SCROLL_RESULTS", "Cards after fallback scroll", {
-                  city: cityName,
-                  finalCards,
-                  improvement: finalCards - cardsAfterScroll,
-                });
-              } else {
-                logger.warn("FALLBACK_EVAL_SKIPPED", "Page is closed or disconnected, skipping final evaluation", {
-                  city: cityName,
-                  isClosed: page.isClosed(),
-                  hasTarget: !!page.target(),
-                });
-              }
-            } catch (finalEvalError) {
-              if (finalEvalError.message.includes('Execution context was destroyed') ||
+              } catch (finalEvalError) {
+                if (finalEvalError.message.includes('Execution context was destroyed') ||
                   finalEvalError.message.includes('Target closed') ||
                   finalEvalError.message.includes('detached Frame')) {
-                logger.warn("FALLBACK_EVAL_CONTEXT_DESTROYED", "Final evaluation failed due to destroyed context", {
-                  city: cityName,
-                  error: finalEvalError.message,
-                  errorType: finalEvalError.constructor.name,
-                });
-              } else {
-                logger.warn("FALLBACK_EVAL_FAILED", "Could not evaluate final cards", {
-                  city: cityName,
-                  error: finalEvalError.message,
-                });
+                  logger.warn("FALLBACK_EVAL_CONTEXT_DESTROYED", "Final evaluation failed due to destroyed context", {
+                    city: cityName,
+                    error: finalEvalError.message,
+                    errorType: finalEvalError.constructor.name,
+                  });
+                } else {
+                  logger.warn("FALLBACK_EVAL_FAILED", "Could not evaluate final cards", {
+                    city: cityName,
+                    error: finalEvalError.message,
+                  });
+                }
               }
-            }
             } catch (fallbackError) {
               logger.warn("FALLBACK_SCROLL_FAILED", "AutoScroll fallback failed", {
                 city: cityName,
@@ -1226,7 +1234,7 @@ export async function runScraper(
           try {
             const urls = listingsData.map((x) => x.url);
             const redisCheckResults = await batchCheckUrls(finalUserId, urls);
-            
+
             // Filter out URLs found in Redis
             filteredListingsData = listingsData.filter(
               (item, index) => !redisCheckResults[index]
@@ -1369,10 +1377,10 @@ export async function runScraper(
             reason: isDetachedFrame
               ? "detached_frame"
               : isTargetClosed
-              ? "target_closed"
-              : isExecutionContextDestroyed
-              ? "execution_context_destroyed"
-              : "protocol_error",
+                ? "target_closed"
+                : isExecutionContextDestroyed
+                  ? "execution_context_destroyed"
+                  : "protocol_error",
           }
         );
       } else {
@@ -1389,6 +1397,21 @@ export async function runScraper(
   // ------- Phased bucket processing with parallel city discovery -------
   const runBuckets = async (buckets, scopeLabel) => {
     const order = ["big", "mid", "small", "unknown"];
+    let totalCandidates = 0;
+
+    // Count total candidates first
+    for (const bucketName of order) {
+      totalCandidates += buckets[bucketName].length;
+    }
+
+    // If no candidates, return early
+    if (totalCandidates === 0) {
+      logger.info("BUCKETS_EMPTY", "No candidates found in buckets", {
+        scope: scopeLabel,
+      });
+      return false; // Indicate no work was done
+    }
+
     for (const bucketName of order) {
       if (shouldStop) break;
       const list = buckets[bucketName];
@@ -1408,6 +1431,8 @@ export async function runScraper(
       // Wait all cities in this bucket to complete discovery
       await Promise.allSettled(cityPromises);
     }
+
+    return true; // Indicate work was done
   };
 
   try {
@@ -1449,7 +1474,7 @@ export async function runScraper(
           maxTotalZones: zoneConfig.maxTotalZones,
           estimatedBatches: Math.ceil(
             Math.min(zoneConfig.totalPossibleZones, zoneConfig.maxTotalZones) /
-              zoneConfig.batchSize
+            zoneConfig.batchSize
           ),
         }
       );
@@ -1468,7 +1493,7 @@ export async function runScraper(
       // Calculate total possible batches
       const totalBatches = Math.ceil(
         Math.min(zoneConfig.totalPossibleZones, zoneConfig.maxTotalZones) /
-          zoneConfig.batchSize
+        zoneConfig.batchSize
       );
 
       // Start from a RANDOM batch for variety (different results each time)
@@ -1598,7 +1623,175 @@ export async function runScraper(
         candidates,
         `state:${state.name}`
       );
-      await runBuckets(buckets, `state:${state.name}`);
+
+      // Try city-based scraping first
+      const hasCities = await runBuckets(buckets, `state:${state.name}`);
+
+      // If no cities found, fallback to state zone generator
+      if (!hasCities) {
+        logger.info(
+          "STATE_ZONE_FALLBACK",
+          "No cities found for state, using state zone generator",
+          {
+            state: state.name,
+            stateCode: stateCode,
+            country: countryName,
+          }
+        );
+
+        // Get state zone configuration for batched generation
+        const stateZoneConfig = await createStateZones(
+          state.name,
+          stateCode,
+          countryCode,
+          null, // population (could be fetched if needed)
+          true, // Always enable deep scrape for state searches
+          ZONE_BATCH_SIZE, // Zones per batch
+          MAX_TOTAL_ZONES // Maximum total zones across all batches
+        );
+
+        logger.info(
+          "STATE_ZONES_READY",
+          "Starting batched multi-zone state scrape",
+          {
+            state: state.name,
+            totalPossibleZones: stateZoneConfig.totalPossibleZones,
+            batchSize: stateZoneConfig.batchSize,
+            maxTotalZones: stateZoneConfig.maxTotalZones,
+            estimatedBatches: Math.ceil(
+              Math.min(stateZoneConfig.totalPossibleZones, stateZoneConfig.maxTotalZones) /
+              stateZoneConfig.batchSize
+            ),
+          }
+        );
+
+        // First, scrape state center
+        await limitCity(() =>
+          scrapeCity({
+            cityName: null, // No city name for state-level search
+            stateCode,
+            stateName: state.name,
+            coords: null,
+            zoneLabel: "state-center",
+          })
+        );
+
+        // Calculate total possible batches
+        const totalBatches = Math.ceil(
+          Math.min(stateZoneConfig.totalPossibleZones, stateZoneConfig.maxTotalZones) /
+          stateZoneConfig.batchSize
+        );
+
+        // Start from a RANDOM batch for variety (different results each time)
+        const randomStartBatch = Math.floor(
+          Math.random() * Math.max(1, totalBatches)
+        );
+
+        logger.info(
+          "STATE_ZONE_BATCH_RANDOM_START",
+          "Starting from random batch for variety",
+          {
+            state: state.name,
+            randomStartBatch,
+            totalBatches,
+          }
+        );
+
+        // Then process zones in batches (with wrap-around)
+        let batchNumber = randomStartBatch;
+        let batchesProcessed = 0;
+        let totalZonesProcessed = 1; // Already processed center
+        const processedBatches = new Set(); // Track which batches we've done
+
+        while (
+          !shouldStop &&
+          results.length < recordLimit &&
+          batchesProcessed < totalBatches
+        ) {
+          // Skip if we've already processed this batch (wrap-around protection)
+          if (processedBatches.has(batchNumber)) {
+            batchNumber = (batchNumber + 1) % totalBatches;
+            continue;
+          }
+
+          // Generate next batch of state zones
+          const batch = generateStateZoneBatch(stateZoneConfig, batchNumber);
+
+          if (batch.length === 0) {
+            // No more zones in this batch, try next
+            batchNumber = (batchNumber + 1) % totalBatches;
+            processedBatches.add(batchNumber);
+            continue;
+          }
+
+          // Shuffle zones within batch for additional randomness
+          shuffleArray(batch);
+
+          // Mark this batch as processed
+          processedBatches.add(batchNumber);
+
+          logger.info("STATE_ZONE_BATCH_PROCESSING", "Processing shuffled state zone batch", {
+            state: state.name,
+            batchNumber,
+            batchSize: batch.length,
+            recordsCollected: results.length,
+            recordsNeeded: recordLimit - results.length,
+            isShuffled: true,
+          });
+
+          // Process all zones in this batch
+          const batchPromises = [];
+          for (const zone of batch) {
+            if (shouldStop || results.length >= recordLimit) break;
+
+            batchPromises.push(
+              limitCity(() =>
+                scrapeCity({
+                  cityName: null, // No city name for state-level zones
+                  stateCode: zone.stateCode || stateCode,
+                  stateName: state.name,
+                  coords: zone.coords,
+                  zoneLabel: zone.label,
+                })
+              )
+            );
+          }
+
+          // Wait for this batch to complete
+          await Promise.allSettled(batchPromises);
+
+          totalZonesProcessed += batch.length;
+          batchesProcessed++;
+
+          // Move to next batch (with wrap-around)
+          batchNumber = (batchNumber + 1) % totalBatches;
+
+          // Check if we have enough results
+          if (results.length >= recordLimit) {
+            logger.info("STATE_ZONE_BATCH_TARGET_REACHED", "Target records reached", {
+              state: state.name,
+              batchesProcessed,
+              totalZonesProcessed,
+              recordsCollected: results.length,
+              targetRecords: recordLimit,
+              randomStartBatch,
+            });
+            break;
+          }
+        }
+
+        logger.info("STATE_SCRAPE_COMPLETE", "State scraping completed", {
+          state: state.name,
+          batchesProcessed,
+          totalZonesProcessed,
+          recordsCollected: results.length,
+          targetRecords: recordLimit,
+          randomStartBatch,
+          processedBatchNumbers: Array.from(processedBatches).sort(
+            (a, b) => a - b
+          ),
+        });
+      }
     }
     // Scenario 3: country only
     else {
@@ -1610,7 +1803,174 @@ export async function runScraper(
         candidates,
         `country:${countryName}`
       );
-      await runBuckets(buckets, `country:${countryName}`);
+
+      // Try city/state-based scraping first
+      const hasCitiesOrStates = await runBuckets(buckets, `country:${countryName}`);
+
+      // If no cities/states found, fallback to country zone generator
+      if (!hasCitiesOrStates) {
+        logger.info(
+          "COUNTRY_ZONE_FALLBACK",
+          "No cities/states found for country, using country zone generator",
+          {
+            country: countryName,
+            countryCode: countryCode,
+          }
+        );
+
+        // Get country zone configuration for batched generation
+        const countryZoneConfig = await createCountryZones(
+          countryName,
+          countryCode,
+          null, // population (could be fetched if needed)
+          true, // Always enable deep scrape for country searches
+          ZONE_BATCH_SIZE, // Zones per batch
+          MAX_TOTAL_ZONES // Maximum total zones across all batches
+        );
+
+        logger.info(
+          "COUNTRY_ZONES_READY",
+          "Starting batched multi-zone country scrape",
+          {
+            country: countryName,
+            totalPossibleZones: countryZoneConfig.totalPossibleZones,
+            batchSize: countryZoneConfig.batchSize,
+            maxTotalZones: countryZoneConfig.maxTotalZones,
+            estimatedBatches: Math.ceil(
+              Math.min(countryZoneConfig.totalPossibleZones, countryZoneConfig.maxTotalZones) /
+              countryZoneConfig.batchSize
+            ),
+          }
+        );
+
+        // First, scrape country center
+        await limitCity(() =>
+          scrapeCity({
+            cityName: null, // No city name for country-level search
+            stateCode: null, // No state for country-level search
+            stateName: null,
+            coords: null,
+            zoneLabel: "country-center",
+          })
+        );
+
+        // Calculate total possible batches
+        const totalBatches = Math.ceil(
+          Math.min(countryZoneConfig.totalPossibleZones, countryZoneConfig.maxTotalZones) /
+          countryZoneConfig.batchSize
+        );
+
+        // Start from a RANDOM batch for variety (different results each time)
+        const randomStartBatch = Math.floor(
+          Math.random() * Math.max(1, totalBatches)
+        );
+
+        logger.info(
+          "COUNTRY_ZONE_BATCH_RANDOM_START",
+          "Starting from random batch for variety",
+          {
+            country: countryName,
+            randomStartBatch,
+            totalBatches,
+          }
+        );
+
+        // Then process zones in batches (with wrap-around)
+        let batchNumber = randomStartBatch;
+        let batchesProcessed = 0;
+        let totalZonesProcessed = 1; // Already processed center
+        const processedBatches = new Set(); // Track which batches we've done
+
+        while (
+          !shouldStop &&
+          results.length < recordLimit &&
+          batchesProcessed < totalBatches
+        ) {
+          // Skip if we've already processed this batch (wrap-around protection)
+          if (processedBatches.has(batchNumber)) {
+            batchNumber = (batchNumber + 1) % totalBatches;
+            continue;
+          }
+
+          // Generate next batch of country zones
+          const batch = generateCountryZoneBatch(countryZoneConfig, batchNumber);
+
+          if (batch.length === 0) {
+            // No more zones in this batch, try next
+            batchNumber = (batchNumber + 1) % totalBatches;
+            processedBatches.add(batchNumber);
+            continue;
+          }
+
+          // Shuffle zones within batch for additional randomness
+          shuffleArray(batch);
+
+          // Mark this batch as processed
+          processedBatches.add(batchNumber);
+
+          logger.info("COUNTRY_ZONE_BATCH_PROCESSING", "Processing shuffled country zone batch", {
+            country: countryName,
+            batchNumber,
+            batchSize: batch.length,
+            recordsCollected: results.length,
+            recordsNeeded: recordLimit - results.length,
+            isShuffled: true,
+          });
+
+          // Process all zones in this batch
+          const batchPromises = [];
+          for (const zone of batch) {
+            if (shouldStop || results.length >= recordLimit) break;
+
+            batchPromises.push(
+              limitCity(() =>
+                scrapeCity({
+                  cityName: null, // No city name for country-level zones
+                  stateCode: null, // No state for country-level zones
+                  stateName: null,
+                  coords: zone.coords,
+                  zoneLabel: zone.label,
+                })
+              )
+            );
+          }
+
+          // Wait for all zones in this batch to complete
+          await Promise.allSettled(batchPromises);
+
+          batchesProcessed++;
+          totalZonesProcessed += batch.length;
+
+          // Check if we should stop
+          if (results.length >= recordLimit) {
+            logger.info(
+              "COUNTRY_ZONE_BATCH_LIMIT_REACHED",
+              "Record limit reached during country zone batch processing",
+              {
+                country: countryName,
+                recordsCollected: results.length,
+                targetRecords: recordLimit,
+                batchesProcessed,
+                totalZonesProcessed,
+                randomStartBatch,
+              }
+            );
+            break;
+          }
+        }
+
+        logger.info("COUNTRY_SCRAPE_COMPLETE", "Country scraping completed", {
+          country: countryName,
+          batchesProcessed,
+          totalZonesProcessed,
+          recordsCollected: results.length,
+          targetRecords: recordLimit,
+          randomStartBatch,
+          processedBatchNumbers: Array.from(processedBatches).sort(
+            (a, b) => a - b
+          ),
+        });
+      }
     }
 
     // If we've hit the record limit, don't wait on outstanding detail tasks.
@@ -1630,13 +1990,13 @@ export async function runScraper(
             recordsCollected: results.length,
           }
         );
-        
+
         // Wait for grace period to allow current operations to complete
         await new Promise(resolve => setTimeout(resolve, STUCK_JOB_GRACE_PERIOD_MS));
       }
-      
+
       // Prevent unhandled rejections for tasks we won't await
-      for (const t of detailTasks) t.catch(() => {});
+      for (const t of detailTasks) t.catch(() => { });
     }
   } finally {
     // Clear the cancellation check interval
