@@ -379,7 +379,7 @@ export async function scrapeEmails({ browser, startUrl, options = {} }) {
       visited.add(startUrl);
       visitedList.push(startUrl);
     } catch (err) {
-      logger.error("EMAIL_SCRAPER_ERROR", `Homepage error: ${err.message}`);
+      logger.warn("EMAIL_SCRAPER_ERROR", `Homepage error: ${err.message}`);
       errors.push({
         url: startUrl,
         type: err.name || "UnknownError",
