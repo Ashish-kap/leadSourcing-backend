@@ -2343,7 +2343,11 @@ export async function runScraper(
       }
 
       // Prevent unhandled rejections for tasks we won't await
-      for (const t of detailTasks) t.catch(() => { });
+      for (const task of detailTasks) {
+        if (task && typeof task.catch === 'function') {
+          task.catch(() => { });
+        }
+      }
     }
   } finally {
     // Clear the cancellation check interval
