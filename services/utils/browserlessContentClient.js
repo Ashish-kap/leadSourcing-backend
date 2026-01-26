@@ -6,7 +6,7 @@ import { Agent } from 'undici';
 const BROWSERLESS_API_URL = process.env.BROWSERLESS_CONTENT_API_URL;
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN;
 const API_TIMEOUT = Number(process.env.EMAIL_API_TIMEOUT || 30000); // Default 30s
-const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 10);
+const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 2);
 
 // Configure HTTP agent for better connection management
 // Prevents "Request closed prior to writing results" errors
