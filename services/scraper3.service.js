@@ -1268,21 +1268,20 @@ export async function runScraper(
     const searchUrlBase = `https://www.google.com/maps/search/`;
     let searchUrl;
 
-    // If coordinates provided, use coordinate-based search
     if (coords) {
-      // Format: keyword/@latitude,longitude,zoom
+      // Zone search - use coordinates to search specific area
       const query = encodeURIComponent(keyword);
-      const coordString = `@${coords.lat},${coords.lng},14z`; // 14z is good zoom level for local area
-      searchUrl = `${searchUrlBase}${query}/${coordString}?hl=en`;
+      const coordString = `@${coords.lat},${coords.lng},14z`;
+      searchUrl = `${searchUrlBase}${query}/${coordString}?gl=${countryCode}`;
     } else {
-      // Standard location-based search
-      const formattedLocation = [cityName, stateName, countryName]
+      // City center - use location name (skip state to avoid admin name issues)
+      const formattedLocation = [cityName, countryName]
         .filter(Boolean)
         .join(" ")
         .replace(/,/g, "")
         .replace(/\s+/g, "+");
       const query = `${encodeURIComponent(keyword)}+in+${formattedLocation}`;
-      searchUrl = `${searchUrlBase}${query}?hl=en`;
+      searchUrl = `${searchUrlBase}${query}?gl=${countryCode}`;
     }
 
     const locationType = cityName ? "city" : "state";
