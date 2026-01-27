@@ -40,6 +40,10 @@ function createEmailLimiter(concurrency) {
 const limitEmail = createEmailLimiter(EMAIL_API_CONCURRENCY);
 
 function getCoordsFromUrl(u) {
+  // Ensure u is a string before calling match
+  if (!u || typeof u !== 'string') {
+    return { latitude: null, longitude: null };
+  }
   // matches ...!3d24.379259!4d91.4136279...
   const m = u.match(/!3d(-?\d+(\.\d+)?)!4d(-?\d+(\.\d+)?)/);
   return m
