@@ -198,6 +198,41 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    // Profile and attribution (who they are, where they came from)
+    designation: {
+      type: String,
+      maxlength: [200, "Designation must be at most 200 characters"],
+    },
+    website: {
+      type: String,
+      maxlength: [500, "Website URL must be at most 500 characters"],
+      validate: {
+        validator: function (v) {
+          if (!v || v.trim() === "") return true;
+          return validator.isURL(v, { require_protocol: false });
+        },
+        message: "Please provide a valid URL",
+      },
+    },
+    howDidYouHearAbout: {
+      type: String,
+      maxlength: [200, "How did you hear about us must be at most 200 characters"],
+    },
+    // User has completed profile/info step
+    userInfo: {
+      type: Boolean,
+      default: false,
+    },
+    acquisition: {
+      utmSource: { type: String, maxlength: 200 },
+      utmMedium: { type: String, maxlength: 200 },
+      utmCampaign: { type: String, maxlength: 200 },
+      utmTerm: { type: String, maxlength: 200 },
+      utmContent: { type: String, maxlength: 200 },
+      signupSource: { type: String, maxlength: 100 },
+      firstLandingPage: { type: String, maxlength: 500 },
+    },
+
     active: {
       type: Boolean,
       default: true,

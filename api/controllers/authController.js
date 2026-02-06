@@ -7,6 +7,41 @@ import AppError from "./../../utils/appError.js";
 import sendEmail from "./../../utils/email.js";
 import { decodeReferralCode } from "./../../utils/referralCode.js";
 
+// Maps request keys (body/query) to acquisition schema keys (camelCase)
+const ACQUISITION_KEYS = [
+  ["utm_source", "utmSource"],
+  ["utmSource", "utmSource"],
+  ["utm_medium", "utmMedium"],
+  ["utmMedium", "utmMedium"],
+  ["utm_campaign", "utmCampaign"],
+  ["utmCampaign", "utmCampaign"],
+  ["utm_term", "utmTerm"],
+  ["utmTerm", "utmTerm"],
+  ["utm_content", "utmContent"],
+  ["utmContent", "utmContent"],
+  ["signupSource", "signupSource"],
+  ["referrer", "firstLandingPage"],
+  ["firstLandingPage", "firstLandingPage"],
+];
+
+/**
+ * Pick first-touch acquisition data from request (body or query).
+ * Used at signup and Google OAuth to record where the user came from.
+ * @param {object} req - Express request
+ * @returns {object} Acquisition object with schema keys, or empty object
+ */
+const pickAcquisitionFromRequest = (req) => {
+  const source = { ...req.body, ...req.query };
+  const acquisition = {};
+  ACQUISITION_KEYS.forEach(([inputKey, schemaKey]) => {
+    const value = source[inputKey];
+    if (value != null && String(value).trim() !== "") {
+      acquisition[schemaKey] = String(value).trim();
+    }
+  });
+  return acquisition;
+};
+
 // const bcrypt = require('bcryptjs');
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -37,7 +72,7 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 export const signup = catchAsync(async (req, res) => {
-  const newUser = await User.create({
+  const createPayload = {
     name: req.body.name,
     emailID: req.body.emailID,
     password: req.body.password,
@@ -47,7 +82,12 @@ export const signup = catchAsync(async (req, res) => {
     plan: req.body.plan || "free", // Default to 'free' plan
     passwordForgotToken: req.body.passwordForgotToken,
     passwordExpireToken: req.body.passwordExpireToken,
-  });
+  };
+  const acquisition = pickAcquisitionFromRequest(req);
+  if (Object.keys(acquisition).length > 0) {
+    createPayload.acquisition = acquisition;
+  }
+  const newUser = await User.create(createPayload);
 
   createSendToken(newUser, 200, res);
 });
@@ -273,6 +313,14 @@ export const googleCallback = catchAsync(async (req, res, next) => {
     }
   }
 
+  // First-touch acquisition: set only if not already set (from query/state on OAuth redirect)
+  const acquisition = pickAcquisitionFromRequest(req);
+  const hasAcquisition = req.user.acquisition && Object.keys(req.user.acquisition).length > 0;
+  if (Object.keys(acquisition).length > 0 && !hasAcquisition) {
+    req.user.acquisition = acquisition;
+    await req.user.save({ validateBeforeSave: false });
+  }
+
   // Create JWT token for the authenticated user
   createSendToken(req.user, 200, res);
 });
@@ -313,17 +361,27 @@ export const googleTokenAuth = catchAsync(async (req, res, next) => {
         // Link Google account to existing user
         user.googleId = googleId;
         user.authProvider = "google";
+        const acquisition = pickAcquisitionFromRequest(req);
+        const hasAcquisition = user.acquisition && Object.keys(user.acquisition).length > 0;
+        if (Object.keys(acquisition).length > 0 && !hasAcquisition) {
+          user.acquisition = acquisition;
+        }
         await user.save({ validateBeforeSave: false });
       } else {
         // Create new user
-        user = new User({
+        const createPayload = {
           googleId,
           name,
           emailID: email,
           authProvider: "google",
           photo: picture,
           plan: "free", // Default plan for OAuth users
-        });
+        };
+        const acquisition = pickAcquisitionFromRequest(req);
+        if (Object.keys(acquisition).length > 0) {
+          createPayload.acquisition = acquisition;
+        }
+        user = new User(createPayload);
         await user.save({ validateBeforeSave: false });
       }
     }
