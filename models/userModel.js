@@ -139,7 +139,7 @@ const userSchema = new mongoose.Schema(
     credits: {
       total: {
         type: Number,
-        default: 500,
+        default: 1000,
       },
       used: {
         type: Number,
@@ -147,7 +147,7 @@ const userSchema = new mongoose.Schema(
       },
       remaining: {
         type: Number,
-        default: 500,
+        default: 1000,
       },
       // Track when credits were last allocated for monthly reset
       lastAllocated: {
@@ -253,20 +253,25 @@ userSchema.virtual("creditPercentage").get(function () {
 
 // Method to check if user has unlimited access (no restrictions at all)
 userSchema.methods.hasUnlimitedAccess = function () {
-  return this.plan === "business" || this.plan === "pro";
+  return this.plan === "business" || this.plan === "pro" || this.plan === "free";
 };
 
 // Method to check if user has unlimited extraction (no credit limits)
+// userSchema.methods.hasUnlimitedExtraction = function () {
+//   return false // Only business plan has unlimited credits
+// };
+
+// TEMPORARY: free (and pro/business) have unlimited extraction
 userSchema.methods.hasUnlimitedExtraction = function () {
-  return false // Only business plan has unlimited credits
+  return this.plan === "business" || this.plan === "pro" || this.plan === "free";
 };
 
 // Method to get plan-specific maxRecords limit
 userSchema.methods.getMaxRecordsLimit = function () {
   const planLimits = {
-    free: 50,
+    free: 1000,
     pro: 1000,
-    business: 3000
+    business: 1000
   };
   return planLimits[this.plan] || planLimits.free;
 };
