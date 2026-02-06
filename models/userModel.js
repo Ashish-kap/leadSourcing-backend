@@ -139,7 +139,7 @@ const userSchema = new mongoose.Schema(
     credits: {
       total: {
         type: Number,
-        default: 1000,
+        default: 500,
       },
       used: {
         type: Number,
@@ -147,7 +147,7 @@ const userSchema = new mongoose.Schema(
       },
       remaining: {
         type: Number,
-        default: 1000,
+        default: 500,
       },
       // Track when credits were last allocated for monthly reset
       lastAllocated: {
@@ -269,7 +269,7 @@ userSchema.methods.hasUnlimitedExtraction = function () {
 // Method to get plan-specific maxRecords limit
 userSchema.methods.getMaxRecordsLimit = function () {
   const planLimits = {
-    free: 1000,
+    free: 500,
     pro: 1000,
     business: 1000
   };
