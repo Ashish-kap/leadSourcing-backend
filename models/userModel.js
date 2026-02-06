@@ -139,7 +139,7 @@ const userSchema = new mongoose.Schema(
     credits: {
       total: {
         type: Number,
-        default: 500,
+        default: 1000,
       },
       used: {
         type: Number,
@@ -147,7 +147,7 @@ const userSchema = new mongoose.Schema(
       },
       remaining: {
         type: Number,
-        default: 500,
+        default: 1000,
       },
       // Track when credits were last allocated for monthly reset
       lastAllocated: {
@@ -198,6 +198,41 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    // Profile and attribution (who they are, where they came from)
+    designation: {
+      type: String,
+      maxlength: [200, "Designation must be at most 200 characters"],
+    },
+    website: {
+      type: String,
+      maxlength: [500, "Website URL must be at most 500 characters"],
+      validate: {
+        validator: function (v) {
+          if (!v || v.trim() === "") return true;
+          return validator.isURL(v, { require_protocol: false });
+        },
+        message: "Please provide a valid URL",
+      },
+    },
+    howDidYouHearAbout: {
+      type: String,
+      maxlength: [200, "How did you hear about us must be at most 200 characters"],
+    },
+    // User has completed profile/info step
+    userInfo: {
+      type: Boolean,
+      default: false,
+    },
+    acquisition: {
+      utmSource: { type: String, maxlength: 200 },
+      utmMedium: { type: String, maxlength: 200 },
+      utmCampaign: { type: String, maxlength: 200 },
+      utmTerm: { type: String, maxlength: 200 },
+      utmContent: { type: String, maxlength: 200 },
+      signupSource: { type: String, maxlength: 100 },
+      firstLandingPage: { type: String, maxlength: 500 },
+    },
+
     active: {
       type: Boolean,
       default: true,
@@ -218,20 +253,25 @@ userSchema.virtual("creditPercentage").get(function () {
 
 // Method to check if user has unlimited access (no restrictions at all)
 userSchema.methods.hasUnlimitedAccess = function () {
-  return this.plan === "business" || this.plan === "pro";
+  return this.plan === "business" || this.plan === "pro" || this.plan === "free";
 };
 
 // Method to check if user has unlimited extraction (no credit limits)
+// userSchema.methods.hasUnlimitedExtraction = function () {
+//   return false // Only business plan has unlimited credits
+// };
+
+// TEMPORARY: free (and pro/business) have unlimited extraction
 userSchema.methods.hasUnlimitedExtraction = function () {
-  return false // Only business plan has unlimited credits
+  return this.plan === "business" || this.plan === "pro" || this.plan === "free";
 };
 
 // Method to get plan-specific maxRecords limit
 userSchema.methods.getMaxRecordsLimit = function () {
   const planLimits = {
-    free: 50,
+    free: 1000,
     pro: 1000,
-    business: 3000
+    business: 1000
   };
   return planLimits[this.plan] || planLimits.free;
 };

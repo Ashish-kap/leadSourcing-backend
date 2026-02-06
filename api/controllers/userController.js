@@ -79,6 +79,11 @@ const createSafeUserResponse = (user) => {
   delete userObj.passwordForgotToken;
   delete userObj.passwordExpireToken;
   delete userObj.__v;
+  delete userObj.designation;
+  delete userObj.website;
+  delete userObj.howDidYouHearAbout;
+  delete userObj.acquisition;
+
 
   // Add referral code for frontend to create referral links
   userObj.referralCode = encodeReferralCode(user._id);
@@ -161,6 +166,51 @@ export const updateMe = catchAsync(async (req, res, next) => {
     data: {
       user: createSafeUserResponse(updatedUser),
     },
+  });
+});
+
+// Allowed fields for profile/attribution update only (separate from updateMe)
+const PROFILE_ALLOWED_FIELDS = [
+  "designation",
+  "website",
+  "howDidYouHearAbout",
+  "userInfo",
+  "acquisition",
+];
+const ACQUISITION_SUB_KEYS = [
+  "utmSource",
+  "utmMedium",
+  "utmCampaign",
+  "utmTerm",
+  "utmContent",
+  "signupSource",
+  "firstLandingPage",
+];
+
+export const updateMyProfile = catchAsync(async (req, res, next) => {
+  const filteredBody = filterObj(req.body, ...PROFILE_ALLOWED_FIELDS);
+
+  // Normalize acquisition to only allowed sub-keys
+  if (filteredBody.acquisition && typeof filteredBody.acquisition === "object") {
+    const raw = filteredBody.acquisition;
+    filteredBody.acquisition = {};
+    ACQUISITION_SUB_KEYS.forEach((key) => {
+      if (raw[key] != null && raw[key] !== "") {
+        filteredBody.acquisition[key] = raw[key];
+      }
+    });
+    if (Object.keys(filteredBody.acquisition).length === 0) {
+      delete filteredBody.acquisition;
+    }
+  }
+
+  await User.findByIdAndUpdate(req.user.id, filteredBody, {
+    runValidators: true,
+  });
+
+  res.status(200).json({
+    status: "success",
+    message: "Profile updated successfully",
   });
 });
 
