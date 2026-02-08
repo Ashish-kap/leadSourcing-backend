@@ -253,23 +253,23 @@ userSchema.virtual("creditPercentage").get(function () {
 
 // Method to check if user has unlimited access (no restrictions at all)
 userSchema.methods.hasUnlimitedAccess = function () {
-  return this.plan === "business" || this.plan === "pro" || this.plan === "free";
+  return this.plan === "business" || this.plan === "pro";
 };
 
 // Method to check if user has unlimited extraction (no credit limits)
-// userSchema.methods.hasUnlimitedExtraction = function () {
-//   return false // Only business plan has unlimited credits
-// };
+userSchema.methods.hasUnlimitedExtraction = function () {
+  return false // Only business plan has unlimited credits
+};
 
 // TEMPORARY: free (and pro/business) have unlimited extraction
-userSchema.methods.hasUnlimitedExtraction = function () {
-  return this.plan === "business" || this.plan === "pro" || this.plan === "free";
-};
+// userSchema.methods.hasUnlimitedExtraction = function () {
+//   return this.plan === "business" || this.plan === "pro" || this.plan === "free";
+// };
 
 // Method to get plan-specific maxRecords limit
 userSchema.methods.getMaxRecordsLimit = function () {
   const planLimits = {
-    free: 500,
+    free: 50,
     pro: 1000,
     business: 1000
   };
