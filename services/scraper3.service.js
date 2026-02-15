@@ -1272,7 +1272,7 @@ export async function runScraper(
       // Zone search - use coordinates to search specific area
       const query = encodeURIComponent(keyword);
       const coordString = `@${coords.lat},${coords.lng},14z`;
-      searchUrl = `${searchUrlBase}${query}/${coordString}?gl=${countryCode}`;
+      searchUrl = `${searchUrlBase}${query}/${coordString}?gl=${countryCode}&hl=en`;
     } else {
       // City center - use location name (skip state to avoid admin name issues)
       const formattedLocation = [cityName, countryName]
@@ -1281,7 +1281,7 @@ export async function runScraper(
         .replace(/,/g, "")
         .replace(/\s+/g, "+");
       const query = `${encodeURIComponent(keyword)}+in+${formattedLocation}`;
-      searchUrl = `${searchUrlBase}${query}?gl=${countryCode}`;
+      searchUrl = `${searchUrlBase}${query}?gl=${countryCode}&hl=en`;
     }
 
     const locationType = cityName ? "city" : "state";
