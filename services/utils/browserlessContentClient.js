@@ -8,19 +8,50 @@ const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN;
 const API_TIMEOUT = Number(process.env.EMAIL_API_TIMEOUT || 30000); // Default 30s
 const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 2);
 
-// Configure HTTP agent for better connection management
-// Prevents "Request closed prior to writing results" errors
 const httpAgent = new Agent({
-  connections: 50,           // Max sockets per origin
-  pipelining: 1,             // Requests per socket
-  keepAliveTimeout: 60000,   // Keep connections alive 60s
-  keepAliveMaxTimeout: 120000, // Max keep-alive duration
-  headersTimeout: 60000,     // Wait 60s for headers
-  bodyTimeout: 60000,        // Wait 60s for body
+  connections: 10,
+  pipelining: 1,
+  keepAliveTimeout: 30000,
+  keepAliveMaxTimeout: 60000,
+  headersTimeout: 45000,
+  bodyTimeout: 45000,
   connect: {
-    timeout: 30000           // Connection timeout 30s
+    timeout: 15000
   }
 });
+
+// Block heavy resource types -- we only need HTML + JS for email extraction
+const BLOCKED_RESOURCE_TYPES = [
+  'image', 'font', 'media', 'stylesheet', 'texttrack', 'manifest', 'other'
+];
+
+// Analytics / tracking URL patterns that bloat Chromium memory and stall networkidle
+const BLOCKED_URL_PATTERNS = [
+  'google-analytics',
+  'googletagmanager',
+  'doubleclick.net',
+  'googlesyndication',
+  'googleadservices',
+  'google.com/pagead',
+  'google.com/ccm',
+  'merchant-center-analytics',
+  'connect.facebook.net',
+  'facebook.com/tr',
+  'hotjar.com',
+  'clarity.ms',
+  'shopifysvc.com',
+  'frog.wix.com',
+  'cdn-cookie.avada',
+  'rebuyengine.com',
+  'data.replo.app',
+  'stats.g.doubleclick',
+  'google.com.*/ads/',
+];
+
+const REQUEST_INTERCEPTORS = BLOCKED_URL_PATTERNS.map(pattern => ({
+  pattern,
+  response: { body: '', status: 200, contentType: 'text/plain' }
+}));
 
 // Log configuration on module load
 logger.info("BROWSERLESS_CLIENT_CONFIG", JSON.stringify({
@@ -64,13 +95,16 @@ export async function fetchPageContent(url, options = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           url,
-          // gotoOptions: {
-          //   waitUntil: 'networkidle2',
-          //   timeout: 30000
-          // }
+          gotoOptions: {
+            waitUntil: 'networkidle2',
+            timeout: 15000
+          },
+          rejectResourceTypes: BLOCKED_RESOURCE_TYPES,
+          requestInterceptors: REQUEST_INTERCEPTORS,
+          bestAttempt: true
         }),
         signal: controller.signal,
-        dispatcher: httpAgent  // Use custom agent for connection pooling
+        dispatcher: httpAgent
       }
     );
     
@@ -222,7 +256,7 @@ export async function fetchPageContentWithRetry(url, maxRetries = 1) {
  * @param {number} concurrency - Max concurrent requests
  * @returns {Promise<Array<{url: string, html?: string, error?: string, details?: object}>>}
  */
-export async function fetchMultiplePages(urls, concurrency = 10) {
+export async function fetchMultiplePages(urls, concurrency = 3) {
   if (!urls || urls.length === 0) {
     return [];
   }

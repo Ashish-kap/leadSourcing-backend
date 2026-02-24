@@ -9,18 +9,22 @@ const SCRAPE_TIMEOUT = Number(process.env.SCRAPE_API_TIMEOUT || 30000);
 const SCRAPE_API_MAX_RETRIES = Number(process.env.SCRAPE_API_MAX_RETRIES || 1);
 const SCRAPE_API_CONCURRENCY = Number(process.env.SCRAPE_API_CONCURRENCY || 2);
 
-// Configure HTTP agent for better connection management
 const httpAgent = new Agent({
-  connections: 50,
+  connections: 10,
   pipelining: 1,
-  keepAliveTimeout: 60000,
-  keepAliveMaxTimeout: 120000,
-  headersTimeout: 60000,
-  bodyTimeout: 60000,
+  keepAliveTimeout: 30000,
+  keepAliveMaxTimeout: 60000,
+  headersTimeout: 45000,
+  bodyTimeout: 45000,
   connect: {
-    timeout: 30000
+    timeout: 15000
   }
 });
+
+// Block resource types that aren't needed for selector-based scraping
+const SCRAPE_BLOCKED_RESOURCE_TYPES = [
+  'image', 'font', 'media', 'stylesheet'
+];
 
 // Concurrency limiter for business data scraping REST API calls
 function createScrapeLimiter(concurrency) {
@@ -281,12 +285,14 @@ async function scrapeGoogleMapsBusinessInternal(googleMapsUrl) {
           elements: elements,
           gotoOptions: {
             waitUntil: "networkidle2",
-            timeout: 30000
+            timeout: 20000
           },
           waitForSelector: {
             selector: "h1.DUwDvf.lfPIob",
             timeout: 10000
-          }
+          },
+          rejectResourceTypes: SCRAPE_BLOCKED_RESOURCE_TYPES,
+          bestAttempt: true
         }),
         signal: controller.signal,
         dispatcher: httpAgent

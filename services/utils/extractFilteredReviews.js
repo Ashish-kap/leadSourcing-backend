@@ -69,7 +69,7 @@ export async function extractFilteredReviews(
           logger.warn("EXTRACT_REVIEWS", "Reviews container did not appear after tab click, waiting additional time", {
             error: waitError.message
           });
-          await page.waitForTimeout(2000); // Fallback wait
+          await new Promise((r) => setTimeout(r, 2000)); // Fallback wait
         }
       } else if (reviewsTab.found && !reviewsTab.clicked) {
         logger.info("EXTRACT_REVIEWS", "Reviews tab already active", { url: page.url() });
