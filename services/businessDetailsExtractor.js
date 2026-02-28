@@ -90,7 +90,10 @@ export async function extractBusinessDetails(
     if (preScrapedRating !== null && preScrapedRating !== undefined) {
       businessData.rating = preScrapedRating;
     }
-    if (preScrapedReviewCount !== null && preScrapedReviewCount !== undefined) {
+    // Only overwrite rating_count when we have a positive pre-scraped value; otherwise keep Scrape API value (from detail page)
+    const usedPreScrapedReviewCount =
+      typeof preScrapedReviewCount === "number" && preScrapedReviewCount > 0;
+    if (usedPreScrapedReviewCount) {
       businessData.rating_count = String(preScrapedReviewCount);
     }
 
@@ -100,7 +103,7 @@ export async function extractBusinessDetails(
       preScrapedRating,
       preScrapedReviewCount,
       hasRating: preScrapedRating !== null && preScrapedRating !== undefined,
-      hasReviewCount: preScrapedReviewCount !== null && preScrapedReviewCount !== undefined,
+      usedPreScrapedReviewCount,
       finalRating: businessData.rating,
       finalRatingCount: businessData.rating_count
     });
@@ -150,11 +153,19 @@ export async function extractBusinessDetails(
 
     // Filter: Skip businesses with websites if onlyWithoutWebsite is true
     if (onlyWithoutWebsite && businessData.website) {
+      logger.info("BUSINESS_FILTERED_HAS_WEBSITE", "Business filtered - has website (onlyWithoutWebsite)", {
+        url: googleMapsUrl,
+        businessName: businessData.name,
+      });
       return null; // Skip businesses with websites
     }
 
     // Filter: Skip businesses without website if email extraction is required
     if (isExtractEmail && !businessData.website) {
+      logger.info("BUSINESS_FILTERED_NO_WEBSITE_FOR_EMAIL", "Business filtered - no website for email extraction", {
+        url: googleMapsUrl,
+        businessName: businessData.name,
+      });
       return null; // Skip businesses without websites when email extraction is required
     }
 
