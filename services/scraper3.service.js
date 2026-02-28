@@ -150,7 +150,7 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
   await page.evaluate(
     async (minCount, maxSteps) => {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-      
+
       // Try multiple selectors for the scrollable container based on actual Google Maps structure
       const scroller =
         document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]') ||
@@ -161,30 +161,30 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
         document.querySelector('.m6QErb') ||
         document.querySelector('.m6QEr') ||
         document.body;
-      
-  
-      
+
+
+
       let steps = 0;
       let lastCount = 0;
       let stagnantCount = 0;
-      
+
       while (steps < maxSteps) {
         const cards = document.querySelectorAll(".Nv2PK");
         const count = cards.length;
-        
+
         if (count >= minCount) {
           break;
         }
-        
+
         // Enhanced scrolling with larger distances
         scroller.scrollBy(0, 2000); // Increased from 1200
         await sleep(500); // Increased from 250ms
         steps++;
-        
+
         // Check if we're getting new results
         if (count === lastCount) {
           stagnantCount++;
-          
+
           // Try different scroll patterns to trigger loading
           if (stagnantCount % 3 === 0) {
             scroller.scrollBy(0, -500);
@@ -202,9 +202,9 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
         } else {
           stagnantCount = 0; // Reset if we got new results
         }
-        
+
         lastCount = count;
-        
+
         // If we've been stagnant for too long, try a different approach
         if (stagnantCount >= 5) {
           // Scroll to very bottom to trigger "show more" or similar
@@ -215,12 +215,12 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
           scroller.scrollBy(0, 3000);
           stagnantCount = 0;
         }
-        
+
         // Try to trigger "load more" by scrolling to absolute bottom
         if (stagnantCount >= 4) {
           // Scroll to absolute bottom of the feed
           const feedElement = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]') ||
-                             document.querySelector('.m6QErb[role="feed"]');
+            document.querySelector('.m6QErb[role="feed"]');
           if (feedElement) {
             feedElement.scrollTop = feedElement.scrollHeight;
             await sleep(1000);
@@ -229,42 +229,42 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
             await sleep(500);
           }
         }
-        
+
         // Try alternative scroll methods if normal scrolling isn't working
         if (stagnantCount >= 3) {
-          
+
           // Method 1: Try scrolling the window
           window.scrollBy(0, 2000);
           await sleep(300);
-          
+
           // Method 2: Try scrolling the document
           document.documentElement.scrollBy(0, 2000);
           await sleep(300);
-          
+
           // Method 3: Try scrolling the main container
-          const mainContainer = document.querySelector('.m6QErb[role="feed"]') || 
-                               document.querySelector('[role="feed"]') ||
-                               document.querySelector('.m6QErb') ||
-                               document.querySelector('div[role="main"]');
+          const mainContainer = document.querySelector('.m6QErb[role="feed"]') ||
+            document.querySelector('[role="feed"]') ||
+            document.querySelector('.m6QErb') ||
+            document.querySelector('div[role="main"]');
           if (mainContainer) {
             mainContainer.scrollBy(0, 2000);
             await sleep(300);
           }
-          
+
           // Method 4: Try scrolling the specific feed container from your HTML
           const feedContainer = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd[role="feed"]');
           if (feedContainer) {
             feedContainer.scrollBy(0, 2000);
             await sleep(300);
           }
-          
+
           // Method 5: Try scrolling the exact container with all classes
           const exactContainer = document.querySelector('.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde.ecceSd');
           if (exactContainer && exactContainer !== feedContainer) {
             exactContainer.scrollBy(0, 2000);
             await sleep(300);
           }
-          
+
           // Method 6: Try scrolling the parent container
           const parentContainer = document.querySelector('.m6QErb.WNBkOb.XiKgde[role="main"]');
           if (parentContainer) {
@@ -273,7 +273,7 @@ async function scrollResultsPanelToCount(page, minCount, maxSteps = 25) {
           }
         }
       }
-      
+
     },
     minCount,
     maxSteps
@@ -398,7 +398,7 @@ export async function runScraper(
 ) {
   // Extract userId from job.data if not provided in parameters
   const finalUserId = userId || job?.data?.userId || null;
-  
+
   // Log Redis deduplication configuration
   if (avoidDuplicate) {
     logger.info("REDIS_DEDUP_ENABLED", "Redis URL deduplication enabled", {
@@ -632,7 +632,7 @@ export async function runScraper(
         ? 100
         : calculatePercentage(results.length, recordLimit);
       const stuckStatus = progressMonitor.updateProgress(results.length, percentage);
-      
+
       if (stuckStatus.isStuck && !shouldStop) {
         logger.warn(
           "JOB_STUCK_DETECTED_INTERVAL",
@@ -839,10 +839,10 @@ export async function runScraper(
       results.length >= recordLimit
         ? 100
         : calculatePercentage(results.length, recordLimit);
-    
+
     // Check for stuck job conditions
     const stuckStatus = progressMonitor.updateProgress(results.length, percentage);
-    
+
     // If job is stuck, trigger graceful termination
     if (stuckStatus.isStuck && !shouldStop) {
       logger.warn(
@@ -855,10 +855,10 @@ export async function runScraper(
           stuckFor: Math.round(stuckStatus.stuckFor / 1000),
         }
       );
-      
+
       // Set stop flag to begin graceful shutdown
       requestStop();
-      
+
       // Update job status in database to indicate stuck timeout
       try {
         const { default: JobModel } = await import("../models/jobModel.js");
@@ -883,7 +883,7 @@ export async function runScraper(
         });
       }
     }
-    
+
     try {
       await job.progress({
         percentage,
@@ -1207,9 +1207,8 @@ export async function runScraper(
           }
 
           await updateProgress({
-            currentLocation: `${meta.city}, ${meta.state || ""}, ${
-              meta.countryName
-            }`.replace(/,\s*,/g, ","),
+            currentLocation: `${meta.city}, ${meta.state || ""}, ${meta.countryName
+              }`.replace(/,\s*,/g, ","),
           });
 
           return businessData;
@@ -1580,7 +1579,7 @@ export async function runScraper(
           maxTotalZones: zoneConfig.maxTotalZones,
           estimatedBatches: Math.ceil(
             Math.min(zoneConfig.totalPossibleZones, zoneConfig.maxTotalZones) /
-              zoneConfig.batchSize
+            zoneConfig.batchSize
           ),
         }
       );
@@ -1599,7 +1598,7 @@ export async function runScraper(
       // Calculate total possible batches
       const totalBatches = Math.ceil(
         Math.min(zoneConfig.totalPossibleZones, zoneConfig.maxTotalZones) /
-          zoneConfig.batchSize
+        zoneConfig.batchSize
       );
 
       // Start from a RANDOM batch for variety (different results each time)
@@ -2104,15 +2103,15 @@ export async function runScraper(
             recordsCollected: results.length,
           }
         );
-        
+
         // Wait for grace period to allow current operations to complete
         await new Promise(resolve => setTimeout(resolve, STUCK_JOB_GRACE_PERIOD_MS));
       }
-      
+
       // Prevent unhandled rejections for tasks we won't await
       for (const task of detailTasks) {
-        if (task.promise && typeof task.promise.catch === 'function') {
-          task.promise.catch(() => { });
+        if (task && typeof task.catch === 'function') {
+          task.catch(() => { });
         }
       }
     }
