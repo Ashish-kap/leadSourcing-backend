@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 dotenv.config();
 import logger from "./logger.js";
 import { extractFilteredReviews } from "./utils/extractFilteredReviews.js";
+import { extractReviewsViaFunction } from "./utils/reviewExtractor.js";
+import { extractListingsViaFunction } from "./utils/listingExtractor.js";
 import { extractBusinessDetails } from "./businessDetailsExtractor.js";
 import { createPopulationResolverAllTheCities } from "./utils/populationResolver.allTheCities.js";
 import { BrowserPool } from "./utils/browserPool.js";
@@ -34,6 +36,7 @@ const { STUCK_RECORDS_TIMEOUT_MS, STUCK_PERCENTAGE_TIMEOUT_MS, STUCK_JOB_GRACE_P
 // Reduced defaults to minimize memory usage (3-4GB instead of 7-8GB)
 const CITY_CONCURRENCY = Number(process.env.CITY_CONCURRENCY || 2);
 const DETAIL_CONCURRENCY = Number(process.env.DETAIL_CONCURRENCY || 3);
+const DETAIL_OVER_SCHEDULE = Number(process.env.DETAIL_OVER_SCHEDULE || 5);
 const POOL_MAX_PAGES = Number(process.env.POOL_MAX_PAGES || 5);
 const SEARCH_NAV_TIMEOUT_MS = Number(
   process.env.SEARCH_NAV_TIMEOUT_MS || 45000
@@ -41,7 +44,6 @@ const SEARCH_NAV_TIMEOUT_MS = Number(
 const DETAIL_NAV_TIMEOUT_MS = Number(
   process.env.DETAIL_NAV_TIMEOUT_MS || 25000
 );
-
 const BROWSER_SESSION_MAX_MS = Number(
   process.env.BROWSER_SESSION_MAX_MS || 60000 // 60 seconds - allows 10 concurrent email scrapes (each 10-30s)
 );
@@ -596,12 +598,18 @@ export async function runScraper(
   const results = [];
   const processedLocations = new Set();
   const seenBusinessUrls = new Set(); // Track business URLs to prevent duplicates (checked at listing level)
+  const pendingListingsQueue = []; // { listing, meta } - shared queue for on-null refill
+  const listingsPerCity = []; // Track listing URL counts per city for reporting
   const recordLimit = maxRecords || Infinity;
   // Cooperative cancellation flag used to stop scheduling and tear down fast
   let shouldStop = false;
+  let reachedLimit = false;
   const requestStop = () => {
     shouldStop = true;
   };
+
+  const hasEnoughPending = () =>
+    results.length + getActiveTaskCount() >= recordLimit;
 
   // Initialize progress monitor for stuck job detection
   const progressMonitor = new ProgressMonitor(job?.data?.jobId || 'unknown');
@@ -720,6 +728,7 @@ export async function runScraper(
     results.push(r);
     
     if (results.length >= recordLimit) {
+      reachedLimit = true;
       requestStop();
       logger.info("RECORD_LIMIT_REACHED", "Record limit reached", {
         resultsLength: results.length,
@@ -942,22 +951,16 @@ export async function runScraper(
     return activeCount;
   };
   
+  const tryScheduleOneMore = () => {
+    if (shouldStop || results.length >= recordLimit || pendingListingsQueue.length === 0) return;
+    const next = pendingListingsQueue.shift();
+    if (next) scheduleDetail(next.listing, next.meta);
+  };
+
   const scheduleDetail = (listing, meta) => {
-    // Early exit checks
+    // Early exit checks only - allow over-scheduling so on-null refill can keep going
     if (shouldStop || results.length >= recordLimit) return;
-    
-    // Don't schedule if we're approaching the limit (accounting for active, non-stuck tasks only)
-    const pendingTasks = getActiveTaskCount();
-    if (results.length + pendingTasks >= recordLimit) {
-      logger.debug("SCHEDULING_STOPPED", "Stopping task scheduling - approaching limit", {
-        resultsLength: results.length,
-        pendingTasks,
-        recordLimit,
-        totalTasks: detailTasks.length
-      });
-      return;
-    }
-    
+
     const url = listing.url; // Extract URL from listing object
     
     // Check if we need a browser page (only for review extraction)
@@ -1040,19 +1043,38 @@ export async function runScraper(
                 businessData.filtered_reviews = [];
                 businessData.filtered_review_count = 0;
               } else {
-                const filteredReviews = await extractFilteredReviews(page, {
-                  reviewTimeRange: meta.reviewTimeRange,
-                  ratingFilter: meta.extractNegativeReviews ? "negative" : null,
-                });
-                businessData.filtered_reviews = filteredReviews;
-                businessData.filtered_review_count = filteredReviews.length;
-                
-                logger.info("REVIEWS_EXTRACTED", "Successfully extracted reviews", {
-                  url,
-                  businessName: businessData.name,
-                  reviewCount: filteredReviews.length,
-                  reviewTimeRange: meta.reviewTimeRange
-                });
+                // Use Browserless Function to extract reviews (max 10)
+                try {
+                  const hl = job?.data?.hl || process.env.DEFAULT_HL || 'en';
+                  const gl = countryCode || job?.data?.gl || process.env.DEFAULT_GL;
+
+                  const result = await extractReviewsViaFunction(url, {
+                    reviewTimeRange: meta.reviewTimeRange,
+                    extractNegativeReviews: !!meta.extractNegativeReviews,
+                    maxScrollAttempts: 10,
+                    maxReviews: 10,
+                    hl,
+                    gl,
+                  });
+                  // Rely on maxReviews: 10 so we only scrape 10; no slice needed
+                  const reviews = Array.isArray(result.reviews) ? result.reviews : [];
+                  businessData.filtered_reviews = reviews;
+                  businessData.filtered_review_count = reviews.length;
+
+                  logger.info("REVIEWS_EXTRACTED", "Successfully extracted reviews", {
+                    url,
+                    businessName: businessData.name,
+                    reviewCount: businessData.filtered_review_count,
+                    reviewTimeRange: meta.reviewTimeRange,
+                  });
+                } catch (revErr) {
+                  logger.warn("REVIEW_FUNCTION_ERROR_INTEGRATION", "extractReviewsViaFunction failed", {
+                    url,
+                    error: revErr?.message || String(revErr),
+                  });
+                  businessData.filtered_reviews = [];
+                  businessData.filtered_review_count = 0;
+                }
               }
             } catch (err) {
               logger.warn("REVIEW_EXTRACTION_ERROR", "Failed to extract reviews", {
@@ -1234,6 +1256,11 @@ export async function runScraper(
     
     taskTracker.promise = p;
     detailTasks.push(taskTracker);
+    p.then((result) => {
+      if (result === null && results.length < recordLimit && pendingListingsQueue.length > 0) {
+        tryScheduleOneMore();
+      }
+    }).catch(() => { /* avoid unhandled rejection */ });
   };
 
   // -------- Tier A: city discovery --------
@@ -1245,6 +1272,9 @@ export async function runScraper(
     zoneLabel = null,
   }) {
     if (shouldStop) return;
+
+    // Skip expensive listing API call if pending tasks already cover the limit
+    if (hasEnoughPending()) return;
 
     // Create unique key for this zone (includes coordinates if present)
     const zoneKey = coords
@@ -1295,446 +1325,177 @@ export async function runScraper(
     });
 
     try {
-      await withPage(`city:${cityName}`, async (page) => {
-        await page.goto(searchUrl, {
-          waitUntil: "domcontentloaded", // faster than networkidle2
-          timeout: SEARCH_NAV_TIMEOUT_MS,
+      // How many listings do we still need overall?
+      const remaining = recordLimit - results.length;
+      if (remaining <= 0) {
+        reachedLimit = true;
+        return;
+      }
+
+      // Call Browserless /function API for listing discovery
+      const { listings: listingsData, listingCount: totalListingsFound } =
+        await extractListingsViaFunction(searchUrl, {
+          maxResults: Math.min(remaining * 2, 200),
+          maxScrolls: 25,
+          hl: "en",
+          gl: countryCode,
+          shouldCancel: () => shouldStop,
         });
 
-        // Check if job was cancelled after navigation
-        if (shouldStop) return;
+      if (shouldStop) return;
 
-        // How many listings do we still need overall?
-        const remaining = recordLimit - results.length;
-        if (remaining <= 0) {
-          shouldStop = true;
-          return;
-        }
-
-        // Enhanced scroll: aim for more results to ensure good coverage
-        const neededForCity = Math.min(remaining, 50); // Increased from 30
-        const targetCount = Math.ceil(neededForCity * 2.0); // Increased multiplier from 1.5
-
-        logger.info("ENHANCED_SCROLL_START", "Starting enhanced scrolling for better coverage", {
-          city: cityName,
-          neededForCity,
-          targetCount,
-          remaining,
-          currentResults: results.length,
-        });
-
-        // Debug: Check initial card count
-        const initialCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
-        logger.info("SCROLL_DEBUG", "Initial card count before scrolling", {
-          city: cityName,
-          initialCards,
-          targetCount,
-        });
-
-        // Try the enhanced scroll function first
-        try {
-          if (page.isClosed() || !page.target()) {
-            logger.warn("ENHANCED_SCROLL_SKIPPED", "Page is closed or disconnected, skipping enhanced scroll", {
-              city: cityName,
-              isClosed: page.isClosed(),
-              hasTarget: !!page.target(),
-            });
-          } else {
-            await scrollResultsPanelToCount(page, targetCount);
-          }
-        } catch (scrollError) {
-          logger.warn("ENHANCED_SCROLL_FAILED", "Enhanced scroll failed", {
-            city: cityName,
-            error: scrollError.message,
-            targetCount,
-          });
-          // Continue with whatever results we have
-        }
-
-        // Check results after scrolling
-        let cardsAfterScroll = 0;
-        try {
-          if (!page.isClosed() && page.target()) {
-            cardsAfterScroll = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
-            logger.info("SCROLL_RESULTS", "Cards found after scrolling", {
-              city: cityName,
-              initialCards,
-              cardsAfterScroll,
-              targetCount,
-              improvement: cardsAfterScroll - initialCards,
-            });
-          } else {
-            logger.warn("SCROLL_EVAL_SKIPPED", "Page is closed or disconnected, skipping card evaluation", {
-              city: cityName,
-              isClosed: page.isClosed(),
-              hasTarget: !!page.target(),
-            });
-            cardsAfterScroll = initialCards;
-          }
-        } catch (evalError) {
-          if (evalError.message.includes('Execution context was destroyed') ||
-            evalError.message.includes('Target closed') ||
-            evalError.message.includes('detached Frame')) {
-            logger.warn("SCROLL_EVAL_CONTEXT_DESTROYED", "Card evaluation failed due to destroyed context", {
-              city: cityName,
-              error: evalError.message,
-              errorType: evalError.constructor.name,
-            });
-          } else {
-            logger.warn("SCROLL_EVAL_FAILED", "Could not evaluate cards after scroll", {
-              city: cityName,
-              error: evalError.message,
-            });
-          }
-          // Use initial cards count as fallback
-          cardsAfterScroll = initialCards;
-        }
-
-        // If that didn't work well, try the autoScroll function as fallback
-        if (cardsAfterScroll < targetCount * 0.5) { // If we got less than half the target
-          // Check if we should skip autoScroll due to browser session issues
-          if (page.isClosed() || !page.target()) {
-            logger.warn("FALLBACK_SCROLL_SKIPPED", "Skipping autoScroll due to closed/disconnected page", {
-              city: cityName,
-              cardsAfterScroll,
-              targetCount,
-              isClosed: page.isClosed(),
-              hasTarget: !!page.target(),
-            });
-          } else {
-            logger.info("FALLBACK_SCROLL", "Using autoScroll as fallback", {
-              city: cityName,
-              cardsAfterScroll,
-              targetCount,
-            });
-
-            try {
-              // Check if page is still valid before attempting autoScroll
-              if (page.isClosed() || !page.target()) {
-                logger.warn("FALLBACK_SCROLL_SKIPPED", "Page is closed or disconnected, skipping autoScroll", {
-                  city: cityName,
-                  isClosed: page.isClosed(),
-                  hasTarget: !!page.target(),
-                });
-                return;
-              }
-
-              // Import and use the autoScroll function with timeout protection
-              const autoScroll = (await import("./autoScroll.js")).default;
-
-              // Wrap autoScroll in additional error handling for target close errors
-              await Promise.race([
-                autoScroll(page).catch(error => {
-                  if (error.message.includes('Target closed') ||
-                    error.message.includes('detached Frame') ||
-                    error.message.includes('Execution context was destroyed') ||
-                    error.message.includes('Protocol error')) {
-                    logger.warn("AUTO_SCROLL_TARGET_CLOSED", "AutoScroll failed due to closed target or destroyed context", {
-                      city: cityName,
-                      error: error.message,
-                      errorType: error.constructor.name,
-                    });
-                    return; // Don't throw, just return gracefully
-                  }
-                  throw error; // Re-throw other errors
-                }),
-                new Promise((_, reject) =>
-                  setTimeout(() => reject(new Error("AutoScroll timeout")), 15000)
-                )
-              ]);
-
-              // Check final results
-              try {
-                if (!page.isClosed() && page.target()) {
-                  const finalCards = await page.evaluate(() => document.querySelectorAll(".Nv2PK").length);
-                  logger.info("FALLBACK_SCROLL_RESULTS", "Cards after fallback scroll", {
-                    city: cityName,
-                    finalCards,
-                    improvement: finalCards - cardsAfterScroll,
-                  });
-                } else {
-                  logger.warn("FALLBACK_EVAL_SKIPPED", "Page is closed or disconnected, skipping final evaluation", {
-                    city: cityName,
-                    isClosed: page.isClosed(),
-                    hasTarget: !!page.target(),
-                  });
-                }
-              } catch (finalEvalError) {
-                if (finalEvalError.message.includes('Execution context was destroyed') ||
-                  finalEvalError.message.includes('Target closed') ||
-                  finalEvalError.message.includes('detached Frame')) {
-                  logger.warn("FALLBACK_EVAL_CONTEXT_DESTROYED", "Final evaluation failed due to destroyed context", {
-                    city: cityName,
-                    error: finalEvalError.message,
-                    errorType: finalEvalError.constructor.name,
-                  });
-                } else {
-                  logger.warn("FALLBACK_EVAL_FAILED", "Could not evaluate final cards", {
-                    city: cityName,
-                    error: finalEvalError.message,
-                  });
-                }
-              }
-            } catch (fallbackError) {
-              logger.warn("FALLBACK_SCROLL_FAILED", "AutoScroll fallback failed", {
-                city: cityName,
-                error: fallbackError.message,
-                cardsAfterScroll,
-              });
-              // Continue with whatever results we have
-            }
-          }
-        }
-
-        // Check if job was cancelled after scrolling
-        if (shouldStop) return;
-
-        // NEW: Wait for listing elements to fully load after scrolling
-        // Google Maps loads rating/review data asynchronously
-        try {
-          logger.info("WAITING_FOR_LISTINGS_TO_LOAD", "Waiting for listing elements to fully load", {
-            city: cityName,
-          });
-          
-          // Wait for rating elements (more universal than review count elements)
-          // Rating elements exist for all listings, unlike review count elements
-          await page.waitForSelector('.ZkP5Je[role="img"]', { 
-            timeout: 3000 
-          });
-          
-          // Additional delay to ensure review counts finish rendering
-          // This gives time for both aria-label updates and .UY7F9 elements to appear
-          await new Promise(resolve => setTimeout(resolve, 1200));
-          
-          logger.info("LISTINGS_LOADED", "Listing elements loaded successfully", {
-            city: cityName,
-          });
-        } catch (waitError) {
-          // If elements don't appear within timeout, log warning and continue
-          logger.warn("LISTINGS_WAIT_TIMEOUT", "Listing elements didn't appear within timeout", {
-            city: cityName,
-            error: waitError.message,
-            note: "Continuing with extraction anyway"
-          });
-          // Still add a small delay before extraction
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        // Check if job was cancelled before extracting listings
-        if (shouldStop) return;
-
-        const listingsData = await getListingsData(
-          page,
-          ratingFilter,
-          reviewFilter
-        );
-
-        // DEBUG: Log first listing extraction details
-        if (listingsData && listingsData.length > 0 && listingsData[0]._debug) {
-          logger.info("DEBUG_LISTING_EXTRACTION", "First listing extraction details", {
-            city: cityName,
-            businessName: listingsData[0].businessName,
-            url: listingsData[0].url,
-            rating: listingsData[0].rating,
-            reviewCount: listingsData[0].reviewCount,
-            debug: listingsData[0]._debug
-          });
-        }
-
-        // IMMEDIATE Redis check (if avoidDuplicate is true)
-        let filteredListingsData = listingsData;
-        if (avoidDuplicate && finalUserId && listingsData && listingsData.length > 0) {
-          try {
-            const urls = listingsData.map((x) => x.url);
-            const redisCheckResults = await batchCheckUrls(finalUserId, urls);
-
-            // Filter out URLs found in Redis
-            filteredListingsData = listingsData.filter(
-              (item, index) => !redisCheckResults[index]
-            );
-
-            const filteredCount = listingsData.length - filteredListingsData.length;
-            if (filteredCount > 0) {
-              logger.info("REDIS_FILTER", "Filtered URLs from Redis", {
-                city: cityName,
-                totalUrls: listingsData.length,
-                filteredByRedis: filteredCount,
-                remainingUrls: filteredListingsData.length,
-              });
-            }
-          } catch (redisError) {
-            logger.warn("REDIS_FILTER_ERROR", "Error filtering URLs with Redis", {
-              error: redisError.message,
-              city: cityName,
-            });
-            // On error, continue with all URLs (don't block scraping)
-            filteredListingsData = listingsData;
-          }
-        }
-
-        // Use filtered listings data for rest of processing
-        const listingsDataToProcess = filteredListingsData;
-
-        // Handle case where execution context was destroyed or all URLs filtered
-        if (!listingsDataToProcess || listingsDataToProcess.length === 0) {
-          if (!listingsData) {
-            logger.warn(
-              "CITY_SCRAPE_NO_DATA",
-              "No listings data returned (execution context may have been destroyed)",
-              {
-                city: cityName,
-                state: stateName,
-                zone: zoneLabel || "center",
-              }
-            );
-          } else if (listingsData.length > 0 && listingsDataToProcess.length === 0) {
-            logger.info(
-              "CITY_SCRAPE_ALL_FILTERED",
-              "All listings filtered by Redis (already scraped)",
-              {
-                city: cityName,
-                state: stateName,
-                zone: zoneLabel || "center",
-                totalListings: listingsData.length,
-              }
-            );
-          }
-          return;
-        }
-
-        // Logging + progress
-        const totalListingsFound = await safeEvaluate(page, () => {
-          return document.querySelectorAll(".Nv2PK").length;
-        });
-        logger.info("FILTER_RESULTS", "Pre-filtering results", {
-          location: `${cityName}, ${stateName}, ${countryName}`,
-          totalBusinessesFound: totalListingsFound,
-          matchingFilter: listingsDataToProcess.length,
-          filteredOut: totalListingsFound - listingsDataToProcess.length,
-          ratingFilter,
-          reviewFilter,
-          filterEfficiency: `${(
-            (listingsDataToProcess.length / Math.max(totalListingsFound, 1)) *
-            100
-          ).toFixed(1)}%`,
-        });
-
-        if (listingsDataToProcess.length === 0) return;
-
-        // Filter out duplicate URLs before scheduling details (Tier B)
-        // Keep full listing objects to preserve rating and reviewCount
-        const uniqueListings = listingsDataToProcess.filter(listing => {
-          if (seenBusinessUrls.has(listing.url)) {
-            logger.info("DUPLICATE_URL_FILTERED", "Skipping duplicate URL at listing level", {
-              url: listing.url,
-              city: cityName,
-            });
-            return false;
-          }
-          seenBusinessUrls.add(listing.url);
-          return true;
-        });
-
-        const toSchedule = Math.min(uniqueListings.length, remaining);
-        const meta = {
-          keyword,
-          city: cityName,
-          state: stateName,
-          countryName,
-          isExtractEmail,
-          isValidate,
-          reviewTimeRange,
-          extractNegativeReviews,
-          onlyWithoutWebsite,
-        };
-
-        logger.info("URL_DEDUPLICATION", "Filtered duplicate URLs at listing level", {
-          city: cityName,
-          totalUrls: listingsDataToProcess.length,
-          uniqueUrls: uniqueListings.length,
-          duplicatesFiltered: listingsDataToProcess.length - uniqueListings.length,
-          toSchedule,
-        });
-
-        // Schedule detail tasks with limit checking
-        for (let i = 0; i < toSchedule && !shouldStop; i++) {
-          // Check if job was cancelled at start of each iteration
-          if (shouldStop) break;
-          
-          // Check if we're approaching limit before scheduling
-          if (results.length >= recordLimit) {
-            logger.info("SCHEDULING_STOPPED_AT_LIMIT", "Stopped scheduling - record limit reached", {
-              city: cityName,
-              scheduled: i,
-              toSchedule,
-              resultsLength: results.length,
-              recordLimit
-            });
-            break;
-          }
-          
-          // Additional check: Don't over-schedule (only count active, non-stuck tasks)
-          const pendingTasks = getActiveTaskCount();
-          if (results.length + pendingTasks >= recordLimit) {
-            logger.info("SCHEDULING_STOPPED_PENDING", "Stopped scheduling - pending tasks will meet limit", {
-              city: cityName,
-              scheduled: i,
-              toSchedule,
-              resultsLength: results.length,
-              pendingTasks,
-              totalTasks: detailTasks.length,
-              recordLimit
-            });
-            break;
-          }
-          
-          scheduleDetail(uniqueListings[i], meta);
-        }
-      });
-    } catch (error) {
-      // Expected errors when stopping early or on session rotation
-      const isDetachedFrame =
-        error.message && error.message.includes("detached Frame");
-      const isTargetClosed =
-        error.message &&
-        (error.message.includes("Target closed") ||
-          error.message.includes("Session closed"));
-      const isExecutionContextDestroyed =
-        error.message &&
-        error.message.includes("Execution context was destroyed");
-      const isProtocolError =
-        error.message && error.message.includes("Protocol error");
-
-      if (
-        isDetachedFrame ||
-        isTargetClosed ||
-        isExecutionContextDestroyed ||
-        isProtocolError
-      ) {
-        logger.info(
-          "CITY_SCRAPE_STOPPED",
-          "Zone scrape stopped (expected during shutdown)",
-          {
-            city: cityName,
-            state: stateName,
-            zone: zoneLabel || "center",
-            reason: isDetachedFrame
-              ? "detached_frame"
-              : isTargetClosed
-                ? "target_closed"
-                : isExecutionContextDestroyed
-                  ? "execution_context_destroyed"
-                  : "protocol_error",
-          }
-        );
-      } else {
-        logger.error("CITY_SCRAPE_ERROR", "Error scraping city", {
+      if (!listingsData || listingsData.length === 0) {
+        logger.warn("CITY_SCRAPE_NO_DATA", "No listings returned from function API", {
           city: cityName,
           state: stateName,
           zone: zoneLabel || "center",
-          error: error.message,
+        });
+        return;
+      }
+
+      // Apply rating/review filters locally (same logic as the old getListingsData)
+      let filteredByRating = listingsData;
+      if (ratingFilter && ratingFilter.operator && ratingFilter.value != null) {
+        filteredByRating = filteredByRating.filter((item) => {
+          if (item.rating == null) return true;
+          const { operator, value } = ratingFilter;
+          if (operator === "gt" && !(item.rating > value)) return false;
+          if (operator === "gte" && !(item.rating >= value)) return false;
+          if (operator === "lt" && !(item.rating < value)) return false;
+          if (operator === "lte" && !(item.rating <= value)) return false;
+          return true;
         });
       }
+      if (reviewFilter && reviewFilter.operator && reviewFilter.value != null) {
+        filteredByRating = filteredByRating.filter((item) => {
+          if (item.reviewCount == null) return true;
+          const { operator, value } = reviewFilter;
+          if (operator === "gt" && !(item.reviewCount > value)) return false;
+          if (operator === "gte" && !(item.reviewCount >= value)) return false;
+          if (operator === "lt" && !(item.reviewCount < value)) return false;
+          if (operator === "lte" && !(item.reviewCount <= value)) return false;
+          return true;
+        });
+      }
+
+      // Redis dedup (if avoidDuplicate is true)
+      let filteredListingsData = filteredByRating;
+      if (avoidDuplicate && finalUserId && filteredByRating.length > 0) {
+        try {
+          const urls = filteredByRating.map((x) => x.url);
+          const redisCheckResults = await batchCheckUrls(finalUserId, urls);
+
+          filteredListingsData = filteredByRating.filter(
+            (item, index) => !redisCheckResults[index]
+          );
+
+          const filteredCount = filteredByRating.length - filteredListingsData.length;
+          if (filteredCount > 0) {
+            logger.info("REDIS_FILTER", "Filtered URLs from Redis", {
+              city: cityName,
+              totalUrls: filteredByRating.length,
+              filteredByRedis: filteredCount,
+              remainingUrls: filteredListingsData.length,
+            });
+          }
+        } catch (redisError) {
+          logger.warn("REDIS_FILTER_ERROR", "Error filtering URLs with Redis", {
+            error: redisError.message,
+            city: cityName,
+          });
+          filteredListingsData = filteredByRating;
+        }
+      }
+
+      const listingsDataToProcess = filteredListingsData;
+
+      if (!listingsDataToProcess || listingsDataToProcess.length === 0) {
+        if (filteredByRating.length > 0) {
+          logger.info("CITY_SCRAPE_ALL_FILTERED", "All listings filtered by Redis (already scraped)", {
+            city: cityName,
+            state: stateName,
+            zone: zoneLabel || "center",
+            totalListings: filteredByRating.length,
+          });
+        }
+        return;
+      }
+
+      logger.info("FILTER_RESULTS", "Pre-filtering results", {
+        location: `${cityName}, ${stateName}, ${countryName}`,
+        totalBusinessesFound: totalListingsFound,
+        matchingFilter: listingsDataToProcess.length,
+        filteredOut: totalListingsFound - listingsDataToProcess.length,
+        ratingFilter,
+        reviewFilter,
+        filterEfficiency: `${(
+          (listingsDataToProcess.length / Math.max(totalListingsFound, 1)) *
+          100
+        ).toFixed(1)}%`,
+      });
+
+      if (listingsDataToProcess.length === 0) return;
+
+      // Filter out duplicate URLs before scheduling details
+      const uniqueListings = listingsDataToProcess.filter(listing => {
+        if (seenBusinessUrls.has(listing.url)) {
+          return false;
+        }
+        seenBusinessUrls.add(listing.url);
+        return true;
+      });
+
+      const meta = {
+        keyword,
+        city: cityName,
+        state: stateName,
+        countryName,
+        isExtractEmail,
+        isValidate,
+        reviewTimeRange,
+        extractNegativeReviews,
+        onlyWithoutWebsite,
+      };
+
+      uniqueListings.forEach((listing) => pendingListingsQueue.push({ listing, meta }));
+
+      const toSchedule = Math.min(pendingListingsQueue.length, remaining + DETAIL_OVER_SCHEDULE);
+
+      logger.info("URL_DEDUPLICATION", "Filtered duplicate URLs at listing level", {
+        city: cityName,
+        totalUrls: listingsDataToProcess.length,
+        uniqueUrls: uniqueListings.length,
+        duplicatesFiltered: listingsDataToProcess.length - uniqueListings.length,
+        toSchedule,
+        queueLength: pendingListingsQueue.length,
+      });
+
+      listingsPerCity.push({
+        city: cityName,
+        state: stateName,
+        country: countryName,
+        listingUrlsFound: uniqueListings.length,
+        scheduled: toSchedule,
+      });
+      logger.info("LISTINGS_PER_CITY", "Listing URLs discovered for city", {
+        city: cityName,
+        state: stateName,
+        country: countryName,
+        listingUrlsFound: uniqueListings.length,
+        scheduled: toSchedule,
+      });
+
+      for (let i = 0; i < toSchedule && pendingListingsQueue.length > 0 && !shouldStop && results.length < recordLimit; i++) {
+        const next = pendingListingsQueue.shift();
+        if (next) scheduleDetail(next.listing, next.meta);
+      }
+    } catch (error) {
+      logger.error("CITY_SCRAPE_ERROR", "Error scraping city", {
+        city: cityName,
+        state: stateName,
+        zone: zoneLabel || "center",
+        error: error.message,
+      });
     }
   }
 
@@ -1757,11 +1518,11 @@ export async function runScraper(
     }
 
     for (const bucketName of order) {
-      if (shouldStop) break;
+      if (shouldStop || hasEnoughPending()) break;
       const list = buckets[bucketName];
       const cityPromises = [];
       for (const cand of list) {
-        if (shouldStop || results.length >= recordLimit) break;
+        if (shouldStop || results.length >= recordLimit || hasEnoughPending()) break;
         cityPromises.push(
           limitCity(() =>
             scrapeCity({
@@ -1864,6 +1625,7 @@ export async function runScraper(
       while (
         !shouldStop &&
         results.length < recordLimit &&
+        !hasEnoughPending() &&
         batchesProcessed < totalBatches
       ) {
         // Skip if we've already processed this batch (wrap-around protection)
@@ -1900,7 +1662,7 @@ export async function runScraper(
         // Process all zones in this batch
         const batchPromises = [];
         for (const zone of batch) {
-          if (shouldStop || results.length >= recordLimit) break;
+          if (shouldStop || results.length >= recordLimit || hasEnoughPending()) break;
 
           batchPromises.push(
             limitCity(() =>
@@ -2050,6 +1812,7 @@ export async function runScraper(
         while (
           !shouldStop &&
           results.length < recordLimit &&
+          !hasEnoughPending() &&
           batchesProcessed < totalBatches
         ) {
           // Skip if we've already processed this batch (wrap-around protection)
@@ -2086,7 +1849,7 @@ export async function runScraper(
           // Process all zones in this batch
           const batchPromises = [];
           for (const zone of batch) {
-            if (shouldStop || results.length >= recordLimit) break;
+            if (shouldStop || results.length >= recordLimit || hasEnoughPending()) break;
 
             batchPromises.push(
               limitCity(() =>
@@ -2228,6 +1991,7 @@ export async function runScraper(
         while (
           !shouldStop &&
           results.length < recordLimit &&
+          !hasEnoughPending() &&
           batchesProcessed < totalBatches
         ) {
           // Skip if we've already processed this batch (wrap-around protection)
@@ -2264,7 +2028,7 @@ export async function runScraper(
           // Process all zones in this batch
           const batchPromises = [];
           for (const zone of batch) {
-            if (shouldStop || results.length >= recordLimit) break;
+            if (shouldStop || results.length >= recordLimit || hasEnoughPending()) break;
 
             batchPromises.push(
               limitCity(() =>
@@ -2317,10 +2081,13 @@ export async function runScraper(
       }
     }
 
-    // If we've hit the record limit, don't wait on outstanding detail tasks.
-    // Close the browser pool first to force-fast fail any in-flight navigations.
-    if (!shouldStop) {
-      // Extract promises from task tracking objects
+    // Wait for in-flight detail tasks unless the job was forcibly stopped
+    // (timeout, stuck, or external cancellation). When we naturally reached the
+    // record limit we still want to let running tasks finish so their results
+    // are captured.
+    const wasForceStopped = shouldStop && !reachedLimit;
+
+    if (!wasForceStopped) {
       const taskPromises = detailTasks.map(task => task.promise).filter(Boolean);
       await Promise.allSettled(taskPromises);
     } else {
@@ -2358,8 +2125,10 @@ export async function runScraper(
     }
     await browserPool.close();
 
-    // Finalize progress after cleanup (only if job wasn't cancelled)
-    if (job && !shouldStop) {
+    const jobCompleted = !shouldStop || reachedLimit;
+
+    // Finalize progress after cleanup (only if job wasn't cancelled/stuck/timed out)
+    if (job && jobCompleted) {
       const finalPercentage =
         results.length >= recordLimit
           ? 100
@@ -2379,7 +2148,7 @@ export async function runScraper(
           reason: progressError.message,
         });
       }
-    } else if (shouldStop) {
+    } else if (shouldStop && !reachedLimit) {
       logger.info(
         "JOB_CANCELLED_CLEANUP",
         "Job cancelled - skipping final progress update",
