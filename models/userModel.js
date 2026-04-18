@@ -164,6 +164,12 @@ const userSchema = new mongoose.Schema(
     passwordChangeAt: Date,
     passwordForgotToken: String,
     passwordExpireToken: Date,
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
 
     // Referral tracking fields
     referredBy: {
@@ -376,8 +382,18 @@ userSchema.methods.createPasswordForgottenToken = function () {
     .update(forgotToken)
     .digest("hex");
 
-  this.passwordExpireToken = Date.now() + 1000 * 60 * 1000;
+  this.passwordExpireToken = Date.now() + 10 * 60 * 1000;
   return forgotToken;
+};
+
+userSchema.methods.createEmailVerificationToken = function () {
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  this.emailVerificationToken = crypto
+    .createHash("sha256")
+    .update(verificationToken)
+    .digest("hex");
+  this.emailVerificationExpires = Date.now() + 10 * 60 * 1000;
+  return verificationToken;
 };
 
 // Add sparse index on referredBy for query performance
