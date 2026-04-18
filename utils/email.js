@@ -3,17 +3,18 @@ import nodemailer from "nodemailer";
 const sendEmail = async (options) => {
   // Create transporter
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
+    host: process.env.EMAIL_HOST_ZOHO,
+    port: process.env.EMAIL_PORT_ZOHO,
+    secure: true,   
     auth: {
-      user: process.env.EMAIL_USERNAME,
-      pass: process.env.EMAIL_PASSWORD,
+      user: process.env.EMAIL_USERNAME_ZOHO,
+      pass: process.env.EMAIL_PASSWORD_ZOHO,
     },
   });
 
   // Define the email options
   const mailOptions = {
-    from: "srigbok sasn@gmail.com",
+    from: process.env.MAIL_FROM_ZOHO,
     to: options.emailID,
     subject: options.subject,
     text: options.message,
