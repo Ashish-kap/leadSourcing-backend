@@ -29,7 +29,6 @@ import dodoPaymentsRouter from "./Routes/dodoPayments.js";
 import webhookRouter from "./Routes/webhook.js";
 import feedbackRouter from "./Routes/feedbackRoutes.js";
 import affiliateRouter from "./Routes/affiliateRoutes.js";
-import AppError from "./utils/appError.js";
 import globalErrController from "./api/controllers/errController.js";
 import expressMongoSanitize from "express-mongo-sanitize";
 import helmet from "helmet";
@@ -56,47 +55,97 @@ app.use(express.json({ limit: "500kb" }));
 app.use(cookieParser());
 
 // Middleware
-// CORS configuration - allow frontend origin and credentials for cookies
-// Normalize so FRONTEND_URL="https://app.cazalead.com/" still matches browser Origin (no trailing slash).
-const normalizeOrigin = (url) =>
-  typeof url === "string" ? url.trim().replace(/\/$/, "") : url;
+// CORS configuration - allow frontend origins and credentials for cookies.
+// Browser Origin headers never include paths, so we normalize to scheme + host + port.
+const normalizeOrigin = (value) => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim().replace(/\/$/, "");
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    return trimmed;
+  }
+};
+
+const envOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URLS,
+  process.env.CORS_ALLOWED_ORIGINS,
+]
+  .filter(Boolean)
+  .flatMap((value) => value.split(","))
+  .map(normalizeOrigin)
+  .filter(Boolean);
 
 const allowedOrigins = [
-  ...new Set(
-    [
-      process.env.FRONTEND_URL,
-      "https://app.cazalead.com",
-      "http://localhost:5173",
-      "http://localhost:3000",
-    ]
-      .filter(Boolean)
-      .map(normalizeOrigin)
-  ),
+  ...new Set([
+    ...envOrigins,
+    "https://app.cazalead.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+  ]),
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+const isAllowedOrigin = (origin) => {
+  const normalizedOrigin = normalizeOrigin(origin);
 
-      if (allowedOrigins.includes(normalizeOrigin(origin))) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
-    },
-    credentials: true, // Allow cookies to be sent
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "x-referral-code"],
-  })
-);
+  if (allowedOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  // Keep local development flexible across common frontend ports.
+  if (/^http:\/\/localhost:\d+$/.test(normalizedOrigin)) {
+    return true;
+  }
+
+  if (/^http:\/\/127\.0\.0\.1:\d+$/.test(normalizedOrigin)) {
+    return true;
+  }
+
+  return false;
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like curl, Postman, server-to-server).
+    if (!origin) return callback(null, true);
+
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    logger.warn("CORS_BLOCKED_ORIGIN", "Blocked CORS request origin", {
+      origin,
+      allowedOrigins,
+    });
+
+    // Use false (not an Error) so the cors package denies cleanly; AppError here can break preflight handling.
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Cookie",
+    "x-referral-code",
+  ],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 // Serve static files
 app.use(express.static("public"));
 // app.use(expressMongoSanitize());
 // app.use(xssClean());
 app.use(hpp());
-app.use(helmet());
+// Default CORP is same-origin and blocks cross-origin fetch from browsers even when CORS allows the origin.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 // Initialize passport middleware
 app.use(passport.initialize());
