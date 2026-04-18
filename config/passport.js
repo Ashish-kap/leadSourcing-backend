@@ -27,6 +27,9 @@ passport.use(
           // Link Google account to existing user
           existingUser.googleId = profile.id;
           existingUser.authProvider = "google";
+          existingUser.isEmailVerified = true;
+          existingUser.emailVerificationToken = undefined;
+          existingUser.emailVerificationExpires = undefined;
           await existingUser.save({ validateBeforeSave: false });
           return done(null, existingUser);
         }
@@ -37,6 +40,7 @@ passport.use(
           name: profile.displayName,
           emailID: profile.emails[0].value,
           authProvider: "google",
+          isEmailVerified: true,
           photo: profile.photos[0].value,
           plan: "free", // Default plan for OAuth users
           // No password required for OAuth users
