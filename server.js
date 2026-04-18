@@ -57,24 +57,33 @@ app.use(cookieParser());
 
 // Middleware
 // CORS configuration - allow frontend origin and credentials for cookies
+// Normalize so FRONTEND_URL="https://app.cazalead.com/" still matches browser Origin (no trailing slash).
+const normalizeOrigin = (url) =>
+  typeof url === "string" ? url.trim().replace(/\/$/, "") : url;
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  "https://app.cazalead.com",
-  "http://localhost:5173",
-  "http://localhost:3000",
-].filter(Boolean); // Remove undefined values
+  ...new Set(
+    [
+      process.env.FRONTEND_URL,
+      "https://app.cazalead.com",
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ]
+      .filter(Boolean)
+      .map(normalizeOrigin)
+  ),
+];
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
+
+      if (allowedOrigins.includes(normalizeOrigin(origin))) {
         callback(null, true);
       } else {
-        // Fallback to FRONTEND_URL or localhost for development
-        callback(null, process.env.FRONTEND_URL || "http://localhost:5173");
+        callback(null, false);
       }
     },
     credentials: true, // Allow cookies to be sent
