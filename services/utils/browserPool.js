@@ -4,6 +4,7 @@ dotenv.config();
 import puppeteerCore from "puppeteer-core";
 import puppeteerLocal from "puppeteer";
 import logger from "../logger.js";
+import { getWsEndpoint } from "./browserlessPool.js";
 
 /**
  * Lightweight browser + page pool (no external deps).
@@ -34,9 +35,7 @@ export class BrowserPool {
 
   async init() {
     const endpoint =
-      process.env.NODE_ENV === "production"
-        ? process.env.BROWSER_WS_ENDPOINT_PRIVATE
-        : "";
+      process.env.NODE_ENV === "production" ? getWsEndpoint() : "";
 
     const protocolTimeout = Number(process.env.PROTOCOL_TIMEOUT || 90000);
 

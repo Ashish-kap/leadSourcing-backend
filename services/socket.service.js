@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import { Emitter } from "@socket.io/redis-emitter";
 import jwt from "jsonwebtoken";
 import { promisify } from "util";
 import User from "../models/userModel.js";
@@ -6,7 +7,13 @@ import User from "../models/userModel.js";
 class SocketService {
   constructor() {
     this.io = null;
+    this.emitter = null;
     this.userConnections = new Map(); // Map to store userId -> [socketIds]
+  }
+
+  // Used in worker.js — emits events through Redis without a Socket.IO server
+  initEmitter(redisClient) {
+    this.emitter = new Emitter(redisClient);
   }
 
   init(server) {
@@ -130,8 +137,9 @@ class SocketService {
 
   // Emit job status update to specific user
   emitJobUpdate(userId, eventType, jobData) {
-    if (this.io) {
-      this.io.to(`user_${userId}`).emit("job_update", {
+    const target = this.io || this.emitter;
+    if (target) {
+      target.to(`user_${userId}`).emit("job_update", {
         type: eventType,
         job: jobData,
         timestamp: new Date().toISOString(),
@@ -141,8 +149,9 @@ class SocketService {
 
   // Emit job progress to specific user
   emitJobProgress(userId, jobId, progress) {
-    if (this.io) {
-      this.io.to(`user_${userId}`).emit("job_progress", {
+    const target = this.io || this.emitter;
+    if (target) {
+      target.to(`user_${userId}`).emit("job_progress", {
         jobId,
         progress,
         timestamp: new Date().toISOString(),

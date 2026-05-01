@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 import Queue from "bull";
-import scrapeJob from "../jobs/scrapeJob.js";
 import Job from "../models/jobModel.js";
 import User from "../models/userModel.js";
 import socketService from "./socket.service.js";
@@ -33,8 +32,10 @@ if (process.env.REDIS_HOST) {
 }
 
 // Queue configuration - Direct worker allocation (no percentages)
-const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 5;
-const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 3;
+// Per-pod defaults — scale total throughput by adding more worker pods, not more workers per pod.
+// Each job peaks at ~5-6 GB; 2+1 = 3 concurrent jobs per pod → ~15 GB ceiling, safe for a 16 GB pod.
+const BUSINESS_WORKERS = parseInt(process.env.BUSINESS_WORKERS) || 2;
+const FREE_PRO_WORKERS = parseInt(process.env.FREE_PRO_WORKERS) || 1;
 const TOTAL_WORKERS = BUSINESS_WORKERS + FREE_PRO_WORKERS;
 
 logger.info(
@@ -367,16 +368,21 @@ const attachEventHandlers = (queue, queueName) => {
   });
 };
 
-// Attach event handlers to both queues
-attachEventHandlers(businessQueue, "BusinessQueue");
-attachEventHandlers(freeProQueue, "FreeProQueue");
-
-// Process jobs with dedicated workers for each queue
-businessQueue.process(BUSINESS_WORKERS, scrapeJob);
-freeProQueue.process(FREE_PRO_WORKERS, scrapeJob);
-
 // Export both queues and a helper function to get the right queue
 export { businessQueue, freeProQueue };
+
+// Called only in worker.js — never in the API server
+export async function initWorkers() {
+  const { default: scrapeJob } = await import("../jobs/scrapeJob.js");
+  attachEventHandlers(businessQueue, "BusinessQueue");
+  attachEventHandlers(freeProQueue, "FreeProQueue");
+  businessQueue.process(BUSINESS_WORKERS, scrapeJob);
+  freeProQueue.process(FREE_PRO_WORKERS, scrapeJob);
+  logger.info(
+    "WORKERS_STARTED",
+    `Bull workers initialized: ${BUSINESS_WORKERS} business, ${FREE_PRO_WORKERS} free/pro`
+  );
+}
 
 // Helper function to select the appropriate queue based on user plan
 export const getQueueForUser = (userPlan) => {

@@ -1,9 +1,8 @@
 
-
 import logger from '../logger.js';
 import { Agent } from 'undici';
+import { getHttpEndpoint, httpPoolSize } from './browserlessPool.js';
 
-const BROWSERLESS_API_URL = process.env.BROWSERLESS_CONTENT_API_URL;
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN;
 const API_TIMEOUT = Number(process.env.EMAIL_API_TIMEOUT || 30000); // Default 30s
 const EMAIL_API_CONCURRENCY = Number(process.env.EMAIL_API_CONCURRENCY || 2);
@@ -55,7 +54,7 @@ const REQUEST_INTERCEPTORS = BLOCKED_URL_PATTERNS.map(pattern => ({
 
 // Log configuration on module load
 logger.info("BROWSERLESS_CLIENT_CONFIG", JSON.stringify({
-  apiUrl: BROWSERLESS_API_URL,
+  httpPoolSize,
   hasToken: !!BROWSERLESS_TOKEN,
   timeout: API_TIMEOUT,
   concurrency: EMAIL_API_CONCURRENCY
@@ -69,11 +68,12 @@ logger.info("BROWSERLESS_CLIENT_CONFIG", JSON.stringify({
  */
 export async function fetchPageContent(url, options = {}) {
   const timeout = options.timeout || API_TIMEOUT;
-  
-  if (!BROWSERLESS_API_URL || !BROWSERLESS_TOKEN) {
+  const apiBase = getHttpEndpoint();
+
+  if (!apiBase || !BROWSERLESS_TOKEN) {
     const errorDetails = {
       url,
-      message: 'BROWSERLESS_CONTENT_API_URL and BROWSERLESS_API_TOKEN must be set',
+      message: 'BROWSERLESS_HTTP_ENDPOINTS (or BROWSERLESS_CONTENT_API_URL) and BROWSERLESS_API_TOKEN must be set',
       statusCode: null,
       statusText: 'Configuration Error',
       responseBody: null,
@@ -83,13 +83,13 @@ export async function fetchPageContent(url, options = {}) {
     logger.error('BROWSERLESS_API_ERROR', `Configuration error for ${url}:`, errorDetails);
     return { html: null, url, error: errorDetails.message, details: errorDetails };
   }
-  
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    
+
     const response = await fetch(
-      `${BROWSERLESS_API_URL}/content?token=${BROWSERLESS_TOKEN}`,
+      `${apiBase}/content?token=${BROWSERLESS_TOKEN}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

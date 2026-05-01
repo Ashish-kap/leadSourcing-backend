@@ -39,6 +39,8 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import socketService from "./services/socket.service.js";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { createRedisClient } from "./services/redisClient.js";
 import passport from "passport";
 import "./config/passport.js"; // Initialize passport configuration
 import creditsJob from "./jobs/creditsJob.js";
@@ -177,6 +179,9 @@ createBullBoard({
 serverAdapter.setBasePath("/admin");
 app.use("/admin", serverAdapter.getRouter());
 
+// Health check — used by K8s readiness/liveness probes (no auth, no rate limit)
+app.get("/health", (req, res) => res.json({ status: "ok" }));
+
 // Routes
 app.use("/api", limiter);
 app.use("/api/v1/users", userRoute);
@@ -203,8 +208,11 @@ mongoose.connect(DB).then((con) => {
   logger.info("DB_CONNECTED", "Database connection successful");
 });
 
-// Initialize Socket.IO
+// Initialize Socket.IO with Redis adapter so worker processes can emit to clients
 socketService.init(httpServer);
+const pubClient = createRedisClient();
+const subClient = pubClient.duplicate();
+socketService.io.adapter(createAdapter(pubClient, subClient));
 
 // Initialize Credits Job
 creditsJob.init();

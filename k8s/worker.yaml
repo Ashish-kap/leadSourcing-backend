@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leadsourcing-worker
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leadsourcing-worker
+  template:
+    metadata:
+      labels:
+        app: leadsourcing-worker
+    spec:
+      containers:
+        - name: worker
+          image: us-central1-docker.pkg.dev/cazalead/leadsourcing/worker:latest
+          envFrom:
+            - secretRef:
+                name: leadsourcing-secrets
+          resources:
+            # Autopilot bills on requests — set these to match what each pod actually needs.
+            # 3 concurrent jobs × ~2.5 GB Node heap = ~8 GB + headroom = 10 GB limit.
+            requests:
+              cpu: "2000m"
+              memory: "8Gi"
+            limits:
+              cpu: "4000m"
+              memory: "10Gi"

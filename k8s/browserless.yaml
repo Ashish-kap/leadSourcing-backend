@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: browserless
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: browserless
+  template:
+    metadata:
+      labels:
+        app: browserless
+    spec:
+      containers:
+        - name: browserless
+          image: ghcr.io/browserless/chromium:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: leadsourcing-secrets
+                  key: BROWSERLESS_API_TOKEN
+            # Max concurrent browser sessions per pod
+            - name: CONCURRENT
+              value: "5"
+            # Kill sessions that exceed this duration (ms)
+            - name: TIMEOUT
+              value: "150000"
+            - name: QUEUED
+              value: "10"
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "3Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: browserless-svc
+  namespace: default
+spec:
+  selector:
+    app: browserless
+  ports:
+    - port: 3000
+      targetPort: 3000
+  # ClusterIP — only reachable from inside the cluster (workers)
+  type: ClusterIP

@@ -1,0 +1,46 @@
+# TriggerAuthentication — pulls Redis address and password from the K8s secret
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: redis-auth
+  namespace: default
+spec:
+  secretTargetRef:
+    - parameter: address
+      name: leadsourcing-secrets
+      key: REDIS_KEDA_ADDRESS
+    - parameter: password
+      name: leadsourcing-secrets
+      key: REDIS_PASSWORD
+---
+# ScaledObject — watches Bull queue depth and scales worker pods automatically.
+#
+# minReplicaCount: 0  → workers scale to zero when queue is empty (no idle cost)
+# maxReplicaCount: 20 → up to 20 pods × 3 jobs each = 60 concurrent jobs
+# listLength: "2"     → one new pod added per 2 jobs waiting (business queue)
+# listLength: "1"     → one new pod added per 1 job waiting (free/pro queue)
+# cooldownPeriod: 300 → wait 5 min of empty queue before scaling down (avoids thrash)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: leadsourcing-worker-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: leadsourcing-worker
+  minReplicaCount: 0
+  maxReplicaCount: 20
+  cooldownPeriod: 300
+  triggers:
+    - type: redis
+      authenticationRef:
+        name: redis-auth
+      metadata:
+        listName: "bull:scraper-business:wait"
+        listLength: "2"
+    - type: redis
+      authenticationRef:
+        name: redis-auth
+      metadata:
+        listName: "bull:scraper-free-pro:wait"
+        listLength: "1"
