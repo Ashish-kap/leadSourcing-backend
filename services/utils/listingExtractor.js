@@ -4,10 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// ── Config (reuse same env vars as reviewExtractor / googleMapsScraper) ──────
-const BROWSERLESS_API_BASE =
-    process.env.BROWSERLESS_CONTENT_API_URL 
-const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN 
+// ── Config ───────────────────────────────────────────────────────────────────
+import { getHttpEndpoint } from "./browserlessPool.js";
+const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN;
 
 // Proxy config (same as reviewExtractor) – use proxy so Google shows review counts on listing cards
 const USE_PROXY =
@@ -94,7 +93,7 @@ function buildFunctionUrl() {
     }
 
     const launchJson = encodeURIComponent(JSON.stringify(launch));
-    return `${BROWSERLESS_API_BASE}/function?token=${BROWSERLESS_TOKEN}&launch=${launchJson}`;
+    return `${getHttpEndpoint()}/function?token=${BROWSERLESS_TOKEN}&launch=${launchJson}`;
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -131,10 +130,10 @@ export async function extractListingsViaFunction(
         return empty;
     }
 
-    if (!BROWSERLESS_API_BASE || !BROWSERLESS_TOKEN) {
+    if (!BROWSERLESS_TOKEN) {
         logger.error(
             "LISTING_FUNCTION",
-            "BROWSERLESS_CONTENT_API_URL / BROWSERLESS_API_TOKEN not set"
+            "BROWSERLESS_API_TOKEN not set"
         );
         return empty;
     }

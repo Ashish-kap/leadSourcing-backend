@@ -1,9 +1,7 @@
 import logger from '../logger.js';
 import { Agent } from 'undici';
+import { getHttpEndpoint } from './browserlessPool.js';
 
-// Use same env vars as browserlessContentClient.js for consistency
-// BROWSERLESS_CONTENT_API_URL should be the base URL (e.g., https://browserless-wmfn-development.up.railway.app)
-const BROWSERLESS_API_BASE = process.env.BROWSERLESS_CONTENT_API_URL || '';
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN || '';
 const SCRAPE_TIMEOUT = Number(process.env.SCRAPE_API_TIMEOUT || 30000);
 const SCRAPE_API_MAX_RETRIES = Number(process.env.SCRAPE_API_MAX_RETRIES || 1);
@@ -61,7 +59,6 @@ const limitScrape = createScrapeLimiter(SCRAPE_API_CONCURRENCY);
 
 // Log configuration on module load
 logger.info("GOOGLE_MAPS_SCRAPER_CONFIG", JSON.stringify({
-  apiBase: BROWSERLESS_API_BASE,
   hasToken: !!BROWSERLESS_TOKEN,
   timeout: SCRAPE_TIMEOUT,
   concurrency: SCRAPE_API_CONCURRENCY
@@ -248,10 +245,11 @@ function parseScrapeResponse(responseData, googleMapsUrl) {
  * @returns {Promise<{success: boolean, data: object|null, error: object|null}>}
  */
 async function scrapeGoogleMapsBusinessInternal(googleMapsUrl) {
-  if (!BROWSERLESS_API_BASE || !BROWSERLESS_TOKEN) {
+  const apiBase = getHttpEndpoint();
+  if (!apiBase || !BROWSERLESS_TOKEN) {
     const errorDetails = {
       url: googleMapsUrl,
-      message: 'BROWSERLESS_CONTENT_API_URL and BROWSERLESS_API_TOKEN must be set',
+      message: 'BROWSERLESS_HTTP_ENDPOINTS (or BROWSERLESS_CONTENT_API_URL) and BROWSERLESS_API_TOKEN must be set',
       timestamp: new Date().toISOString()
     };
     logger.error('SCRAPE_API_CONFIG_ERROR', `Configuration error for ${googleMapsUrl}:`, JSON.stringify(errorDetails));
@@ -272,8 +270,7 @@ async function scrapeGoogleMapsBusinessInternal(googleMapsUrl) {
 
     logger.info("SCRAPE_API_REQUEST", `Scraping Google Maps: ${googleMapsUrl}`);
 
-    // Construct URL same way as browserlessContentClient.js: base + /scrape + token
-    const scrapeUrl = `${BROWSERLESS_API_BASE}/scrape?token=${BROWSERLESS_TOKEN}`;
+    const scrapeUrl = `${apiBase}/scrape?token=${BROWSERLESS_TOKEN}`;
     
     const response = await fetch(
       scrapeUrl,

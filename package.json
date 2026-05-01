@@ -9,8 +9,10 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "NODE_OPTIONS=--max-old-space-size=25600 && node --expose-gc server.js",
-    "start:win": "set NODE_OPTIONS=--max-old-space-size=25600 && node --expose-gc server.js",
+    "start": "NODE_OPTIONS=--max-old-space-size=1024 node --expose-gc server.js",
+    "start:worker": "NODE_OPTIONS=--max-old-space-size=8192 node --expose-gc worker.js",
+    "start:win": "set NODE_OPTIONS=--max-old-space-size=1024 && node --expose-gc server.js",
+    "start:worker:win": "set NODE_OPTIONS=--max-old-space-size=8192 && node --expose-gc worker.js",
     "start:simple": "node server.js"
   },
   "keywords": [],
@@ -19,6 +21,8 @@
   "dependencies": {
     "@bull-board/api": "^6.9.1",
     "@bull-board/express": "^6.9.1",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-emitter": "^5.1.0",
     "all-the-cities": "^3.1.0",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
@@ -36,6 +40,7 @@
     "googleapis": "^157.0.0",
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
+    "ioredis": "^5.10.1",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.1",

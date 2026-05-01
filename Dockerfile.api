@@ -1,0 +1,23 @@
+FROM node:20-slim
+
+# Skip browser binary downloads — production connects to remote Browserless
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_SKIP_DOWNLOAD=true \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    NODE_ENV=production \
+    NODE_OPTIONS=--max-old-space-size=1024
+
+WORKDIR /app
+
+# Install dependencies before copying source — better layer caching
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY . .
+
+# Never run as root
+USER node
+
+EXPOSE 3000
+
+CMD ["node", "--expose-gc", "server.js"]

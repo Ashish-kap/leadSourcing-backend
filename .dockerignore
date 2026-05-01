@@ -1,0 +1,11 @@
+node_modules
+.env
+.env.*
+.git
+.gitignore
+.claude
+.codex
+*.log
+npm-debug.log*
+.DS_Store
+test.js
